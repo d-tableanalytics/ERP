@@ -30,6 +30,7 @@ const createEmployeeTable = async () => {
         City VARCHAR(50),
         State VARCHAR(50),
         Nationality VARCHAR(50),
+        Theme VARCHAR(10) DEFAULT 'light',
         Created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         Updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
