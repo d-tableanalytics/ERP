@@ -17,12 +17,18 @@ app.get('/', (req, res) => {
 
 // Import Models & Routes
 const { createEmployeeTable } = require('./src/models/employee.model');
+const { createDelegationTables } = require('./src/models/delegation.model');
 const authRoutes = require('./src/routes/auth.routes');
+const delegationRoutes = require('./src/routes/delegation.routes');
 
 app.use('/api/auth', authRoutes);
+app.use('/api/delegations', delegationRoutes);
 
 // Initialize Database Tables
-createEmployeeTable()
+Promise.all([
+    createEmployeeTable(),
+    createDelegationTables()
+])
     .then(() => console.log('Database synchronization complete'))
     .catch(err => console.error('Database synchronization failed:', err));
 

@@ -136,5 +136,71 @@ For reference, these are the headers available in the `employees` table:
 | `First_Name` | VARCHAR | |
 | `Last_Name` | VARCHAR | |
 | `Mobile_Number`| VARCHAR | |
-| `Department` | VARCHAR | |
-| ... | ... | (29 fields in total) |
+---
+
+## Delegation Endpoints
+
+### 1. Create Delegation
+Assign a task to a doer.
+
+- **URL**: `/api/delegations`
+- **Method**: `POST`
+- **Access**: Private (Admin/SuperAdmin/Employee)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Request Body
+```json
+{
+  "delegation_name": "Quarterly Audit",
+  "description": "Perform internal audit of inventory",
+  "delegator_id": 1,
+  "delegator_name": "Admin Name",
+  "doer_id": 5,
+  "doer_name": "john.doe@enterprise.com",
+  "department": "Finance",
+  "priority": "high",
+  "due_date": "2024-03-31",
+  "evidence_required": true
+}
+```
+
+---
+
+### 2. List Delegations
+Fetch delegations based on role.
+
+- **URL**: `/api/delegations`
+- **Method**: `GET`
+- **Access**: Private
+- **Headers**: `Authorization: Bearer <your_token>`
+
+> [!NOTE]
+> - **Admins/SuperAdmins** will see all delegations.
+> - **Employees/Doers** will see only tasks assigned to them.
+
+---
+
+### 3. Add Remark
+Add a comment or update to a delegation.
+
+- **URL**: `/api/delegations/:id/remarks`
+- **Method**: `POST`
+- **Access**: Private
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Request Body
+```json
+{
+  "remark": "Audit is 50% complete. Found some discrepancies in warehouse B."
+}
+```
+
+---
+
+### 4. Get Delegation Detail
+Fetch full details including remarks and history.
+
+- **URL**: `/api/delegations/:id`
+- **Method**: `GET`
+- **Access**: Private
+- **Headers**: `Authorization: Bearer <your_token>`
