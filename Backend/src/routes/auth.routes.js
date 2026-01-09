@@ -8,10 +8,6 @@ router.post('/register', authController.register);
 
 router.post('/login', authController.login);
 
-router.get('/me', verifyToken, (req, res) => {
-    res.json(req.user);
-});
-
-
+router.put('/theme', verifyToken, authController.updateTheme);
 
 module.exports = router;

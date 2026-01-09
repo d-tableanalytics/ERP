@@ -81,12 +81,27 @@ exports.login = async (req, res) => {
                 id: employee.user_id,
                 email: employee.work_email,
                 role: employee.role,
-                name: `${employee.first_name} ${employee.last_name}`
+                name: `${employee.first_name} ${employee.last_name}`,
+                theme: employee.theme || 'light'
             }
         });
 
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error during login' });
+    }
+};
+
+// Update Theme
+exports.updateTheme = async (req, res) => {
+    const { theme } = req.body;
+    const userId = req.user.id;
+
+    try {
+        await db.query('UPDATE employees SET theme = $1 WHERE user_id = $2', [theme, userId]);
+        res.json({ message: 'Theme updated successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error while updating theme' });
     }
 };
