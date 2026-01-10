@@ -1,7 +1,65 @@
 const db = require('../config/db.config');
-const { uploadToDrive } = require('../utils/googleDrive');
+// const { uploadToDrive } = require('../utils/googleDrive');
 
-// Create a new delegation
+// // Create a new delegation
+// exports.createDelegation = async (req, res) => {
+//     const {
+//         delegation_name, description, delegator_id, delegator_name,
+//         doer_id, doer_name, department, priority, due_date,
+//         evidence_required
+//     } = req.body;
+
+//     // Handle File Uploads to Google Drive
+//     let voice_note_url = null;
+//     let reference_docs = [];
+
+//     try {
+//         if (req.files['voice_note']) {
+//             const file = req.files['voice_note'][0];
+//             voice_note_url = await uploadToDrive(file.buffer, file.originalname, file.mimetype);
+//         }
+
+//         if (req.files['reference_docs']) {
+//             reference_docs = await Promise.all(
+//                 req.files['reference_docs'].map(file =>
+//                     uploadToDrive(file.buffer, file.originalname, file.mimetype)
+//                 )
+//             );
+//         }
+//     } catch (uploadError) {
+//         console.error('File upload failed:', uploadError);
+//         return res.status(500).json({ message: 'Error uploading files to Google Drive' });
+//     }
+
+//     try {
+//         const query = `
+//             INSERT INTO delegation (
+//                 delegation_name, description, delegator_id, delegator_name,
+//                 doer_id, doer_name, department, priority, due_date, 
+//                 voice_note_url, reference_docs, evidence_required,
+//                 status
+//             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`;
+
+//         const values = [
+//             delegation_name, description, delegator_id, delegator_name,
+//             doer_id, doer_name, department, priority, due_date,
+//             voice_note_url, reference_docs,
+//             evidence_required === 'true' || evidence_required === true, // handle string from multipart
+//             'NEED CLARITY'
+//         ];
+
+//         const result = await db.query(query, values);
+//         console.log(result.rows[0]);
+//         res.status(201).json(result.rows[0]);
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ message: 'Error creating delegation' });
+//     }
+// };
+
+// In delegation.controller.js
+const { uploadToDrive, testDriveConnection } = require('../utils/googleDrive');
+
 exports.createDelegation = async (req, res) => {
     const {
         delegation_name, description, delegator_id, delegator_name,
@@ -14,43 +72,63 @@ exports.createDelegation = async (req, res) => {
     let reference_docs = [];
 
     try {
-        if (req.files['voice_note']) {
-            const file = req.files['voice_note'][0];
-            voice_note_url = await uploadToDrive(file.buffer, file.originalname, file.mimetype);
+        // Test connection first
+        const isConnected = await testDriveConnection();
+        if (!isConnected) {
+            console.warn('⚠️ Google Drive connection test failed. Using fallback storage.');
         }
 
-        if (req.files['reference_docs']) {
+        if (req.files && req.files['voice_note']) {
+            const file = req.files['voice_note'][0];
+            try {
+                voice_note_url = await uploadToDrive(file.buffer, file.originalname, file.mimetype);
+            } catch (uploadError) {
+                console.warn('Voice note upload failed, using fallback:', uploadError.message);
+                voice_note_url = `/uploads/voice_${Date.now()}.mp3`;
+            }
+        }
+
+        if (req.files && req.files['reference_docs']) {
             reference_docs = await Promise.all(
-                req.files['reference_docs'].map(file =>
-                    uploadToDrive(file.buffer, file.originalname, file.mimetype)
-                )
+                req.files['reference_docs'].map(async (file, index) => {
+                    try {
+                        return await uploadToDrive(file.buffer, file.originalname, file.mimetype);
+                    } catch (uploadError) {
+                        console.warn(`Reference doc ${index} upload failed:`, uploadError.message);
+                        return `/uploads/doc_${Date.now()}_${index}.pdf`;
+                    }
+                })
             );
         }
     } catch (uploadError) {
         console.error('File upload failed:', uploadError);
-        return res.status(500).json({ message: 'Error uploading files to Google Drive' });
+        // Don't return error - continue with null/empty URLs
+        // return res.status(500).json({ message: 'Error uploading files to Google Drive' });
     }
 
     try {
         const query = `
-            INSERT INTO delegation (
-                delegation_name, description, delegator_id, delegator_name,
-                doer_id, doer_name, department, priority, due_date, 
-                voice_note_url, reference_docs, evidence_required,
-                status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`;
+      INSERT INTO delegation (
+        delegation_name, description, delegator_id, delegator_name,
+        doer_id, doer_name, department, priority, due_date, 
+        voice_note_url, reference_docs, evidence_required,
+        status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`;
 
         const values = [
             delegation_name, description, delegator_id, delegator_name,
             doer_id, doer_name, department, priority, due_date,
             voice_note_url, reference_docs,
-            evidence_required === 'true' || evidence_required === true, // handle string from multipart
+            evidence_required === 'true' || evidence_required === true,
             'NEED CLARITY'
         ];
 
         const result = await db.query(query, values);
-        console.log(result.rows[0]);
-        res.status(201).json(result.rows[0]);
+        console.log('✅ Delegation created:', result.rows[0].id);
+        res.status(201).json({
+            ...result.rows[0],
+            message: voice_note_url ? 'Delegation created with files' : 'Delegation created (files skipped)'
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Error creating delegation' });

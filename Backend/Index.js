@@ -32,7 +32,7 @@ app.use('/uploads', express.static('uploads'));
 Promise.all([
     createEmployeeTable(),
     createDelegationTables(),
-    createDepartmentTable()
+    createDepartmentTable(),
 ])
     .then(() => console.log('Database synchronization complete'))
     .catch(err => console.error('Database synchronization failed:', err));
