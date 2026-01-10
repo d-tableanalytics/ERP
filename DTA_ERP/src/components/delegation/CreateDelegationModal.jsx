@@ -82,6 +82,13 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
         }
     };
 
+    const handleRemoveAudio = () => {
+        setAudioBlob(null);
+        setAudioUrl(null);
+        chunksRef.current = [];
+    };
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -116,10 +123,15 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
         }
     };
 
+    const filteredEmployees = employees.filter(emp =>
+        `${emp.First_Name} ${emp.Last_Name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-6 bg-slate-950/90 backdrop-blur-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-6 bg-black/60 backdrop-blur-sm">
             <div className="bg-bg-card border border-border-main w-full max-w-3xl rounded-4xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden animate-in zoom-in-95 duration-300">
                 {/* Modal Header */}
                 <div className="px-6 py-4 border-b border-border-main flex justify-between items-center bg-bg-main/20 shrink-0">
