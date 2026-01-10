@@ -11,13 +11,13 @@ const createDelegationTables = async () => {
         doer_id INTEGER,
         doer_name VARCHAR(255),
         department VARCHAR(100),
-        priority VARCHAR(50) CHECK (priority IN ('low', 'medium', 'high', 'critical')),
-        status VARCHAR(50) CHECK (status IN ('pending', 'in_progress', 'completed', 'overdue', 'cancelled')) DEFAULT 'pending',
-        due_date DATE NOT NULL,
+        priority VARCHAR(50) CHECK (priority IN ('low', 'medium', 'high')),
+        status VARCHAR(50) CHECK (status IN ('NEED CLARITY', 'APPROVAL WAITING', 'COMPLETED', 'NEED REVISION', 'HOLD')) DEFAULT 'NEED CLARITY',
+        due_date TIMESTAMPTZ NOT NULL,
         voice_note_url TEXT,
         reference_docs TEXT[],
         evidence_required BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         remarks TEXT[] DEFAULT '{}',
         revision_history JSONB[] DEFAULT '{}'
     );
