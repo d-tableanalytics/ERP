@@ -18,16 +18,21 @@ app.get('/', (req, res) => {
 // Import Models & Routes
 const { createEmployeeTable } = require('./src/models/employee.model');
 const { createDelegationTables } = require('./src/models/delegation.model');
+const { createDepartmentTable } = require('./src/models/department.model');
 const authRoutes = require('./src/routes/auth.routes');
 const delegationRoutes = require('./src/routes/delegation.routes');
+const employeeRoutes = require('./src/routes/employee.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/delegations', delegationRoutes);
+app.use('/api/master', employeeRoutes);
+app.use('/uploads', express.static('uploads'));
 
 // Initialize Database Tables
 Promise.all([
     createEmployeeTable(),
-    createDelegationTables()
+    createDelegationTables(),
+    createDepartmentTable()
 ])
     .then(() => console.log('Database synchronization complete'))
     .catch(err => console.error('Database synchronization failed:', err));

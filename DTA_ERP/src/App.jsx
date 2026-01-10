@@ -4,6 +4,7 @@ import { Provider, useSelector } from 'react-redux';
 import { store } from './store/store';
 import LoginPage from './pages/Login/LoginPage';
 import Dashboard from './pages/Dashboard';
+import Delegation from './pages/Delegation/Delegation';
 import './index.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -22,6 +23,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/delegation"
+            element={
+              <ProtectedRoute>
+                <Delegation />
               </ProtectedRoute>
             }
           />

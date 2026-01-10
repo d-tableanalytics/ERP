@@ -19,11 +19,14 @@ out/
 .next/
 
 # Environment variables
+# Secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+service-account.json
+credential.json
 
 # Editor/IDE directories and files
 .vscode/*

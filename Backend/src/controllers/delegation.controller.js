@@ -1,28 +1,51 @@
 const db = require('../config/db.config');
+const { uploadToDrive } = require('../utils/googleDrive');
 
 // Create a new delegation
 exports.createDelegation = async (req, res) => {
     const {
         delegation_name, description, delegator_id, delegator_name,
         doer_id, doer_name, department, priority, due_date,
-        voice_note_url, reference_docs, evidence_required
+        evidence_required
     } = req.body;
 
-    console.log(req.body);
+    // Handle File Uploads to Google Drive
+    let voice_note_url = null;
+    let reference_docs = [];
+
+    try {
+        if (req.files['voice_note']) {
+            const file = req.files['voice_note'][0];
+            voice_note_url = await uploadToDrive(file.buffer, file.originalname, file.mimetype);
+        }
+
+        if (req.files['reference_docs']) {
+            reference_docs = await Promise.all(
+                req.files['reference_docs'].map(file =>
+                    uploadToDrive(file.buffer, file.originalname, file.mimetype)
+                )
+            );
+        }
+    } catch (uploadError) {
+        console.error('File upload failed:', uploadError);
+        return res.status(500).json({ message: 'Error uploading files to Google Drive' });
+    }
 
     try {
         const query = `
             INSERT INTO delegation (
                 delegation_name, description, delegator_id, delegator_name,
                 doer_id, doer_name, department, priority, due_date, 
-                voice_note_url, reference_docs, evidence_required
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`;
+                voice_note_url, reference_docs, evidence_required,
+                status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`;
 
         const values = [
             delegation_name, description, delegator_id, delegator_name,
             doer_id, doer_name, department, priority, due_date,
-            voice_note_url, reference_docs || [],
-            evidence_required !== undefined ? evidence_required : true
+            voice_note_url, reference_docs,
+            evidence_required === 'true' || evidence_required === true, // handle string from multipart
+            'NEED CLARITY'
         ];
 
         const result = await db.query(query, values);
