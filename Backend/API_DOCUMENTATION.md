@@ -204,3 +204,85 @@ Fetch full details including remarks and history.
 - **Method**: `GET`
 - **Access**: Private
 - **Headers**: `Authorization: Bearer <your_token>`
+
+---
+
+## Checklist Management Endpoints
+
+### 1. Create Checklist Template (Master)
+Define a recurring task template.
+
+- **URL**: `/api/checklist/master`
+- **Method**: `POST`
+- **Access**: Private
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Request Body
+```json
+{
+  "question": "Daily Server Health Check",
+  "assignee_id": 1,
+  "doer_id": 2,
+  "priority": "high",
+  "department": "IT",
+  "verification_required": true,
+  "verifier_id": 1,
+  "attachment_required": false,
+  "frequency": "daily",
+  "from_date": "2024-01-01",
+  "due_date": "2024-12-31",
+  "weekly_days": ["Monday", "Wednesday", "Friday"],
+  "selected_dates": [1, 15]
+}
+```
+
+> [!NOTE]
+> - `frequency` can be: `daily`, `weekly`, `monthly`, `custom`.
+> - `weekly_days` is only used if frequency is `weekly`.
+> - `selected_dates` is only used if frequency is `monthly`.
+
+---
+
+### 2. Update Checklist Template
+Update the details of an existing master template.
+
+- **URL**: `/api/checklist/master/:id`
+- **Method**: `PUT`
+- **Access**: Private
+
+---
+
+### 3. Delete Checklist Template
+Remove a master template. This will also delete all generated task instances.
+
+- **URL**: `/api/checklist/master/:id`
+- **Method**: `DELETE`
+- **Access**: Private
+
+---
+
+### 4. Update Task Status
+Update the status of a specific generated task instance.
+
+- **URL**: `/api/checklist/task/:id`
+- **Method**: `PATCH`
+- **Access**: Private
+
+#### Request Body
+```json
+{
+  "status": "Completed"
+}
+```
+
+> [!NOTE]
+> Allowed status values: `Pending`, `In Progress`, `Completed`, `Verified`.
+
+---
+
+### 5. Delete Task Instance
+Remove a specific task instance from the system.
+
+- **URL**: `/api/checklist/task/:id`
+- **Method**: `DELETE`
+- **Access**: Private
