@@ -22,10 +22,14 @@ const { createDepartmentTable } = require('./src/models/department.model');
 const authRoutes = require('./src/routes/auth.routes');
 const delegationRoutes = require('./src/routes/delegation.routes');
 const employeeRoutes = require('./src/routes/employee.routes');
+const checklistRoutes = require('./src/routes/checklist.routes');
+const { createChecklistTables } = require('./src/models/checklist.model');
+const { startChecklistCron } = require('./src/controllers/checklist.controller');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/delegations', delegationRoutes);
 app.use('/api/master', employeeRoutes);
+app.use('/api/checklist', checklistRoutes);
 app.use('/uploads', express.static('uploads'));
 
 // Initialize Database Tables
@@ -33,8 +37,12 @@ Promise.all([
     createEmployeeTable(),
     createDelegationTables(),
     createDepartmentTable(),
+    createChecklistTables(),
 ])
-    .then(() => console.log('Database synchronization complete'))
+    .then(() => {
+        console.log('Database synchronization complete');
+        startChecklistCron(); // Start the daily task generation cron
+    })
     .catch(err => console.error('Database synchronization failed:', err));
 
 app.listen(PORT, () => {
