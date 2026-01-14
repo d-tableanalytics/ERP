@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchEmployees, fetchDepartments } from '../../store/slices/masterSlice';
+import toast from 'react-hot-toast';
 
 const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit }) => {
     const { token, user } = useSelector((state) => state.auth);
-    const [employees, setEmployees] = useState([]);
-    const [departments, setDepartments] = useState([]);
+    const dispatch = useDispatch();
+
+    // Master Data from Redux
+    const { employees, departments, isLoading: isMasterLoading } = useSelector((state) => state.master);
+
     const [formData, setFormData] = useState({
         delegation_name: '',
         description: '',
@@ -21,7 +26,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isLoadingData, setIsLoadingData] = useState(false);
+    // const [isLoadingData, setIsLoadingData] = useState(false); // Removed in favor of Redux state
     const [fetchError, setFetchError] = useState(null);
 
     // Audio State
@@ -37,7 +42,13 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
 
     useEffect(() => {
         if (isOpen) {
-            fetchInitialData();
+            // Lazy Load / Cache Check: Only fetch if data is missing
+            if (employees.length === 0 || departments.length === 0) {
+                // Dispatch fetches
+                dispatch(fetchEmployees());
+                dispatch(fetchDepartments());
+            }
+
             if (delegationToEdit) {
                 setFormData({
                     delegation_name: delegationToEdit.delegation_name,
@@ -71,27 +82,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                 setAudioUrl(null);
             }
         }
-    }, [isOpen, delegationToEdit]);
-
-    const fetchInitialData = async () => {
-        setIsLoadingData(true);
-        setFetchError(null);
-        try {
-            if (!token) return;
-
-            const [empRes, deptRes] = await Promise.all([
-                axios.get('http://localhost:5000/api/master/employees', { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get('http://localhost:5000/api/master/departments', { headers: { Authorization: `Bearer ${token}` } })
-            ]);
-            setEmployees(empRes.data);
-            setDepartments(deptRes.data);
-        } catch (error) {
-            console.error('Error fetching modal data:', error);
-            setFetchError('Failed to load team data. Please refresh.');
-        } finally {
-            setIsLoadingData(false);
-        }
-    };
+    }, [isOpen, delegationToEdit, dispatch, employees.length, departments.length]);
 
     const startRecording = async () => {
         try {
@@ -155,6 +146,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                         'Content-Type': 'multipart/form-data'
                     }
                 });
+                toast.success('Delegation updated successfully');
             } else {
                 await axios.post('http://localhost:5000/api/delegations', data, {
                     headers: {
@@ -162,12 +154,13 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                         'Content-Type': 'multipart/form-data'
                     }
                 });
+                toast.success('Delegation created successfully');
             }
             onSuccess();
             onClose();
         } catch (error) {
             console.error('Error saving delegation:', error);
-            alert('Failed to save delegation');
+            toast.error(error.response?.data?.message || 'Failed to save delegation');
         } finally {
             setIsSubmitting(false);
         }
@@ -236,7 +229,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                                     <div className="overflow-y-auto custom-scrollbar space-y-0.5 flex-1 min-h-0">
                                         {filteredEmployees.length === 0 ? (
                                             <div className="p-4 text-center text-[10px] text-text-muted font-bold">
-                                                {isLoadingData ? 'Loading team...' : (fetchError || 'No members found')}
+                                                {isMasterLoading ? 'Loading team...' : (fetchError || 'No members found')}
                                             </div>
                                         ) : (
                                             filteredEmployees.map(emp => (
@@ -526,7 +519,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                         className="flex-2 py-3.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 transition-all hover:brightness-110 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                         {isSubmitting ? <div className="size-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <span className="material-symbols-outlined text-[16px]">bolt</span>}
-                        <span>{isSubmitting ? 'Sending...' : 'Authorize Delegation'}</span>
+                        <span>{isSubmitting ? (delegationToEdit ? 'Updating...' : 'Sending...') : (delegationToEdit ? 'Update Delegation' : 'Authorize Delegation')}</span>
                     </button>
                 </div>
             </div >

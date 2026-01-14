@@ -23,6 +23,12 @@
     --main-text: #101922;
     --muted-text: #64748b;
     --main-border: #e2e8f0;
+    
+    /* Priority Colors (Light Mode) */
+    --priority-high: #ef4444;       /* Red 500 */
+    --priority-medium: #3b82f6;     /* Blue 500 (Brighter for light theme) */
+    --priority-low: #64748b;        /* Slate 500 */
+    
     color-scheme: light;
   }
 
@@ -32,6 +38,12 @@
     --main-text: #f6f7f8;
     --muted-text: #94a3b8;
     --main-border: #1e293b;
+    
+    /* Priority Colors (Dark Mode) */
+    --priority-high: #b91c1c;       /* Red 700 - Darker/Richer */
+    --priority-medium: #1d4ed8;     /* Blue 700 */
+    --priority-low: #334155;        /* Slate 700 */
+    
     color-scheme: dark;
   }
 

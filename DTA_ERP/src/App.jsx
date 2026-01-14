@@ -6,6 +6,8 @@ import LoginPage from './pages/Login/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Delegation from './pages/Delegation/Delegation';
 import './index.css';
+import Loader from './components/common/Loader';
+import { Toaster } from 'react-hot-toast';
 
 // Lazy load the DelegationDetail component
 const DelegationDetail = lazy(() => import('./pages/Delegation/DelegationDetail'));
@@ -16,9 +18,8 @@ const ProtectedRoute = ({ children }) => {
   return token ? children : <Navigate to="/login" replace />;
 };
 
-import Loader from './components/common/Loader';
 
-// Minimal loading fallback for lazy-loaded components
+
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-screen bg-bg-main">
     <Loader className="w-64 h-64" />
@@ -28,6 +29,40 @@ const LoadingFallback = () => (
 function App() {
   return (
     <Provider store={store}>
+      <Toaster
+        position="top-right"
+        reverseOrder={false}
+        toastOptions={{
+          style: {
+            background: '#333',
+            color: '#fff',
+          },
+          success: {
+            style: {
+              background: '#22c55e', // Bright Green
+              color: '#ffffff',
+              fontWeight: 'bold',
+              border: '2px solid #166534',
+            },
+            iconTheme: {
+              primary: '#ffffff',
+              secondary: '#22c55e',
+            },
+          },
+          error: {
+            style: {
+              background: '#ef4444', // Bright Red
+              color: '#ffffff',
+              fontWeight: 'bold',
+              border: '2px solid #991b1b',
+            },
+            iconTheme: {
+              primary: '#ffffff',
+              secondary: '#ef4444',
+            },
+          },
+        }}
+      />
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

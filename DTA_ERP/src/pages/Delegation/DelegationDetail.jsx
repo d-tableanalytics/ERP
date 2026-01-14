@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import MainLayout from '../../components/layout/MainLayout';
 import Loader from '../../components/common/Loader';
-import { fetchDelegationById } from '../../store/slices/delegationSlice';
+import { fetchDelegationById, updateDelegationStatus, addDelegationRemark } from '../../store/slices/delegationSlice';
+import toast from 'react-hot-toast';
 
 const DelegationDetail = () => {
     const { id } = useParams();
@@ -18,12 +19,20 @@ const DelegationDetail = () => {
     const [loading, setLoading] = useState(!cachedDelegation);
 
     useEffect(() => {
-        // If we have cached data, use it immediately (no loading state!)
+        // If we have cached data, use it immediately
         if (cachedDelegation) {
             setDelegation(cachedDelegation);
+
+            // Critical Fix: If the cached delegation comes from the LIST view, it lacks remarks_detail/revision_history
+            // So we MUST fetch if these missing, even if we are showing the cached data.
+            if (!cachedDelegation.remarks_detail || !cachedDelegation.revision_history_detail) {
+                // Background fetch - keeps UI responsive but updates with full info
+                dispatch(fetchDelegationById(id));
+            }
+
             setLoading(false);
         } else {
-            // Only fetch if not in cache
+            // Nothing in cache, show loader and fetch
             setLoading(true);
             dispatch(fetchDelegationById(id))
                 .unwrap()
@@ -43,6 +52,8 @@ const DelegationDetail = () => {
     const [remark, setRemark] = useState('');
     const [evidenceFiles, setEvidenceFiles] = useState([]);
     const [revisedDueDate, setRevisedDueDate] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [isAddingRemark, setIsAddingRemark] = useState(false);
     const fileInputRef = React.useRef(null);
 
     const handleStatusSelect = (status) => {
@@ -61,16 +72,57 @@ const DelegationDetail = () => {
         setEvidenceFiles(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleUpdateStatus = () => {
-        console.log('Update Status:', { selectedStatus, remark, evidenceFiles, revisedDueDate });
-        // Dispatch update action here
-        alert('Status Update functionality to be connected to backend');
+
+
+    const handleUpdateStatus = async () => {
+        if (!selectedStatus) {
+            toast.error('Please select a status');
+            return;
+        }
+
+        setIsUpdating(true);
+        try {
+            const payload = {
+                id,
+                status: selectedStatus,
+                remark: remark, // Send remark if present
+            };
+
+            // If status is Need Revision or Hold, send the new due date
+            if ((selectedStatus === 'NEED REVISION' || selectedStatus === 'HOLD') && revisedDueDate) {
+                payload.due_date = revisedDueDate;
+            }
+
+            await dispatch(updateDelegationStatus(payload)).unwrap();
+            toast.success('Status updated successfully');
+            // Reset fields
+            setRemark('');
+            setRevisedDueDate('');
+        } catch (error) {
+            console.error('Failed to update status:', error);
+            toast.error('Failed to update status: ' + error);
+        } finally {
+            setIsUpdating(false);
+        }
     };
 
-    const handleAddRemarkOnly = () => {
-        console.log('Add Remark Only:', { remark });
-        // Dispatch remark action here
-        alert('Add Remark Only functionality to be connected to backend');
+    const handleAddRemarkOnly = async () => {
+        if (!remark.trim()) {
+            toast.error('Please enter a remark');
+            return;
+        }
+
+        setIsAddingRemark(true);
+        try {
+            await dispatch(addDelegationRemark({ id, remark })).unwrap();
+            setRemark('');
+            toast.success('Remark added successfully');
+        } catch (error) {
+            console.error('Failed to add remark:', error);
+            toast.error('Failed to add remark: ' + error);
+        } finally {
+            setIsAddingRemark(false);
+        }
     };
 
     if (loading) {
@@ -360,15 +412,19 @@ const DelegationDetail = () => {
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={handleUpdateStatus}
-                                    className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 rounded-xl transition-colors shadow-lg shadow-yellow-400/20"
+                                    disabled={isUpdating || isAddingRemark}
+                                    className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 rounded-xl transition-colors shadow-lg shadow-yellow-400/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
-                                    Update Status
+                                    {isUpdating && <div className="size-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>}
+                                    <span>{isUpdating ? 'Updating...' : 'Update Status'}</span>
                                 </button>
                                 <button
                                     onClick={handleAddRemarkOnly}
-                                    className="px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/20"
+                                    disabled={isUpdating || isAddingRemark}
+                                    className="px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
-                                    Add Remark Only
+                                    {isAddingRemark && <div className="size-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
+                                    <span>{isAddingRemark ? 'Adding...' : 'Add Remark Only'}</span>
                                 </button>
                             </div>
                         </div>
@@ -377,15 +433,53 @@ const DelegationDetail = () => {
                         <div className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold text-text-main mb-4">Remark History</h3>
-                                <div className="text-center py-8 text-text-muted text-sm border-t border-border-main">
-                                    No remarks yet
-                                </div>
+                                {delegation.remarks_detail && delegation.remarks_detail.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {delegation.remarks_detail.map((rem) => (
+                                            <div key={rem.id} className="bg-bg-card border border-border-main p-3 rounded-xl">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-xs font-bold text-text-main">{rem.username}</span>
+                                                    <span className="text-[10px] text-text-muted">{new Date(rem.created_at).toLocaleString()}</span>
+                                                </div>
+                                                <p className="text-xs text-text-muted">{rem.remark}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-text-muted text-sm border-t border-border-main">
+                                        No remarks yet
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <h3 className="text-sm font-bold text-text-main mb-4">Revision History</h3>
-                                <div className="text-center py-8 text-text-muted text-sm border-t border-border-main">
-                                    No revision history yet
-                                </div>
+                                {delegation.revision_history_detail && delegation.revision_history_detail.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {delegation.revision_history_detail.map((rev) => (
+                                            <div key={rev.id} className="bg-bg-card border border-border-main p-3 rounded-xl">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-xs font-bold text-text-main">{rev.changed_by}</span>
+                                                    <span className="text-[10px] text-text-muted">{new Date(rev.created_at).toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    <span className="px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold">
+                                                        Old: {new Date(rev.old_due_date).toLocaleString()}
+                                                    </span>
+                                                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                                                        New: {new Date(rev.new_due_date).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                                {rev.reason && (
+                                                    <p className="text-xs text-text-muted mt-1 italic">Reason: {rev.reason}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-text-muted text-sm border-t border-border-main">
+                                        No revision history yet
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

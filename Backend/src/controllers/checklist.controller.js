@@ -90,6 +90,42 @@ exports.updateChecklistStatus = async (req, res) => {
     }
 };
 
+// Update checklist task details (Edit)
+exports.updateChecklistTaskDetails = async (req, res) => {
+    const { id } = req.params;
+    const {
+        question, assignee_id, doer_id, priority, department,
+        verification_required, attachment_required, due_date
+    } = req.body;
+
+    try {
+        const query = `
+            UPDATE checklist SET
+                question = COALESCE($1, question),
+                assignee_id = COALESCE($2, assignee_id),
+                doer_id = COALESCE($3, doer_id),
+                priority = COALESCE($4, priority),
+                department = COALESCE($5, department),
+                verification_required = COALESCE($6, verification_required),
+                attachment_required = COALESCE($7, attachment_required),
+                due_date = COALESCE($8, due_date)
+            WHERE id = $9 RETURNING *`;
+
+        const values = [
+            question, assignee_id, doer_id, priority, department,
+            verification_required, attachment_required, due_date, id
+        ];
+
+        const result = await db.query(query, values);
+
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Checklist task not found' });
+        res.status(200).json(result.rows[0]);
+    } catch (err) {
+        console.error('Error updating checklist details:', err);
+        res.status(500).json({ message: 'Error updating checklist details' });
+    }
+};
+
 // Delete a specific task instance
 exports.deleteChecklistTask = async (req, res) => {
     const { id } = req.params;
@@ -99,6 +135,33 @@ exports.deleteChecklistTask = async (req, res) => {
     } catch (err) {
         console.error('Error deleting checklist task:', err);
         res.status(500).json({ message: 'Error deleting checklist task' });
+    }
+};
+
+// Get all checklist tasks (with filtering)
+exports.getChecklists = async (req, res) => {
+    // We can filter by role if needed, similar to delegations
+    // For now, let's fetch all for simplicity, or filter by assignee/doer if they are standard users
+    // const { role, id: userId, email } = req.user; // Assuming auth middleware populates this
+
+    try {
+        // Simple fetch all for now to get it working. 
+        // In production: if (role !== 'Admin') filter by assignee_id/doer_id
+        const query = `
+            SELECT 
+                c.*, 
+                CONCAT(e1.First_Name, ' ', e1.Last_Name) as assignee_name,
+                CONCAT(e2.First_Name, ' ', e2.Last_Name) as doer_name
+            FROM checklist c
+            LEFT JOIN employees e1 ON c.assignee_id = e1.User_Id
+            LEFT JOIN employees e2 ON c.doer_id = e2.User_Id
+            ORDER BY c.created_at DESC
+        `;
+        const result = await db.query(query);
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error('Error fetching checklists:', err);
+        res.status(500).json({ message: 'Error fetching checklists' });
     }
 };
 

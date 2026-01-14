@@ -16,43 +16,43 @@ const DelegationCard = ({ delegation, user, isAdmin, onEdit, onDelete }) => {
     const isOverdue = new Date(delegation.due_date) < new Date() && delegation.status !== 'COMPLETED';
 
     return (
-        <div className="bg-[#1e293b] rounded-xl overflow-hidden shadow-lg border border-slate-700/50 group hover:border-slate-600 transition-all font-sans">
+        <div className="bg-bg-card rounded-xl overflow-hidden shadow-lg border border-border-main group hover:border-blue-500/50 transition-all font-sans relative">
             {/* Header Section */}
             <div className="p-4 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-4 flex-1 min-w-0">
+                <div className="flex items-start gap-4 flex-1 min-w-0 pr-28 sm:pr-32">
                     <div className="size-12 bg-yellow-400 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-yellow-400/20">
                         <span className="material-symbols-outlined text-black text-2xl">assignment</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-1">
-                            <span className="text-slate-500 font-bold text-xs">#{delegation.id}</span>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-text-muted font-bold text-xs">#{delegation.id}</span>
                             {isOverdue && (
                                 <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Overdue</span>
                             )}
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${delegation.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400' :
-                                delegation.status === 'NEED CLARITY' ? 'bg-amber-500/20 text-amber-400' :
-                                    delegation.status === 'APPROVAL WAITING' ? 'bg-blue-500/20 text-blue-400' :
-                                        'bg-slate-500/20 text-slate-400'
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${delegation.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-500' :
+                                delegation.status === 'NEED CLARITY' ? 'bg-amber-500/20 text-amber-500' :
+                                    delegation.status === 'APPROVAL WAITING' ? 'bg-blue-500/20 text-blue-500' :
+                                        'bg-slate-500/20 text-slate-500'
                                 }`}>
                                 {delegation.status}
                             </span>
                         </div>
-                        <h3 className="text-white font-bold text-lg mb-1 truncate leading-tight" title={delegation.delegation_name}>{delegation.delegation_name}</h3>
-                        <p className="text-slate-400 text-sm line-clamp-1">{delegation.description || 'No description provided.'}</p>
+                        <h3 className="text-text-main font-bold text-lg mb-1 truncate leading-tight" title={delegation.delegation_name}>{delegation.delegation_name}</h3>
+                        <p className="text-text-muted text-sm line-clamp-1">{delegation.description || 'No description provided.'}</p>
                     </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2 shrink-0">
-                    <button onClick={() => navigate(`/delegation/${delegation.id}`)} className="text-slate-400 hover:text-yellow-400 transition-colors p-1">
+                <div className="flex gap-1 absolute top-4 right-4 bg-bg-card/80 backdrop-blur-sm rounded-lg p-1 border border-border-main/50 shadow-sm">
+                    <button onClick={() => navigate(`/delegation/${delegation.id}`)} className="text-text-muted hover:text-yellow-500 transition-colors p-1" title="View">
                         <span className="material-symbols-outlined text-xl">visibility</span>
                     </button>
                     {(isAdmin || delegation.delegator_id === user.id) && (
                         <>
-                            <button onClick={() => onEdit(delegation)} className="text-slate-400 hover:text-blue-400 transition-colors p-1">
+                            <button onClick={() => onEdit(delegation)} className="text-text-muted hover:text-blue-500 transition-colors p-1" title="Edit">
                                 <span className="material-symbols-outlined text-xl">edit</span>
                             </button>
-                            <button onClick={() => onDelete(delegation.id)} className="text-slate-400 hover:text-red-400 transition-colors p-1">
+                            <button onClick={() => onDelete(delegation.id)} className="text-text-muted hover:text-red-500 transition-colors p-1" title="Delete">
                                 <span className="material-symbols-outlined text-xl">delete</span>
                             </button>
                         </>
@@ -60,87 +60,87 @@ const DelegationCard = ({ delegation, user, isAdmin, onEdit, onDelete }) => {
                 </div>
             </div>
 
-            {/* Info Blocks - Grid of 4 */}
-            <div className="grid grid-cols-2 gap-2 px-4 pb-4">
+            {/* Info Blocks - Grid of 2 */}
+            <div className="grid grid-cols-2 gap-3 px-4 pb-4">
                 {/* Assignee */}
-                <div className="bg-[#2563eb] rounded-lg p-3 flex items-center gap-3 shadow-lg shadow-blue-900/20">
-                    <div className="size-8 rounded bg-white/20 flex items-center justify-center text-white">
+                <div className="bg-blue-500/5 rounded-lg p-3 flex items-center gap-3 border border-blue-500/10 group-hover:border-blue-500/20 transition-colors">
+                    <div className="size-8 rounded bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
                         <span className="material-symbols-outlined text-lg">person</span>
                     </div>
                     <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-blue-200 uppercase tracking-wide">Assignee</p>
-                        <p className="text-white font-bold text-sm truncate">{delegation.delegator_name}</p>
+                        <p className="text-[10px] font-bold text-blue-500/80 uppercase tracking-wide">Assignee</p>
+                        <p className="text-text-main font-bold text-sm truncate">{delegation.delegator_name}</p>
                     </div>
                 </div>
 
                 {/* Doer */}
-                <div className="bg-[#9333ea] rounded-lg p-3 flex items-center gap-3 shadow-lg shadow-purple-900/20">
-                    <div className="size-8 rounded bg-white/20 flex items-center justify-center text-white">
+                <div className="bg-purple-500/5 rounded-lg p-3 flex items-center gap-3 border border-purple-500/10 group-hover:border-purple-500/20 transition-colors">
+                    <div className="size-8 rounded bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
                         <span className="material-symbols-outlined text-lg">group</span>
                     </div>
                     <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wide">Doer</p>
-                        <p className="text-white font-bold text-sm truncate">{delegation.doer_name}</p>
+                        <p className="text-[10px] font-bold text-purple-500/80 uppercase tracking-wide">Doer</p>
+                        <p className="text-text-main font-bold text-sm truncate">{delegation.doer_name}</p>
                     </div>
                 </div>
 
                 {/* Department */}
-                <div className="bg-[#10b981] rounded-lg p-3 flex items-center gap-3 shadow-lg shadow-emerald-900/20">
-                    <div className="size-8 rounded bg-white/20 flex items-center justify-center text-white">
+                <div className="bg-emerald-500/5 rounded-lg p-3 flex items-center gap-3 border border-emerald-500/10 group-hover:border-emerald-500/20 transition-colors">
+                    <div className="size-8 rounded bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
                         <span className="material-symbols-outlined text-lg">domain</span>
                     </div>
                     <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-emerald-200 uppercase tracking-wide">Department</p>
-                        <p className="text-white font-bold text-sm truncate">{delegation.department}</p>
+                        <p className="text-[10px] font-bold text-emerald-500/80 uppercase tracking-wide">Department</p>
+                        <p className="text-text-main font-bold text-sm truncate">{delegation.department}</p>
                     </div>
                 </div>
 
                 {/* Priority */}
-                <div className="bg-[#ef4444] rounded-lg p-3 flex items-center gap-3 shadow-lg shadow-red-900/20">
-                    <div className="size-8 rounded bg-white/20 flex items-center justify-center text-white">
+                <div className="bg-red-500/5 rounded-lg p-3 flex items-center gap-3 border border-red-500/10 group-hover:border-red-500/20 transition-colors">
+                    <div className="size-8 rounded bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
                         <span className="material-symbols-outlined text-lg">warning</span>
                     </div>
                     <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-red-200 uppercase tracking-wide">Priority</p>
-                        <p className="text-white font-bold text-sm capitalize">{delegation.priority}</p>
+                        <p className="text-[10px] font-bold text-red-500/80 uppercase tracking-wide">Priority</p>
+                        <p className="text-text-main font-bold text-sm capitalize">{delegation.priority}</p>
                     </div>
                 </div>
             </div>
 
             {/* Footer Status Bar */}
-            <div className="bg-slate-800/50 px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-medium border-t border-slate-700/50">
+            <div className="bg-bg-main/50 px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-medium border-t border-border-main text-text-muted">
                 <div className="flex items-center gap-6 w-full md:w-auto">
-                    <div className="flex items-center gap-2 text-slate-300">
-                        <div className="bg-slate-700 p-1 rounded">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-bg-main p-1 rounded border border-border-main">
                             <span className="material-symbols-outlined text-base">event</span>
                         </div>
                         <div>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase">Due Date</p>
-                            <p>{formatDate(delegation.due_date)}</p>
+                            <p className="text-[10px] font-bold uppercase opacity-70">Due Date</p>
+                            <p className="text-text-main font-semibold">{formatDate(delegation.due_date)}</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
                     <div className="flex items-center gap-2">
-                        <div className={`p-1 rounded ${delegation.evidence_required ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-700 text-slate-500'}`}>
+                        <div className={`p-1 rounded border ${delegation.evidence_required ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-bg-main text-text-muted border-border-main'}`}>
                             <span className="material-symbols-outlined text-base">{delegation.evidence_required ? 'check_circle' : 'cancel'}</span>
                         </div>
                         <div>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase">Evidence</p>
-                            <p className={delegation.evidence_required ? 'text-emerald-400' : 'text-slate-400'}>
+                            <p className="text-[10px] font-bold uppercase opacity-70">Evidence</p>
+                            <p className={`font-semibold ${delegation.evidence_required ? 'text-emerald-500' : 'text-text-muted'}`}>
                                 {delegation.evidence_required ? 'Required' : 'Optional'}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-slate-400">
-                        <div className="bg-slate-700 p-1 rounded">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-bg-main p-1 rounded border border-border-main">
                             <span className="material-symbols-outlined text-base">schedule</span>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] text-slate-500 font-bold uppercase">Created</p>
-                            <p>{new Date(delegation.created_at).toLocaleDateString()}</p>
+                            <p className="text-[10px] font-bold uppercase opacity-70">Created</p>
+                            <p className="text-text-main font-semibold">{new Date(delegation.created_at).toLocaleDateString()}</p>
                         </div>
                     </div>
                 </div>
