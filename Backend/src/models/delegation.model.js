@@ -43,6 +43,7 @@ const createDelegationTables = async () => {
         old_status VARCHAR(50),
         new_status VARCHAR(50),
         reason TEXT,
+        changed_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     `;

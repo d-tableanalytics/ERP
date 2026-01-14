@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { createChecklist, updateChecklistTask } from '../../store/slices/checklistSlice';
+import toast from 'react-hot-toast';
 
-const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
+const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) => {
+    const dispatch = useDispatch();
     const { token } = useSelector((state) => state.auth);
     const [employees, setEmployees] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
+    const [isDoerDropdownOpen, setIsDoerDropdownOpen] = useState(false);
+    const [assigneeSearch, setAssigneeSearch] = useState('');
+    const [doerSearch, setDoerSearch] = useState('');
 
-    // Form State
     const [formData, setFormData] = useState({
         task: '',
         assignee_id: '',
@@ -18,56 +25,67 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
         priority: 'medium',
         frequency: 'daily',
         start_date: '',
+        due_date: '',
         verification_required: false,
         attachment_required: false
     });
 
-    // UI State
-    const [assigneeSearch, setAssigneeSearch] = useState('');
-    const [doerSearch, setDoerSearch] = useState('');
-    const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
-    const [isDoerDropdownOpen, setIsDoerDropdownOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isLoadingData, setIsLoadingData] = useState(false);
-    const [fetchError, setFetchError] = useState(null);
+    const isEditMode = !!checklistToEdit;
 
     useEffect(() => {
         if (isOpen) {
             fetchInitialData();
-            // Reset form
-            setFormData({
-                task: '',
-                assignee_id: '',
-                assignee_name: '',
-                doer_id: '',
-                doer_name: '',
-                department: '',
-                priority: 'medium',
-                frequency: 'daily',
-                start_date: '',
-                verification_required: false,
-                attachment_required: false
-            });
+            if (checklistToEdit) {
+                // Populate form for editing
+                setFormData({
+                    task: checklistToEdit.question || checklistToEdit.task,
+                    assignee_id: checklistToEdit.assignee_id,
+                    assignee_name: checklistToEdit.assignee_name || '',
+                    doer_id: checklistToEdit.doer_id,
+                    doer_name: checklistToEdit.doer_name || '',
+                    department: checklistToEdit.department || '',
+                    priority: checklistToEdit.priority || 'medium',
+                    frequency: checklistToEdit.frequency || 'daily', // Usually read-only in edit
+                    start_date: checklistToEdit.created_at ? new Date(checklistToEdit.created_at).toISOString().slice(0, 16) : '',
+                    due_date: checklistToEdit.due_date ? new Date(checklistToEdit.due_date).toISOString().slice(0, 16) : '',
+                    verification_required: checklistToEdit.verification_required || false,
+                    attachment_required: checklistToEdit.attachment_required || false
+                });
+            } else {
+                // Reset form on open for create
+                setFormData({
+                    task: '',
+                    assignee_id: '',
+                    assignee_name: '',
+                    doer_id: '',
+                    doer_name: '',
+                    department: '',
+                    priority: 'medium',
+                    frequency: 'daily',
+                    start_date: new Date().toISOString().slice(0, 16),
+                    due_date: '',
+                    verification_required: false,
+                    attachment_required: false
+                });
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, checklistToEdit]);
 
     const fetchInitialData = async () => {
-        setIsLoadingData(true);
-        setFetchError(null);
         try {
-            if (!token) throw new Error('Authentication token missing');
-
-            const [empRes, deptRes] = await Promise.all([
-                axios.get('http://localhost:5000/api/master/employees', { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get('http://localhost:5000/api/master/departments', { headers: { Authorization: `Bearer ${token}` } })
-            ]);
+            // Fetch employees
+            const empRes = await axios.get('http://localhost:5000/api/master/employees', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             setEmployees(empRes.data);
+
+            // Fetch departments
+            const deptRes = await axios.get('http://localhost:5000/api/master/departments', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             setDepartments(deptRes.data);
         } catch (error) {
-            console.error('Error fetching checklist data:', error);
-            setFetchError('Failed to load data');
-        } finally {
-            setIsLoadingData(false);
+            console.error('Error fetching initial data:', error);
         }
     };
 
@@ -75,17 +93,50 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
         e.preventDefault();
         setIsSubmitting(true);
 
-        // Mock submission for now since backend endpoint doesn't exist
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            console.log('Checklist Created:', formData);
-            onSuccess(); // Refresh table
-            onClose();
-        } catch (error) {
-            console.error('Error creating checklist:', error);
-        } finally {
-            setIsSubmitting(false);
+        const payload = {
+            question: formData.task,
+            assignee_id: formData.assignee_id,
+            doer_id: formData.doer_id,
+            priority: formData.priority,
+            department: formData.department,
+            verification_required: formData.verification_required,
+            attachment_required: formData.attachment_required,
+            // For Edit, we send due_date. For Create, we send start_date (which becomes from_date/due_date logic)
+            due_date: isEditMode ? formData.due_date : formData.start_date,
+        };
+
+        if (isEditMode) {
+            // Only send updatable fields for task
+            try {
+                await dispatch(updateChecklistTask({ id: checklistToEdit.id, ...payload })).unwrap();
+                toast.success('Checklist updated successfully');
+                onSuccess();
+                onClose();
+            } catch (error) {
+                console.error('Error updating checklist:', error);
+                toast.error('Failed to update checklist: ' + error);
+            }
+        } else {
+            // Create Master Logic
+            const createPayload = {
+                ...payload,
+                frequency: formData.frequency,
+                from_date: formData.start_date,
+                weekly_days: [],
+                selected_dates: []
+            };
+            try {
+                await dispatch(createChecklist(createPayload)).unwrap();
+                toast.success('Checklist created successfully');
+                onSuccess();
+                onClose();
+            } catch (error) {
+                console.error('Error creating checklist:', error);
+                toast.error('Failed to create checklist: ' + error);
+            }
         }
+
+        setIsSubmitting(false);
     };
 
     // Filter helpers
@@ -104,11 +155,13 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
                 <div className="px-6 py-4 border-b border-yellow-500/20 bg-yellow-500 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="size-8 rounded-lg bg-black/10 text-black flex items-center justify-center">
-                            <span className="material-symbols-outlined text-xl">check_box</span>
+                            <span className="material-symbols-outlined text-xl">{isEditMode ? 'edit' : 'check_box'}</span>
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-black tracking-tight leading-tight">Add New Checklist</h2>
-                            <p className="text-[10px] text-black/70 font-bold uppercase tracking-wider">Tasks will be automatically generated based on frequency</p>
+                            <h2 className="text-lg font-black text-black tracking-tight leading-tight">{isEditMode ? 'Edit Checklist Task' : 'Add New Checklist'}</h2>
+                            <p className="text-[10px] text-black/70 font-bold uppercase tracking-wider">
+                                {isEditMode ? 'Update task details' : 'Tasks will be automatically generated based on frequency'}
+                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="size-8 rounded-full hover:bg-black/10 text-black/60 hover:text-black transition-all flex items-center justify-center">
@@ -161,10 +214,10 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
                                     <div className="overflow-y-auto custom-scrollbar flex-1 min-h-0">
                                         {filterEmployees(assigneeSearch).map(emp => (
                                             <div
-                                                key={emp.id}
+                                                key={emp.User_Id}
                                                 className="p-2 hover:bg-bg-main rounded-lg cursor-pointer flex items-center gap-2 text-xs"
                                                 onClick={() => {
-                                                    setFormData({ ...formData, assignee_id: emp.id, assignee_name: `${emp.First_Name} ${emp.Last_Name}` });
+                                                    setFormData({ ...formData, assignee_id: emp.User_Id, assignee_name: `${emp.First_Name} ${emp.Last_Name}` });
                                                     setIsAssigneeDropdownOpen(false);
                                                 }}
                                             >
@@ -204,10 +257,10 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
                                     <div className="overflow-y-auto custom-scrollbar flex-1 min-h-0">
                                         {filterEmployees(doerSearch).map(emp => (
                                             <div
-                                                key={emp.id}
+                                                key={emp.User_Id}
                                                 className="p-2 hover:bg-bg-main rounded-lg cursor-pointer flex items-center gap-2 text-xs"
                                                 onClick={() => {
-                                                    setFormData({ ...formData, doer_id: emp.id, doer_name: `${emp.First_Name} ${emp.Last_Name}` });
+                                                    setFormData({ ...formData, doer_id: emp.User_Id, doer_name: `${emp.First_Name} ${emp.Last_Name}` });
                                                     setIsDoerDropdownOpen(false);
                                                 }}
                                             >
@@ -246,10 +299,10 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
                                     type="button"
                                     onClick={() => setFormData({ ...formData, priority: p.toLowerCase() })}
                                     className={`py-3 rounded-xl border font-bold text-sm transition-all ${formData.priority === p.toLowerCase()
-                                            ? p === 'High' ? 'bg-bg-card border-red-500 text-red-500 shadow-[0_0_15px_-3px_rgba(239,68,68,0.3)]'
-                                                : p === 'Medium' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/20' // Matched reference blue
-                                                    : 'bg-bg-card border-green-500 text-green-500 shadow-[0_0_15px_-3px_rgba(34,197,94,0.3)]'
-                                            : 'bg-bg-main/50 border-transparent text-text-muted hover:bg-bg-main'
+                                        ? p === 'High' ? 'bg-bg-card border-red-500 text-red-500 shadow-[0_0_15px_-3px_rgba(239,68,68,0.3)]'
+                                            : p === 'Medium' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/20' // Matched reference blue
+                                                : 'bg-bg-card border-green-500 text-green-500 shadow-[0_0_15px_-3px_rgba(34,197,94,0.3)]'
+                                        : 'bg-bg-main/50 border-transparent text-text-muted hover:bg-bg-main'
                                         }`}
                                 >
                                     {p}
@@ -258,35 +311,42 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
                         </div>
                     </div>
 
-                    {/* Frequency */}
-                    <div>
-                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Frequency *</label>
-                        <div className="grid grid-cols-5 gap-2">
-                            {['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly'].map(f => (
-                                <button
-                                    key={f}
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, frequency: f.toLowerCase() })}
-                                    className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${formData.frequency === f.toLowerCase()
+                    {/* Recurrence (Frequency) - Create Mode Only */}
+                    {!isEditMode && (
+                        <div>
+                            <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Frequency *</label>
+                            <div className="grid grid-cols-5 gap-2">
+                                {['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly'].map(f => (
+                                    <button
+                                        key={f}
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, frequency: f.toLowerCase() })}
+                                        className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${formData.frequency === f.toLowerCase()
                                             ? 'bg-yellow-400 text-black border-yellow-400 shadow-lg shadow-yellow-400/20'
                                             : 'bg-bg-main/50 border-transparent text-text-muted hover:bg-bg-main hover:text-text-main'
-                                        }`}
-                                >
-                                    {f}
-                                </button>
-                            ))}
+                                            }`}
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Date */}
                     <div>
-                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">From Date & Time *</label>
+                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">
+                            {isEditMode ? 'Due Date & Time' : 'From Date & Time *'}
+                        </label>
                         <input
                             type="datetime-local"
                             required
                             className="w-full bg-orange-50/5 border border-border-main rounded-xl p-3 text-sm text-text-main font-bold focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-                            value={formData.start_date}
-                            onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                            value={isEditMode ? formData.due_date : formData.start_date}
+                            onChange={(e) => isEditMode
+                                ? setFormData({ ...formData, due_date: e.target.value })
+                                : setFormData({ ...formData, start_date: e.target.value })
+                            }
                         />
                     </div>
 
@@ -322,9 +382,10 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess }) => {
                         type="submit"
                         onClick={handleSubmit}
                         disabled={isSubmitting}
-                        className="flex-1 py-3.5 rounded-xl bg-yellow-500 text-black text-[12px] font-black uppercase tracking-widest shadow-xl shadow-yellow-500/20 transition-all hover:brightness-110 active:scale-95 flex items-center justify-center"
+                        className="flex-1 py-3.5 rounded-xl bg-yellow-500 text-black text-[12px] font-black uppercase tracking-widest shadow-xl shadow-yellow-500/20 transition-all hover:brightness-110 active:scale-95 flex items-center justify-center gap-2"
                     >
-                        {isSubmitting ? 'Creating...' : 'Create Checklist'}
+                        {isSubmitting && <div className="size-3 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>}
+                        <span>{isSubmitting ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Task' : 'Create Checklist')}</span>
                     </button>
                     <button
                         type="button"

@@ -7,13 +7,19 @@ import DelegationCard from '../../components/delegation/DelegationCard';
 import DelegationCalendar from '../../components/delegation/DelegationCalendar';
 import Loader from '../../components/common/Loader';
 import { fetchDelegations, deleteDelegation } from '../../store/slices/delegationSlice';
+import toast from 'react-hot-toast';
 
 const Delegation = () => {
     const dispatch = useDispatch();
     const { user } = useSelector((state) => state.auth);
     const { delegations, isLoading, error } = useSelector((state) => state.delegation);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [viewMode, setViewMode] = useState('list'); // 'list', 'tiles', 'calendar'
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem('delegationViewMode') || 'list');
+
+    // Persist view mode
+    useEffect(() => {
+        localStorage.setItem('delegationViewMode', viewMode);
+    }, [viewMode]);
     const [delegationToEdit, setDelegationToEdit] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
 
@@ -23,6 +29,7 @@ const Delegation = () => {
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
+    const [deletingId, setDeletingId] = useState(null);
 
     const navigate = useNavigate();
     const isAdmin = user?.role === 'Admin' || user?.role === 'SuperAdmin';
@@ -46,13 +53,19 @@ const Delegation = () => {
         }
     }, [dispatch, delegations.length]);
 
+
+
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this delegation?')) {
+            setDeletingId(id);
             try {
                 await dispatch(deleteDelegation(id)).unwrap();
+                toast.success('Delegation deleted successfully');
             } catch (error) {
                 console.error('Error deleting delegation:', error);
-                alert('Failed to delete delegation');
+                toast.error('Failed to delete delegation');
+            } finally {
+                setDeletingId(null);
             }
         }
     };
@@ -392,8 +405,13 @@ const Delegation = () => {
                                                                         </button>
                                                                         <button
                                                                             onClick={() => handleDelete(del.id)}
-                                                                            className="p-2 rounded-lg hover:bg-bg-main text-text-muted hover:text-red-500 transition-colors inline-flex items-center justify-center" title="Delete">
-                                                                            <span className="material-symbols-outlined text-[20px]">delete</span>
+                                                                            disabled={deletingId === del.id}
+                                                                            className="p-2 rounded-lg hover:bg-bg-main text-text-muted hover:text-red-500 transition-colors inline-flex items-center justify-center disabled:opacity-50" title="Delete">
+                                                                            {deletingId === del.id ? (
+                                                                                <div className="size-5 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin"></div>
+                                                                            ) : (
+                                                                                <span className="material-symbols-outlined text-[20px]">delete</span>
+                                                                            )}
                                                                         </button>
                                                                     </>
                                                                 )}

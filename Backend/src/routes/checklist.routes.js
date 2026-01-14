@@ -8,7 +8,9 @@ router.put('/master/:id', checklistController.updateChecklistMaster);
 router.delete('/master/:id', checklistController.deleteChecklistMaster);
 
 // Checklist Task Routes (Instances)
-router.patch('/task/:id', checklistController.updateChecklistStatus);
+router.get('/', checklistController.getChecklists); // Fetch all
+router.patch('/task/:id', checklistController.updateChecklistStatus); // Status only
+router.put('/task/:id', checklistController.updateChecklistTaskDetails); // Full edit
 router.delete('/task/:id', checklistController.deleteChecklistTask);
 
 // TEST ROUTE: Trigger daily generation immediately

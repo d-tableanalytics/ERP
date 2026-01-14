@@ -54,6 +54,38 @@ export const createDelegation = createAsyncThunk(
     }
 );
 
+// Async thunk to update delegation status (or any field via update)
+export const updateDelegationStatus = createAsyncThunk(
+    'delegation/updateStatus',
+    async ({ id, ...updates }, { getState, rejectWithValue }) => {
+        try {
+            const { token } = getState().auth;
+            const response = await axios.put(`${API_URL}/${id}`, updates, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to update status');
+        }
+    }
+);
+
+// Async thunk to add a remark
+export const addDelegationRemark = createAsyncThunk(
+    'delegation/addRemark',
+    async ({ id, remark }, { getState, rejectWithValue }) => {
+        try {
+            const { token } = getState().auth;
+            const response = await axios.post(`${API_URL}/${id}/remarks`, { remark }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to add remark');
+        }
+    }
+);
+
 // Async thunk to update a delegation
 export const updateDelegation = createAsyncThunk(
     'delegation/updateDelegation',
@@ -199,6 +231,26 @@ const delegationSlice = createSlice({
             .addCase(deleteDelegation.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
+            })
+
+            // Update Status
+            .addCase(updateDelegationStatus.fulfilled, (state, action) => {
+                // Optimistic update: Update local state immediately with returned data
+                const index = state.delegations.findIndex(d => d.id === action.payload.id);
+                if (index !== -1) {
+                    state.delegations[index] = action.payload;
+                }
+                state.delegationsById[action.payload.id] = action.payload;
+            })
+
+            // Add Remark
+            .addCase(addDelegationRemark.fulfilled, (state, action) => {
+                // Update local state immediately with returned data
+                const index = state.delegations.findIndex(d => d.id === action.payload.id);
+                if (index !== -1) {
+                    state.delegations[index] = action.payload;
+                }
+                state.delegationsById[action.payload.id] = action.payload;
             });
     },
 });

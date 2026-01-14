@@ -27,12 +27,12 @@ const CustomToolbar = (toolbar) => {
     const goToCurrent = () => toolbar.onNavigate('TODAY');
 
     return (
-        <div className="flex justify-between items-center mb-6 p-2">
-            <h2 className="text-2xl font-bold text-white tracking-tight">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 p-2 gap-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-text-main tracking-tight">
                 {format(toolbar.date, 'MMMM yyyy')}
             </h2>
-            <div className="flex items-center gap-2 bg-slate-800/50 p-1.5 rounded-xl border border-slate-700/50">
-                <button className="text-slate-400 hover:text-white transition-colors p-1" onClick={goToBack}>
+            <div className="flex items-center gap-2 bg-bg-main p-1.5 rounded-xl border border-border-main">
+                <button className="text-text-muted hover:text-text-main transition-colors p-1" onClick={goToBack}>
                     <span className="material-symbols-outlined text-xl">chevron_left</span>
                 </button>
                 <button
@@ -41,7 +41,7 @@ const CustomToolbar = (toolbar) => {
                 >
                     Today
                 </button>
-                <button className="text-slate-400 hover:text-white transition-colors p-1" onClick={goToNext}>
+                <button className="text-text-muted hover:text-text-main transition-colors p-1" onClick={goToNext}>
                     <span className="material-symbols-outlined text-xl">chevron_right</span>
                 </button>
             </div>
@@ -57,9 +57,9 @@ const CustomDateHeader = ({ label, date, delegations }) => {
 
     return (
         <div className="flex items-center justify-between p-2">
-            <span className="text-base font-bold text-slate-200">{label}</span>
+            <span className="text-xs sm:text-base font-bold text-text-main">{label}</span>
             {dayDelegations.length > 0 && (
-                <div className="size-6 rounded-full bg-yellow-400 text-black flex items-center justify-center text-[10px] font-extrabold shadow-sm shadow-yellow-400/20">
+                <div className="size-5 sm:size-6 rounded-full bg-yellow-400 text-black flex items-center justify-center text-[9px] sm:text-[10px] font-extrabold shadow-sm shadow-yellow-400/20">
                     {dayDelegations.length}
                 </div>
             )}
@@ -91,9 +91,9 @@ const CustomEvent = ({ event, user, isAdmin, onEdit, onDelete }) => {
                 <p className="text-[9px] font-bold text-white/80 truncate capitalize">{event.resource?.doer_name}</p>
             </div>
 
-            {/* Hover Action Overlay - Perfectly centered inside the right side */}
+            {/* Hover Action Overlay */}
             {isHovered && (
-                <div className="absolute right-1 top-1 bottom-1 w-[92px] bg-[#1a202c]/95 rounded-md flex items-center justify-around z-50 animate-in fade-in slide-in-from-right-1 duration-200 border border-white/10 shadow-lg">
+                <div className="absolute right-1 top-1 bottom-1 w-[92px] bg-bg-card rounded-md flex items-center justify-around z-50 animate-in fade-in slide-in-from-right-1 duration-200 border border-border-main shadow-lg">
                     <button
                         onClick={(e) => { e.stopPropagation(); navigate(`/delegation/${event.id}`); }}
                         className="text-yellow-400 hover:scale-110 transition-transform h-8 w-8 flex items-center justify-center p-0"
@@ -156,112 +156,141 @@ const DelegationCalendar = ({ delegations, user, isAdmin, onEdit, onDelete }) =>
                 padding: '0',
                 marginBottom: '6px',
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1)',
-                minHeight: '44px'
+                minHeight: '44px',
+                // Ensure event box styling doesn't force width > 100%
+                width: 'auto',
+                maxWidth: '100%',
+                marginLeft: '4px',
+                marginRight: '4px'
             }
         };
     };
 
     return (
-        <div className="h-[800px] bg-[#0f172a] rounded-2xl p-6 border border-slate-700/50 shadow-2xl overflow-hidden flex flex-col">
+        <div className="min-h-screen bg-bg-card rounded-2xl p-4 md:p-6 border border-border-main shadow-2xl overflow-hidden flex flex-col transition-colors duration-300">
             <style>{`
-                .rbc-calendar { color: #cbd5e1; font-family: inherit; }
+                .rbc-calendar { 
+                    color: var(--muted-text); 
+                    font-family: inherit; 
+                    height: auto !important; /* Allow calendar to grow */
+                    min-height: 800px;
+                }
                 .rbc-header { 
-                    border-bottom: 1px solid #1e293b; 
+                    border-bottom: 1px solid var(--main-border); 
                     padding: 16px 10px; 
                     font-weight: 800; 
-                    color: #64748b; 
+                    color: var(--muted-text); 
                     font-size: 11px; 
                     text-transform: uppercase; 
                     letter-spacing: 0.1em;
+                    flex: 1; /* Ensure headers take even width */
                 }
                 .rbc-month-view { 
-                    border: 1px solid #1e293b; 
+                    border: 1px solid var(--main-border); 
                     border-radius: 16px; 
                     overflow: hidden; 
-                    background-color: #0b1121; 
+                    background-color: var(--card-bg);
+                    position: static; /* Important for auto-height */
+                    height: auto !important;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .rbc-month-row {
+                    flex: unset !important; /* Disable flex-basis: 0% forcing equal height */
+                    height: auto !important; /* Allow row to grow */
+                    min-height: 150px; /* Minimum height for a row */
+                    overflow: visible !important; /* Allow popup to show */
+                }
+                .rbc-row-bg {
+                    height: 100% !important; /* Ensure grid lines stretch */
                 }
                 .rbc-day-bg { 
-                    border-left: 1px solid #1e293b; 
-                    background-color: #0b1121;
+                    border-left: 1px solid var(--main-border); 
+                    background-color: var(--card-bg);
                     transition: background-color 0.2s; 
                 }
                 .rbc-day-bg:hover { 
-                    background-color: #1a202c; 
+                    background-color: var(--main-bg); 
                 }
                 .rbc-month-row + .rbc-month-row { 
-                    border-top: 1px solid #1e293b; 
+                    border-top: 1px solid var(--main-border); 
                 }
                 .rbc-off-range-bg { 
-                    background-color: #020617; 
-                    opacity: 0.7; 
+                    background-color: var(--main-bg); 
+                    opacity: 0.5; 
                 }
                 .rbc-today .rbc-day-bg {
-                    background-color: #1e293b !important;
+                    background-color: var(--main-bg) !important;
                 }
                 .rbc-date-cell {
-                    padding: 0 !important;
+                    padding: 4px !important;
                     text-align: left !important;
                 }
                 .rbc-event { 
-                    padding: 0 !important; 
-                    margin: 2px 8px !important; 
+                    padding: 2px 4px !important; 
+                    margin: 2px 0 !important; /* Remove horizontal margin from class, handled by style prop */
                     cursor: pointer;
                     overflow: visible !important;
-                    background: none !important; /* Reset default background to avoid conflicts */
+                    background: none !important;
                     border: none !important;
+                    position: relative;
+                    height: auto !important; /* Allow event to grow */
+                    white-space: normal !important; /* Allow text wrap */
+                    width: auto !important;
                 }
-                /* Ensure the colored box is visible */
-                .rbc-event > div:first-child {
-                    height: 100%;
-                    width: 100%;
+                @media (min-width: 768px) {
+                    /* .rbc-event { margin: 2px 8px !important; } Remove this as it conflicts */
                 }
                 .rbc-event:focus { outline: none; }
-                .rbc-row-content {
-                    z-index: 4;
-                }
-                .rbc-row-segment { 
-                    padding: 0 !important; 
-                }
                 .rbc-show-more { 
-                    color: #facc15; 
-                    font-weight: 800; 
-                    font-size: 10px; 
-                    margin-left: 8px;
-                    text-transform: uppercase;
+                    display: none; /* Hide "Show more" - we show all by expanding */
                 }
-                .rbc-month-row {
-                    overflow: visible !important;
+                /* Popup z-index */
+                .rbc-event:hover {
+                    z-index: 50;
+                }
+                /* Ensure row content stretches */
+                .rbc-row-content {
+                    position: static !important;
+                    height: auto !important;
+                }
+                /* MOBILE FIX: Enable horizontal scroll for the grid on small screens 
+                   so cells don't get squashed */
+                .rbc-calendar {
+                    min-width: 800px; /* Force minimum width to trigger scroll on mobile */
                 }
             `}</style>
-            <Calendar
-                localizer={localizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                style={{ height: '100%' }}
-                eventPropGetter={eventStyleGetter}
-                views={['month']}
-                view={view}
-                date={date}
-                onNavigate={onNavigate}
-                onView={onView}
-                showAllEvents={true}
-                components={{
-                    toolbar: CustomToolbar,
-                    month: {
-                        dateHeader: (props) => <CustomDateHeader {...props} delegations={delegations} />,
-                        event: (props) => (
-                            <CustomEvent
-                                {...props}
-                                user={user}
-                                isAdmin={isAdmin}
-                                onEdit={onEdit}
-                                onDelete={onDelete}
-                            />
-                        )
-                    }
-                }}
-            />
+            <div className="overflow-x-auto w-full">
+                <Calendar
+                    localizer={localizer}
+                    events={events}
+                    startAccessor="start"
+                    endAccessor="end"
+                    style={{ height: 'auto' }} // Changed from 100% to auto
+                    eventPropGetter={eventStyleGetter}
+                    views={['month']}
+                    view={view}
+                    date={date}
+                    onNavigate={onNavigate}
+                    onView={onView}
+                    // showAllEvents={true} // Removed as it's not a standard prop, we handle via CSS
+                    components={{
+                        toolbar: CustomToolbar,
+                        month: {
+                            dateHeader: (props) => <CustomDateHeader {...props} delegations={delegations} />,
+                            event: (props) => (
+                                <CustomEvent
+                                    {...props}
+                                    user={user}
+                                    isAdmin={isAdmin}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                />
+                            )
+                        }
+                    }}
+                />
+            </div>
         </div>
     );
 };

@@ -159,35 +159,94 @@ exports.updateDelegation = async (req, res) => {
     const { id } = req.params;
     const {
         delegation_name, description, doer_id, doer_name,
-        department, priority, due_date, evidence_required, status
+        department, priority, due_date, evidence_required, status,
+        remark // Extract remark if present
     } = req.body;
 
+    const client = await db.pool.connect(); // Use transaction for multi-table updates
+
     try {
-        let updateQuery = `
+        await client.query('BEGIN');
+
+        // 1. Check current state for revision history
+        const currentRes = await client.query('SELECT due_date, status, delegation_name FROM delegation WHERE id = $1', [id]);
+        if (currentRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Delegation not found' });
+        }
+        const currentDelegation = currentRes.rows[0];
+
+        // 2. Handle Revision History (if due_date changes)
+        // Ensure valid dates before comparing
+        if (due_date && currentDelegation.due_date) {
+            const newDate = new Date(due_date);
+            const oldDate = new Date(currentDelegation.due_date);
+
+            // Compare timestamps to detect change
+            if (newDate.getTime() !== oldDate.getTime()) {
+                await client.query(
+                    `INSERT INTO revision_history (delegation_id, old_due_date, new_due_date, changed_by, reason)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [
+                        id,
+                        currentDelegation.due_date,
+                        due_date,
+                        req.user.email, // Assuming req.user exists from auth middleware
+                        remark || `Status changed to ${status}`
+                    ]
+                );
+            }
+        }
+
+        // 3. Handle Remark (if provided)
+        if (remark) {
+            await client.query(
+                `INSERT INTO remark (delegation_id, user_id, username, remark)
+                 VALUES ($1, $2, $3, $4)`,
+                [id, req.user.id, req.user.email, remark]
+            );
+        }
+
+        // 4. Update Delegation
+        // Use COALESCE to allow partial updates.
+        const updateQuery = `
             UPDATE delegation 
-            SET delegation_name = $1, description = $2, doer_id = $3, doer_name = $4,
-                department = $5, priority = $6, due_date = $7, evidence_required = $8,
-                status = COALESCE($9, status), updated_at = NOW()
+            SET delegation_name = COALESCE($1, delegation_name),
+                description = COALESCE($2, description),
+                doer_id = COALESCE($3, doer_id),
+                doer_name = COALESCE($4, doer_name),
+                department = COALESCE($5, department),
+                priority = COALESCE($6, priority),
+                due_date = COALESCE($7, due_date),
+                evidence_required = COALESCE($8, evidence_required),
+                status = COALESCE($9, status)
             WHERE id = $10 RETURNING *`;
 
         const values = [
-            delegation_name, description, doer_id, doer_name,
-            department, priority, due_date,
-            evidence_required === 'true' || evidence_required === true,
-            status, id
+            delegation_name || null,
+            description || null,
+            doer_id || null,
+            doer_name || null,
+            department || null,
+            priority || null,
+            due_date || null,
+            evidence_required !== undefined ? (evidence_required === 'true' || evidence_required === true) : null,
+            status || null,
+            id
         ];
 
-        const result = await db.query(updateQuery, values);
+        const result = await client.query(updateQuery, values);
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Delegation not found' });
-        }
+        await client.query('COMMIT');
 
         console.log('✅ Delegation updated:', id);
         res.json(result.rows[0]);
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error('Error updating delegation:', err);
         res.status(500).json({ message: 'Error updating delegation' });
+    } finally {
+        client.release();
     }
 };
 
@@ -229,4 +288,3 @@ exports.streamAudio = async (req, res) => {
         res.status(500).json({ message: 'Error streaming audio' });
     }
 };
-
