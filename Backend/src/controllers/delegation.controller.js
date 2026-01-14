@@ -209,3 +209,80 @@ exports.getDelegationDetail = async (req, res) => {
         res.status(500).json({ message: 'Error fetching delegation detail' });
     }
 };
+
+// Update delegation
+exports.updateDelegation = async (req, res) => {
+    const { id } = req.params;
+    const {
+        delegation_name, description, doer_id, doer_name,
+        department, priority, due_date, evidence_required, status
+    } = req.body;
+
+    try {
+        let updateQuery = `
+            UPDATE delegation 
+            SET delegation_name = $1, description = $2, doer_id = $3, doer_name = $4,
+                department = $5, priority = $6, due_date = $7, evidence_required = $8,
+                status = COALESCE($9, status), updated_at = NOW()
+            WHERE id = $10 RETURNING *`;
+
+        const values = [
+            delegation_name, description, doer_id, doer_name,
+            department, priority, due_date,
+            evidence_required === 'true' || evidence_required === true,
+            status, id
+        ];
+
+        const result = await db.query(updateQuery, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Delegation not found' });
+        }
+
+        console.log('✅ Delegation updated:', id);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error updating delegation:', err);
+        res.status(500).json({ message: 'Error updating delegation' });
+    }
+};
+
+// Delete delegation
+exports.deleteDelegation = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Soft delete could be better, but hard delete for now as requested
+        const result = await db.query('DELETE FROM delegation WHERE id = $1 RETURNING id', [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Delegation not found' });
+        }
+
+        console.log('🗑️ Delegation deleted:', id);
+        res.json({ message: 'Delegation deleted successfully', id });
+    } catch (err) {
+        console.error('Error deleting delegation:', err);
+        res.status(500).json({ message: 'Error deleting delegation' });
+    }
+};
+
+// Stream audio from Google Drive
+exports.streamAudio = async (req, res) => {
+    const { fileId } = req.params;
+    const { getFileStream } = require('../utils/googleDrive');
+
+    try {
+        const stream = await getFileStream(fileId);
+
+        // We assume webm for now as that's what we record
+        // Ideally we'd store mimeType in DB or fetch metadata first
+        res.setHeader('Content-Type', 'audio/webm');
+
+        stream.pipe(res);
+    } catch (err) {
+        console.error('Error streaming audio:', err);
+        res.status(500).json({ message: 'Error streaming audio' });
+    }
+};
+

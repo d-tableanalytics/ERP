@@ -16,6 +16,9 @@ if (!fs.existsSync(uploadDir)) {
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+// Public route for audio streaming (needed for <audio> tags)
+router.get('/audio/:fileId', delegationController.streamAudio);
+
 // All routes require authentication
 router.use(verifyToken);
 
@@ -37,5 +40,21 @@ router.post('/',
 
 // POST /api/delegations/:id/remarks - Doer or Admin can add remarks
 router.post('/:id/remarks', delegationController.addRemark);
+
+// PUT /api/delegations/:id - Update delegation
+router.put('/:id',
+    authorize('SuperAdmin', 'Admin'), // Assuming only admins can edit for now
+    upload.fields([
+        { name: 'voice_note', maxCount: 1 },
+        { name: 'reference_docs', maxCount: 5 }
+    ]),
+    delegationController.updateDelegation
+);
+
+// DELETE /api/delegations/:id - Delete delegation
+router.delete('/:id',
+    authorize('SuperAdmin', 'Admin'),
+    delegationController.deleteDelegation
+);
 
 module.exports = router;

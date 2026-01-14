@@ -32,28 +32,30 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
 
     return (
         <aside className={`${isCollapsed ? 'w-20' : 'w-72'} flex-col border-r border-border-main bg-bg-card transition-all duration-300 ${isMobile ? 'flex w-full border-r-0' : 'hidden md:flex'} shrink-0 h-full overflow-hidden`}>
-            {/* Branding */}
-            <div className="p-4 border-b border-border-main flex items-center justify-between">
-                <div className={`flex items-center gap-3 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-                    <div className="bg-primary rounded-lg size-10 flex items-center justify-center text-white shadow-sm">
-                        <span className="material-symbols-outlined text-2xl">grid_view</span>
-                    </div>
-                    {!isCollapsed && (
-                        <div className="flex flex-col">
-                            <h1 className="text-base font-bold text-text-main leading-tight">Nexus ERP</h1>
-                            <p className="text-text-muted text-xs">v2.4</p>
+            {/* Branding - Hidden in mobile since MainLayout shows it */}
+            {!isMobile && (
+                <div className="p-4 border-b border-border-main flex items-center justify-between">
+                    <div className={`flex items-center gap-3 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
+                        <div className="bg-primary rounded-lg size-10 flex items-center justify-center text-white shadow-sm">
+                            <span className="material-symbols-outlined text-2xl">grid_view</span>
                         </div>
-                    )}
+                        {!isCollapsed && (
+                            <div className="flex flex-col">
+                                <h1 className="text-base font-bold text-text-main leading-tight">Nexus ERP</h1>
+                                <p className="text-text-muted text-xs">v2.4</p>
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="p-2 rounded-lg hover:bg-bg-main text-text-muted transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">
+                            {isCollapsed ? 'menu_open' : 'menu'}
+                        </span>
+                    </button>
                 </div>
-                <button
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="p-2 rounded-lg hover:bg-bg-main text-text-muted transition-colors"
-                >
-                    <span className="material-symbols-outlined text-[20px]">
-                        {isCollapsed ? 'menu_open' : 'menu'}
-                    </span>
-                </button>
-            </div>
+            )}
 
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">

@@ -29,7 +29,7 @@ const MainLayout = ({ children, title }) => {
                 <Header title={title} onMenuClick={() => setIsMobileMenuOpen(true)} />
 
                 {/* Scrollable Page Content */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-4">
                     <div className="max-w-[1600px] mx-auto">
                         {children}
                     </div>

@@ -1,14 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../components/layout/MainLayout';
 import CreateDelegationModal from '../../components/delegation/CreateDelegationModal';
+import DelegationCard from '../../components/delegation/DelegationCard';
+import DelegationCalendar from '../../components/delegation/DelegationCalendar';
+import Loader from '../../components/common/Loader';
+import { fetchDelegations, deleteDelegation } from '../../store/slices/delegationSlice';
 
 const Delegation = () => {
-    const { token, user } = useSelector((state) => state.auth);
-    const [delegations, setDelegations] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const dispatch = useDispatch();
+    const { user } = useSelector((state) => state.auth);
+    const { delegations, isLoading, error } = useSelector((state) => state.delegation);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [viewMode, setViewMode] = useState('list'); // 'list', 'tiles', 'calendar'
+    const [delegationToEdit, setDelegationToEdit] = useState(null);
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
+
+    const navigate = useNavigate();
+    const isAdmin = user?.role === 'Admin' || user?.role === 'SuperAdmin';
 
     const getStatCount = (label) => {
         return delegations.filter(d => d.status === label).length;
@@ -23,72 +40,200 @@ const Delegation = () => {
     ];
 
     useEffect(() => {
-        fetchDelegations();
-    }, []);
+        // Only fetch if we don't have data or it's stale
+        if (delegations.length === 0) {
+            dispatch(fetchDelegations());
+        }
+    }, [dispatch, delegations.length]);
 
-    const fetchDelegations = async () => {
-        try {
-            const response = await axios.get('http://localhost:5000/api/delegations', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setDelegations(response.data);
-            setIsLoading(false);
-        } catch (error) {
-            console.error('Error fetching delegations:', error);
-            setIsLoading(false);
+    const handleDelete = async (id) => {
+        if (window.confirm('Are you sure you want to delete this delegation?')) {
+            try {
+                await dispatch(deleteDelegation(id)).unwrap();
+            } catch (error) {
+                console.error('Error deleting delegation:', error);
+                alert('Failed to delete delegation');
+            }
         }
     };
 
-    const [showFilters, setShowFilters] = useState(false);
-    const isAdmin = user?.role === 'Admin' || user?.role === 'SuperAdmin';
+    const handleEdit = (delegation) => {
+        setDelegationToEdit(delegation);
+        setIsModalOpen(true);
+    };
+
+    const exportToCSV = () => {
+        if (!delegations.length) return;
+
+        const headers = ["ID", "Name", "Description", "Delegator", "Doer", "Department", "Priority", "Due Date", "Status", "Created At"];
+        const rows = delegations.map(d => [
+            d.id,
+            `"${d.delegation_name.replace(/"/g, '""')}"`, // Escape quotes
+            `"${(d.description || '').replace(/"/g, '""')}"`,
+            d.delegator_name,
+            d.doer_name,
+            d.department,
+            d.priority,
+            d.due_date,
+            d.status,
+            d.created_at
+        ]);
+
+        const csvContent = "data:text/csv;charset=utf-8,"
+            + headers.join(",") + "\n"
+            + rows.map(e => e.join(",")).join("\n");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `delegations_export_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // Sorting Logic
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return <span className="text-slate-400 text-[10px] ml-1 opacity-50">↕</span>;
+        return sortConfig.direction === 'asc'
+            ? <span className="text-white text-[10px] ml-1">↑</span>
+            : <span className="text-white text-[10px] ml-1">↓</span>;
+    };
+
+    const sortedDelegations = React.useMemo(() => {
+        let sortableItems = [...delegations];
+        if (sortConfig.key) {
+            sortableItems.sort((a, b) => {
+                let aValue = a[sortConfig.key];
+                let bValue = b[sortConfig.key];
+
+                // Handle dates
+                if (['created_at', 'due_date'].includes(sortConfig.key)) {
+                    aValue = new Date(aValue);
+                    bValue = new Date(bValue);
+                }
+                // Handle strings (case insensitive)
+                else if (typeof aValue === 'string') {
+                    aValue = aValue.toLowerCase();
+                    bValue = bValue.toLowerCase();
+                    if (aValue < bValue) {
+                        return sortConfig.direction === 'asc' ? -1 : 1;
+                    }
+                    if (aValue > bValue) {
+                        return sortConfig.direction === 'asc' ? 1 : -1;
+                    }
+                    return 0;
+                }
+                // Handle numbers (IDs)
+                else {
+                    if (aValue < bValue) {
+                        return sortConfig.direction === 'asc' ? -1 : 1;
+                    }
+                    if (aValue > bValue) {
+                        return sortConfig.direction === 'asc' ? 1 : -1;
+                    }
+                    return 0;
+                }
+
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [delegations, sortConfig]);
+
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = viewMode === 'calendar' ? delegations : sortedDelegations.slice(indexOfFirstItem, indexOfLastItem); // Calendar usually shows all or its own month view logic
+    const totalPages = Math.ceil(delegations.length / itemsPerPage);
+
+    const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
 
     return (
         <MainLayout title="Delegations">
-            <div className="flex flex-col gap-5 p-2 md:p-4">
-                {/* Header Actions */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-xl md:text-2xl font-bold text-text-main flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary">assignment_turned_in</span>
-                            Delegations
-                        </h1>
-                        <p className="text-xs md:text-sm text-text-muted">Track and manage task assignments efficiently</p>
+            <div className="flex flex-col gap-3 p-1 md:p-2">
+                {/* Stats Row */}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                    {stats.map((stat, idx) => (
+                        <div key={idx} className="bg-bg-card border border-border-main rounded-lg p-2 flex items-center gap-2 hover:border-primary/30 transition-all shadow-sm">
+                            <div className={`${stat.bgColor} ${stat.color} size-8 rounded-lg flex items-center justify-center shrink-0`}>
+                                <span className="material-symbols-outlined text-[18px]">{stat.icon}</span>
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-text-muted truncate">{stat.label}</p>
+                                <p className="text-base font-bold text-text-main">{stat.count}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Toolbar */}
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-bg-card border border-border-main rounded-xl p-1.5 shadow-sm">
+                    {/* View Switcher */}
+                    <div className="flex bg-bg-main rounded-lg p-0.5 w-fit">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-primary text-white shadow-md' : 'text-text-muted hover:text-text-main'}`}
+                        >
+                            <span className="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+                            List
+                        </button>
+                        <button
+                            onClick={() => setViewMode('tiles')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'tiles' ? 'bg-primary text-white shadow-md' : 'text-text-muted hover:text-text-main'}`}
+                        >
+                            <span className="material-symbols-outlined text-[18px]">grid_view</span>
+                            Tiles
+                        </button>
+                        <button
+                            onClick={() => setViewMode('calendar')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'calendar' ? 'bg-primary text-white shadow-md' : 'text-text-muted hover:text-text-main'}`}
+                        >
+                            <span className="material-symbols-outlined text-[18px]">calendar_month</span>
+                            Calendar
+                        </button>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+
+                    {/* Actions Group */}
+                    <div className="flex flex-wrap items-center gap-1.5">
                         <button
                             onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2.5 rounded-xl border border-border-main transition-all flex items-center gap-2 text-sm font-semibold ${showFilters ? 'bg-primary text-white border-primary' : 'text-text-main bg-bg-card hover:bg-bg-main'}`}
+                            className={`px-3 py-1.5 rounded-lg border border-border-main transition-all flex items-center gap-1.5 text-xs font-bold ${showFilters ? 'bg-primary/10 text-primary border-primary' : 'text-text-main bg-bg-card hover:bg-bg-main'}`}
                         >
-                            <span className="material-symbols-outlined text-[20px]">filter_alt</span>
-                            {showFilters ? 'Hide Filters' : 'Filters'}
+                            <span className="material-symbols-outlined text-[18px]">filter_alt</span>
+                            Filters
+                        </button>
+
+                        <button
+                            onClick={exportToCSV}
+                            className="px-3 py-1.5 rounded-lg border border-border-main transition-all flex items-center gap-1.5 text-xs font-bold text-text-main bg-bg-card hover:bg-bg-main"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">download</span>
+                            Export CSV
                         </button>
 
                         {isAdmin && (
                             <button
-                                onClick={() => setIsModalOpen(true)}
-                                className="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-primary/20 flex items-center gap-2 text-sm"
+                                onClick={() => {
+                                    setDelegationToEdit(null);
+                                    setIsModalOpen(true);
+                                }}
+                                className="bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-lg font-bold transition-all shadow-md shadow-primary/20 flex items-center gap-1.5 text-xs"
                             >
-                                <span className="material-symbols-outlined text-[20px]">add</span>
-                                <span className="hidden sm:inline">New Delegation</span>
-                                <span className="sm:hidden">New</span>
+                                <span className="material-symbols-outlined text-[18px]">add</span>
+                                Add New Delegation
                             </button>
                         )}
                     </div>
-                </div>
-
-                {/* Compact Stats Row */}
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                    {stats.map((stat, idx) => (
-                        <div key={idx} className="bg-bg-card border border-border-main rounded-xl p-3 flex items-center gap-3 hover:border-primary/30 transition-all shadow-sm">
-                            <div className={`${stat.bgColor} ${stat.color} size-10 rounded-lg flex items-center justify-center shrink-0`}>
-                                <span className="material-symbols-outlined text-[22px]">{stat.icon}</span>
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted truncate">{stat.label}</p>
-                                <p className="text-lg font-bold text-text-main">{stat.count}</p>
-                            </div>
-                        </div>
-                    ))}
                 </div>
 
                 {/* Collapsible Filter Panel */}
@@ -121,97 +266,201 @@ const Delegation = () => {
                     </div>
                 )}
 
-                {/* Data Table */}
-                <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-md">
-                    <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-sm text-left border-collapse min-w-[1000px] lg:min-w-full">
-                            <thead>
-                                <tr className="bg-bg-main/40 text-text-muted font-bold uppercase tracking-wider text-[10px] border-b border-border-main">
-                                    <th className="px-5 py-4">ID</th>
-                                    <th className="px-5 py-4">Task Details</th>
-                                    <th className="px-5 py-4">Assignee & Doer</th>
-                                    <th className="px-5 py-4">Dept & Priority</th>
-                                    <th className="px-5 py-4">Deadline</th>
-                                    <th className="px-5 py-4">Status</th>
-                                    <th className="px-5 py-4 text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border-main">
-                                {isLoading ? (
-                                    <tr><td colSpan="7" className="px-6 py-12 text-center text-text-muted">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                            <span>Loading delegations...</span>
-                                        </div>
-                                    </td></tr>
-                                ) : delegations.length === 0 ? (
-                                    <tr><td colSpan="7" className="px-6 py-20 text-center text-text-muted">
-                                        <span className="material-symbols-outlined text-4xl mb-2 opacity-20">inventory_2</span>
-                                        <p className="italic">No delegations found matching your roles/filters.</p>
-                                    </td></tr>
-                                ) : (
-                                    delegations.map((del) => (
-                                        <tr key={del.id} className="hover:bg-bg-main/20 transition-colors group">
-                                            <td className="px-5 py-4 font-bold text-text-main text-xs">#{del.id}</td>
-                                            <td className="px-5 py-4">
-                                                <div className="max-w-[200px] md:max-w-xs">
-                                                    <p className="font-bold text-text-main truncate" title={del.delegation_name}>{del.delegation_name}</p>
-                                                    <p className="text-[11px] text-text-muted line-clamp-1">{del.description || 'No description'}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px] uppercase">
-                                                            {del.delegator_name?.charAt(0)}
-                                                        </div>
-                                                        <span className="text-xs font-medium text-text-main line-clamp-1">By: {del.delegator_name}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="size-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-[10px] uppercase">
-                                                            {del.doer_name?.charAt(0)}
-                                                        </div>
-                                                        <span className="text-xs font-medium text-text-main line-clamp-1">To: {del.doer_name}</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <div className="space-y-1">
-                                                    <p className="text-xs font-semibold text-text-main">{del.department}</p>
-                                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase ${del.priority === 'high' ? 'bg-red-50 text-red-600 border border-red-100' :
-                                                            del.priority === 'medium' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                                                                'bg-slate-50 text-slate-600 border border-slate-100'
-                                                        }`}>
-                                                        {del.priority}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <div className="text-[11px]">
-                                                    <p className="font-bold text-text-main">{new Date(del.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</p>
-                                                    <p className="text-text-muted">{new Date(del.due_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${del.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
-                                                        del.status === 'NEED CLARITY' ? 'bg-amber-100 text-amber-700' :
-                                                            del.status === 'APPROVAL WAITING' ? 'bg-blue-100 text-blue-700' :
-                                                                'bg-slate-100 text-slate-700'
-                                                    }`}>
-                                                    {del.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-4 text-center">
-                                                <button className="p-2 rounded-lg hover:bg-bg-main text-primary transition-colors inline-flex items-center justify-center">
-                                                    <span className="material-symbols-outlined text-[20px]">visibility</span>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                {/* Content Area */}
+                <div className="min-h-[400px]">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center p-12">
+                            <Loader className="w-48 h-48" />
+                            <p className="mt-2 text-text-muted font-bold text-sm">Loading delegations...</p>
+                        </div>
+                    ) : delegations.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-20 bg-bg-card border border-border-main rounded-2xl">
+                            <span className="material-symbols-outlined text-5xl text-text-muted opacity-20 mb-3">inventory_2</span>
+                            <p className="font-bold text-text-muted">No delegations found.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {viewMode === 'list' && (
+                                <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm flex flex-col">
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <table className="w-full text-sm text-left border-collapse min-w-[1000px] lg:min-w-full">
+                                            <thead>
+                                                <tr className="bg-bg-main/40 text-text-muted font-bold uppercase tracking-wider text-[10px] border-b border-border-main">
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('id')}>
+                                                        <div className="flex items-center gap-1">Task ID {getSortIcon('id')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('created_at')}>
+                                                        <div className="flex items-center gap-1">Created {getSortIcon('created_at')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('delegation_name')}>
+                                                        <div className="flex items-center gap-1">Task {getSortIcon('delegation_name')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('delegator_name')}>
+                                                        <div className="flex items-center gap-1">Assignee {getSortIcon('delegator_name')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('doer_name')}>
+                                                        <div className="flex items-center gap-1">Doer {getSortIcon('doer_name')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('department')}>
+                                                        <div className="flex items-center gap-1">Dept {getSortIcon('department')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('priority')}>
+                                                        <div className="flex items-center gap-1">Priority {getSortIcon('priority')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('due_date')}>
+                                                        <div className="flex items-center gap-1">Due Date {getSortIcon('due_date')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 cursor-pointer hover:bg-bg-main transition-colors select-none group" onClick={() => handleSort('status')}>
+                                                        <div className="flex items-center gap-1">Status {getSortIcon('status')}</div>
+                                                    </th>
+                                                    <th className="px-5 py-4 text-center">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border-main">
+                                                {currentItems.map((del) => (
+                                                    <tr key={del.id} className="hover:bg-bg-main/20 transition-colors group">
+                                                        <td className="px-5 py-4 font-bold text-text-main text-xs">#{del.id}</td>
+                                                        <td className="px-5 py-4 text-xs font-medium text-text-muted">{new Date(del.created_at).toLocaleDateString()}</td>
+                                                        <td className="px-5 py-4">
+                                                            <div className="max-w-[200px] md:max-w-xs">
+                                                                <p className="font-bold text-text-main truncate" title={del.delegation_name}>{del.delegation_name}</p>
+                                                                <p className="text-[11px] text-text-muted line-clamp-1">{del.description || 'No description'}</p>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="size-6 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-[10px] uppercase">
+                                                                    {del.delegator_name?.charAt(0)}
+                                                                </div>
+                                                                <span className="text-xs font-medium text-text-main line-clamp-1">{del.delegator_name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="size-6 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-[10px] uppercase">
+                                                                    {del.doer_name?.charAt(0)}
+                                                                </div>
+                                                                <span className="text-xs font-medium text-text-main line-clamp-1">{del.doer_name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <p className="text-xs font-semibold text-text-main">{del.department}</p>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border transition-all ${del.priority === 'high' ? 'bg-white text-red-600 border-red-200' :
+                                                                del.priority === 'medium' ? 'bg-white text-blue-600 border-blue-200' :
+                                                                    'bg-white text-slate-600 border-slate-200'
+                                                                }`}>
+                                                                {del.priority}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <div className="text-[11px]">
+                                                                <p className="font-bold text-text-main">{new Date(del.due_date).toLocaleDateString()}</p>
+                                                                {new Date(del.due_date) < new Date() && del.status !== 'COMPLETED' && (
+                                                                    <p className="text-red-500 font-bold text-[10px] uppercase">Overdue</p>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap border transition-all ${del.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                                                                del.status === 'NEED CLARITY' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                                                                    del.status === 'APPROVAL WAITING' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                                                                        'bg-slate-500/10 text-slate-500 border-slate-500/20'
+                                                                }`}>
+                                                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${del.status === 'COMPLETED' ? 'bg-emerald-500' :
+                                                                    del.status === 'NEED CLARITY' ? 'bg-amber-500' :
+                                                                        del.status === 'APPROVAL WAITING' ? 'bg-blue-500' :
+                                                                            'bg-slate-500'
+                                                                    }`}></span>
+                                                                {del.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-5 py-4 text-center">
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <button
+                                                                    onClick={() => navigate(`/delegation/${del.id}`)}
+                                                                    className="p-2 rounded-lg hover:bg-bg-main text-text-muted hover:text-primary transition-colors inline-flex items-center justify-center" title="View Details">
+                                                                    <span className="material-symbols-outlined text-[20px]">visibility</span>
+                                                                </button>
+                                                                {(isAdmin || del.delegator_id === user.id) && (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={() => handleEdit(del)}
+                                                                            className="p-2 rounded-lg hover:bg-bg-main text-text-muted hover:text-amber-500 transition-colors inline-flex items-center justify-center" title="Edit">
+                                                                            <span className="material-symbols-outlined text-[20px]">edit</span>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDelete(del.id)}
+                                                                            className="p-2 rounded-lg hover:bg-bg-main text-text-muted hover:text-red-500 transition-colors inline-flex items-center justify-center" title="Delete">
+                                                                            <span className="material-symbols-outlined text-[20px]">delete</span>
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {viewMode === 'tiles' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 animate-in fade-in duration-500">
+                                    {currentItems.map(del => (
+                                        <DelegationCard
+                                            key={del.id}
+                                            delegation={del}
+                                            user={user}
+                                            isAdmin={isAdmin}
+                                            onEdit={handleEdit}
+                                            onDelete={handleDelete}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
+                            {viewMode === 'calendar' && (
+                                <div className="animate-in fade-in duration-500">
+                                    <DelegationCalendar
+                                        delegations={delegations}
+                                        user={user}
+                                        isAdmin={isAdmin}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Pagination Footer */}
+                            {viewMode !== 'calendar' && (
+                                <div className="bg-bg-card border border-border-main rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm mt-4">
+                                    <div className="text-sm text-text-muted">
+                                        Showing <span className="font-bold text-text-main">{indexOfFirstItem + 1}-{Math.min(indexOfLastItem, delegations.length)}</span> of <span className="font-bold text-text-main">{delegations.length}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => paginate(currentPage - 1)}
+                                            disabled={currentPage === 1}
+                                            className="px-4 py-2 bg-bg-main border border-border-main rounded-lg text-sm font-medium text-text-main disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 hover:text-white transition-colors"
+                                        >
+                                            Previous
+                                        </button>
+                                        {/* Simple page numbers could go here if needed, keeping it simple "Prev/Next" for now as per design */}
+                                        <button
+                                            onClick={() => paginate(currentPage + 1)}
+                                            disabled={currentPage === totalPages}
+                                            className="px-4 py-2 bg-bg-main border border-border-main rounded-lg text-sm font-medium text-text-main disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 hover:text-white transition-colors"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -219,8 +468,9 @@ const Delegation = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={fetchDelegations}
+                delegationToEdit={delegationToEdit}
             />
-        </MainLayout>
+        </MainLayout >
     );
 };
 

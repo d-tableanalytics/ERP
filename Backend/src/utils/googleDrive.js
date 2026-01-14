@@ -74,6 +74,12 @@ const uploadToDrive = async (fileBuffer, filename, mimeType) => {
 
         console.log('✅ Public permissions set');
 
+        // Return direct download link for audio files to ensure playback
+        if (mimeType.startsWith('audio/')) {
+            // Use constructed URL for max reliability with <audio> tags
+            return `https://drive.google.com/uc?export=download&id=${response.data.id}`;
+        }
+
         return response.data.webViewLink || response.data.webContentLink;
 
     } catch (error) {
@@ -127,4 +133,20 @@ const testDriveConnection = async () => {
     }
 };
 
-module.exports = { uploadToDrive, testDriveConnection };
+/**
+ * Get a file stream from Google Drive
+ */
+const getFileStream = async (fileId) => {
+    try {
+        const response = await drive.files.get(
+            { fileId: fileId, alt: 'media' },
+            { responseType: 'stream' }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error getting file stream:', error.message);
+        throw error;
+    }
+};
+
+module.exports = { uploadToDrive, testDriveConnection, getFileStream };

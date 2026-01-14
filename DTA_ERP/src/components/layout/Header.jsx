@@ -42,19 +42,19 @@ const Header = ({ title = "Dashboard Overview", onMenuClick }) => {
                         <span className="material-symbols-outlined text-[24px]">notifications</span>
                         <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-bg-card"></span>
                     </button>
-                    <button className="p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors">
+                    <button className="hidden md:block p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors">
                         <span className="material-symbols-outlined text-[24px]">help</span>
                     </button>
                     <button
                         onClick={toggleTheme}
-                        className="p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors"
+                        className="hidden md:block p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors"
                         title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
                     >
                         <span className="material-symbols-outlined text-[24px]">
                             {theme === 'light' ? 'dark_mode' : 'light_mode'}
                         </span>
                     </button>
-                    <button className="p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors">
+                    <button className="hidden md:block p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors">
                         <span className="material-symbols-outlined text-[24px]">settings</span>
                     </button>
                 </div>

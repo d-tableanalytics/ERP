@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 
-const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
+const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit }) => {
     const { token, user } = useSelector((state) => state.auth);
     const [employees, setEmployees] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -21,6 +21,8 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoadingData, setIsLoadingData] = useState(false);
+    const [fetchError, setFetchError] = useState(null);
 
     // Audio State
     const [isRecording, setIsRecording] = useState(false);
@@ -31,15 +33,52 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
 
     // Files
     const [files, setFiles] = useState([]);
+    const [existingDocs, setExistingDocs] = useState([]);
 
     useEffect(() => {
         if (isOpen) {
             fetchInitialData();
+            if (delegationToEdit) {
+                setFormData({
+                    delegation_name: delegationToEdit.delegation_name,
+                    description: delegationToEdit.description,
+                    doer_id: delegationToEdit.doer_id,
+                    doer_name: delegationToEdit.doer_name,
+                    department: delegationToEdit.department,
+                    priority: delegationToEdit.priority,
+                    due_date: delegationToEdit.due_date ? new Date(delegationToEdit.due_date).toISOString().slice(0, 16) : '',
+                    evidence_required: delegationToEdit.evidence_required
+                });
+
+                // Initialize existing files and audio
+                setAudioUrl(delegationToEdit.voice_note_url || null);
+                setExistingDocs(delegationToEdit.reference_docs || []);
+
+            } else {
+                setFormData({
+                    delegation_name: '',
+                    description: '',
+                    doer_id: '',
+                    doer_name: '',
+                    department: '',
+                    priority: 'medium',
+                    due_date: '',
+                    evidence_required: true
+                });
+                setFiles([]);
+                setExistingDocs([]);
+                setAudioBlob(null);
+                setAudioUrl(null);
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, delegationToEdit]);
 
     const fetchInitialData = async () => {
+        setIsLoadingData(true);
+        setFetchError(null);
         try {
+            if (!token) return;
+
             const [empRes, deptRes] = await Promise.all([
                 axios.get('http://localhost:5000/api/master/employees', { headers: { Authorization: `Bearer ${token}` } }),
                 axios.get('http://localhost:5000/api/master/departments', { headers: { Authorization: `Bearer ${token}` } })
@@ -48,6 +87,9 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
             setDepartments(deptRes.data);
         } catch (error) {
             console.error('Error fetching modal data:', error);
+            setFetchError('Failed to load team data. Please refresh.');
+        } finally {
+            setIsLoadingData(false);
         }
     };
 
@@ -88,7 +130,6 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
         chunksRef.current = [];
     };
 
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -107,17 +148,26 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
         });
 
         try {
-            await axios.post('http://localhost:5000/api/delegations', data, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
+            if (delegationToEdit) {
+                await axios.put(`http://localhost:5000/api/delegations/${delegationToEdit.id}`, data, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            } else {
+                await axios.post('http://localhost:5000/api/delegations', data, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            }
             onSuccess();
             onClose();
         } catch (error) {
-            console.error('Error creating delegation:', error);
-            alert('Failed to create delegation');
+            console.error('Error saving delegation:', error);
+            alert('Failed to save delegation');
         } finally {
             setIsSubmitting(false);
         }
@@ -169,8 +219,8 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
                             </div>
 
                             {isDropdownOpen && (
-                                <div className="absolute z-100 w-full mt-2 bg-bg-card border border-border-main rounded-2xl shadow-2xl p-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="relative mb-2">
+                                <div className="absolute z-50 w-full mt-2 bg-bg-card border border-border-main rounded-2xl shadow-2xl p-2 animate-in fade-in slide-in-from-top-2 duration-200 flex flex-col max-h-60">
+                                    <div className="relative mb-2 shrink-0">
                                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none">search</span>
                                         <input
                                             type="text"
@@ -182,25 +232,32 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
                                             onClick={(e) => e.stopPropagation()}
                                         />
                                     </div>
-                                    <div className="max-h-52 overflow-y-auto custom-scrollbar space-y-0.5">
-                                        {filteredEmployees.map(emp => (
-                                            <div
-                                                key={emp.id}
-                                                className="p-2 hover:bg-bg-main rounded-xl cursor-pointer flex items-center gap-3 transition-colors group/item"
-                                                onClick={() => {
-                                                    setFormData({ ...formData, doer_id: emp.id, doer_name: `${emp.First_Name} ${emp.Last_Name}` });
-                                                    setIsDropdownOpen(false);
-                                                }}
-                                            >
-                                                <div className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px] uppercase shrink-0">
-                                                    {emp.First_Name.charAt(0)}
-                                                </div>
-                                                <div className="overflow-hidden">
-                                                    <p className="text-xs font-bold text-text-main group-hover/item:text-primary transition-colors truncate">{emp.First_Name} {emp.Last_Name}</p>
-                                                    <p className="text-[10px] text-text-muted truncate">{emp.email}</p>
-                                                </div>
+
+                                    <div className="overflow-y-auto custom-scrollbar space-y-0.5 flex-1 min-h-0">
+                                        {filteredEmployees.length === 0 ? (
+                                            <div className="p-4 text-center text-[10px] text-text-muted font-bold">
+                                                {isLoadingData ? 'Loading team...' : (fetchError || 'No members found')}
                                             </div>
-                                        ))}
+                                        ) : (
+                                            filteredEmployees.map(emp => (
+                                                <div
+                                                    key={emp.id}
+                                                    className="p-2 hover:bg-bg-main rounded-xl cursor-pointer flex items-center gap-3 transition-colors group/item"
+                                                    onClick={() => {
+                                                        setFormData({ ...formData, doer_id: emp.id, doer_name: `${emp.First_Name} ${emp.Last_Name}` });
+                                                        setIsDropdownOpen(false);
+                                                    }}
+                                                >
+                                                    <div className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px] uppercase shrink-0">
+                                                        {emp.First_Name?.charAt(0) || '?'}
+                                                    </div>
+                                                    <div className="overflow-hidden">
+                                                        <p className="text-xs font-bold text-text-main group-hover/item:text-primary transition-colors truncate">{emp.First_Name} {emp.Last_Name}</p>
+                                                        <p className="text-[10px] text-text-muted truncate">{emp.email}</p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -223,7 +280,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
                                     value={formData.department}
                                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                                 >
-                                    <option value="">Select</option>
+                                    <option value="">{departments.length === 0 ? 'No Departments Found' : 'Select Department'}</option>
                                     {departments.map(dept => (
                                         <option key={dept.id} value={dept.name}>{dept.name}</option>
                                     ))}
@@ -357,7 +414,19 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
                                 ) : (
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-2 bg-bg-main rounded-xl p-2 border border-border-main">
-                                            <audio src={audioUrl} controls className="h-6 w-full" />
+                                            <audio
+                                                src={(() => {
+                                                    if (audioUrl && (audioUrl.includes('drive.google.com') || audioUrl.includes('docs.google.com'))) {
+                                                        const match = audioUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || audioUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                                                        if (match && match[1]) {
+                                                            return `http://localhost:5000/api/delegations/audio/${match[1]}`;
+                                                        }
+                                                    }
+                                                    return audioUrl;
+                                                })()}
+                                                controls
+                                                className="h-6 w-full"
+                                            />
                                         </div>
                                         <div className="flex gap-2">
                                             <button
@@ -415,6 +484,27 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
                                         ))}
                                     </div>
                                 )}
+
+                                {/* Existing Docs Display */}
+                                {existingDocs.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1 relative z-30 w-full px-2">
+                                        <div className="w-full text-[9px] font-bold text-text-muted uppercase mb-1">Existing Files:</div>
+                                        {existingDocs.map((doc, i) => (
+                                            <a
+                                                key={`existing-${i}`}
+                                                href={doc}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="bg-bg-card border border-border-main rounded-lg px-2 py-1 flex items-center gap-2 group/file hover:border-primary/50 transition-all cursor-pointer"
+                                            >
+                                                <span className="material-symbols-outlined text-[10px] text-primary">link</span>
+                                                <span className="text-[8px] font-bold text-text-main truncate max-w-[80px]">Document {i + 1}</span>
+                                                <span className="material-symbols-outlined text-[10px] text-text-muted group-hover/file:text-primary">open_in_new</span>
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -439,8 +529,8 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess }) => {
                         <span>{isSubmitting ? 'Sending...' : 'Authorize Delegation'}</span>
                     </button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 
