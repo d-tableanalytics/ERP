@@ -3,6 +3,7 @@ const cron = require('node-cron');
 
 // Create a new master template
 exports.createChecklistMaster = async (req, res) => {
+    console.log(req.body);
     const {
         question, assignee_id, doer_id, priority, department,
         verification_required, verifier_id, attachment_required,
@@ -34,6 +35,7 @@ exports.createChecklistMaster = async (req, res) => {
 // Update template details
 exports.updateChecklistMaster = async (req, res) => {
     const { id } = req.params;
+    console.log(req.body);
     const {
         question, assignee_id, doer_id, priority, department,
         verification_required, verifier_id, attachment_required,
@@ -66,6 +68,7 @@ exports.updateChecklistMaster = async (req, res) => {
 // Delete a template
 exports.deleteChecklistMaster = async (req, res) => {
     const { id } = req.params;
+    console.log(id);
     try {
         await db.query('DELETE FROM checklist_master WHERE id = $1', [id]);
         res.status(200).json({ message: 'Template deleted successfully' });
@@ -79,6 +82,7 @@ exports.deleteChecklistMaster = async (req, res) => {
 exports.updateChecklistStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
+    console.log(id, status);
     try {
         const query = 'UPDATE checklist SET status = $1 WHERE id = $2 RETURNING *';
         const result = await db.query(query, [status, id]);
@@ -93,10 +97,13 @@ exports.updateChecklistStatus = async (req, res) => {
 // Update checklist task details (Edit)
 exports.updateChecklistTaskDetails = async (req, res) => {
     const { id } = req.params;
+    console.log(id);
     const {
         question, assignee_id, doer_id, priority, department,
         verification_required, attachment_required, due_date
     } = req.body;
+    console.log(question, assignee_id, doer_id, priority, department,
+        verification_required, attachment_required, due_date);
 
     try {
         const query = `
@@ -129,6 +136,7 @@ exports.updateChecklistTaskDetails = async (req, res) => {
 // Delete a specific task instance
 exports.deleteChecklistTask = async (req, res) => {
     const { id } = req.params;
+    console.log(id);
     try {
         await db.query('DELETE FROM checklist WHERE id = $1', [id]);
         res.status(200).json({ message: 'Checklist task deleted successfully' });
@@ -140,13 +148,10 @@ exports.deleteChecklistTask = async (req, res) => {
 
 // Get all checklist tasks (with filtering)
 exports.getChecklists = async (req, res) => {
-    // We can filter by role if needed, similar to delegations
-    // For now, let's fetch all for simplicity, or filter by assignee/doer if they are standard users
-    // const { role, id: userId, email } = req.user; // Assuming auth middleware populates this
-
+    const { role, id: userId, email } = req.user;
+    console.log(role, userId, email);
     try {
-        // Simple fetch all for now to get it working. 
-        // In production: if (role !== 'Admin') filter by assignee_id/doer_id
+
         const query = `
             SELECT 
                 c.*, 
