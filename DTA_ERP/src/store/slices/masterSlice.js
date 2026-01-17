@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/master';
+// Use relative path to let Vite proxy handle the base URL
+const API_URL = '/api/master';
 
 export const fetchEmployees = createAsyncThunk(
     'master/fetchEmployees',
@@ -33,16 +34,68 @@ export const fetchDepartments = createAsyncThunk(
     }
 );
 
+// New Thunks for Help Ticket
+export const fetchLocations = createAsyncThunk(
+    'master/fetchLocations',
+    async (_, { getState, rejectWithValue }) => {
+        const { token } = getState().auth;
+        try {
+            const response = await axios.get(`${API_URL}/locations`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch locations');
+        }
+    }
+);
+
+export const fetchPCAccountables = createAsyncThunk(
+    'master/fetchPCAccountables',
+    async (_, { getState, rejectWithValue }) => {
+        const { token } = getState().auth;
+        try {
+            const response = await axios.get(`${API_URL}/pc-accountables`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch PC accountables');
+        }
+    }
+);
+
+export const fetchProblemSolvers = createAsyncThunk(
+    'master/fetchProblemSolvers',
+    async (_, { getState, rejectWithValue }) => {
+        const { token } = getState().auth;
+        try {
+            const response = await axios.get(`${API_URL}/problem-solvers`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch problem solvers');
+        }
+    }
+);
+
 const masterSlice = createSlice({
     name: 'master',
     initialState: {
         employees: [],
         departments: [],
+        locations: [],
+        pcAccountables: [],
+        problemSolvers: [],
         isLoading: false,
         error: null,
         lastFetchedDetails: {
             employees: 0,
-            departments: 0
+            departments: 0,
+            locations: 0,
+            pcAccountables: 0,
+            problemSolvers: 0
         }
     },
     reducers: {},
@@ -50,7 +103,6 @@ const masterSlice = createSlice({
         builder
             // Employees
             .addCase(fetchEmployees.pending, (state) => {
-                // Only set loading if we don't have data, to prevent flicker
                 if (state.employees.length === 0) state.isLoading = true;
                 state.error = null;
             })
@@ -74,6 +126,48 @@ const masterSlice = createSlice({
                 state.lastFetchedDetails.departments = Date.now();
             })
             .addCase(fetchDepartments.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+            // Locations
+            .addCase(fetchLocations.pending, (state) => {
+                if (state.locations.length === 0) state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchLocations.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.locations = action.payload;
+                state.lastFetchedDetails.locations = Date.now();
+            })
+            .addCase(fetchLocations.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+            // PC Accountables
+            .addCase(fetchPCAccountables.pending, (state) => {
+                if (state.pcAccountables.length === 0) state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchPCAccountables.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.pcAccountables = action.payload;
+                state.lastFetchedDetails.pcAccountables = Date.now();
+            })
+            .addCase(fetchPCAccountables.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+            // Problem Solvers
+            .addCase(fetchProblemSolvers.pending, (state) => {
+                if (state.problemSolvers.length === 0) state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchProblemSolvers.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.problemSolvers = action.payload;
+                state.lastFetchedDetails.problemSolvers = Date.now();
+            })
+            .addCase(fetchProblemSolvers.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
             });

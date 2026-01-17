@@ -286,3 +286,102 @@ Remove a specific task instance from the system.
 - **URL**: `/api/checklist/task/:id`
 - **Method**: `DELETE`
 - **Access**: Private
+
+---
+
+## Help Ticket Management Endpoints (FMS Workflow)
+
+### 1. Stage 1: Raise Help Ticket
+Raise a new ticket with issue details and optional image.
+
+- **URL**: `/api/help-tickets/raise`
+- **Method**: `POST`
+- **Headers**: `Content-Type: multipart/form-data`
+- **Access**: Private
+
+#### Form Data Fields:
+- `location`: string
+- `issue_description`: text
+- `pc_accountable`: integer (User_Id)
+- `desired_date`: datetime-local string
+- `priority`: string ('low', 'medium', 'high', 'critical')
+- `image_upload`: File (optional image)
+
+---
+
+### 2. Stage 2: PC Planning
+Process Controller assigns a solver and sets planned dates.
+
+- **URL**: `/api/help-tickets/pc-planning/:id`
+- **Method**: `PUT`
+- **Access**: Private
+
+#### Request Body
+```json
+{
+  "pc_planned_date": "2026-02-01T10:00:00Z",
+  "problem_solver": 3,
+  "pc_remark": "Assigned to IT team for hardware check."
+}
+```
+
+---
+
+### 3. Stage 3: Solver Action
+Solver can either solve the ticket or revise the planned date.
+
+#### Solve Ticket (Confirm Solution)
+- **URL**: `/api/help-tickets/solve/:id`
+- **Method**: `PUT`
+- **Headers**: `Content-Type: multipart/form-data`
+- **Access**: Private
+- **Body Fields**:
+  - `solver_remark`: string
+  - `proof_upload`: File (optional proof image)
+
+#### Revise Date
+- **URL**: `/api/help-tickets/revise/:id`
+- **Method**: `PUT`
+- **Access**: Private
+- **Body**: `{ "solver_planned_date": "...", "solver_remark": "..." }`
+
+---
+
+### 4. Stage 4: PC Confirmation
+PC confirms the solution provided by the solver.
+
+- **URL**: `/api/help-tickets/pc-confirm/:id`
+- **Method**: `PUT`
+- **Access**: Private
+
+#### Request Body
+```json
+{
+  "pc_status_stage4": "CONFIRMED",
+  "pc_remark_stage4": "Solution verified and working."
+}
+```
+
+---
+
+### 5. Stage 5: Closure / Re-raise
+User (Raiser) can close the ticket with a rating or re-raise if unsatisfied.
+
+#### Close Ticket
+- **URL**: `/api/help-tickets/close/:id`
+- **Method**: `PUT`
+- **Body**: `{ "closing_rating": 5, "closing_status": "SUCCESS", "remarks": "Very helpful!" }`
+
+#### Re-raise Ticket
+- **URL**: `/api/help-tickets/reraise/:id`
+- **Method**: `PUT`
+- **Body**: `{ "remarks": "The issue persisted after 2 days." }`
+
+---
+
+### 6. Get Ticket Detail with History
+Fetch full detail including the history of revisions and stage changes.
+
+- **URL**: `/api/help-tickets/:id`
+- **Method**: `GET`
+- **Access**: Private
