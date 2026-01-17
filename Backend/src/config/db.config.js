@@ -6,6 +6,8 @@ const pool = new Pool({
     ssl: {
         rejectUnauthorized: false, // Required for Neon DB
     },
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
 });
 
 pool.on('connect', () => {
