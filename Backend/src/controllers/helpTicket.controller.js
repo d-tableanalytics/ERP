@@ -1,4 +1,5 @@
 const db = require('../config/db.config');
+const { uploadToDrive } = require('../utils/googleDrive');
 
 // Helper to generate Ticket No: HT-YYYYMMDD-XXXX
 const generateTicketNo = async () => {
@@ -22,19 +23,34 @@ const recordHistory = async (client, ticketId, ticketNo, stage, oldValues, newVa
 
 // Stage 1: Raise Ticket
 exports.raiseTicket = async (req, res) => {
-    const { location, pc_accountable, issue_description, desired_date, priority } = req.body;
+    const { location, pc_accountable, issue_description, desired_date, priority, problem_solver } = req.body;
     const raised_by = req.user.id;
-    const image_upload = req.file ? `/uploads/${req.file.filename}` : null;
+
+    let image_upload = null;
+    if (req.file) {
+        try {
+            // uploadToDrive(fileBuffer, filename, mimeType)
+            image_upload = await uploadToDrive(
+                req.file.buffer,
+                req.file.originalname,
+                req.file.mimetype
+            );
+        } catch (error) {
+            console.error('Drive upload failed, expecting fallback or error', error);
+            // fallback or error handling
+        }
+    }
 
     try {
         const help_ticket_no = await generateTicketNo();
         const query = `
             INSERT INTO help_tickets (
                 help_ticket_no, location, raised_by, pc_accountable, issue_description, 
-                desired_date, image_upload, priority, current_stage, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'OPEN') RETURNING *`;
+                desired_date, image_upload, priority, current_stage, status,
+                pc_planned_date, problem_solver -- Set default PC Planned date and Problem Solver
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'OPEN', CURRENT_TIMESTAMP + INTERVAL '1 day', $9) RETURNING *`;
 
-        const values = [help_ticket_no, location, raised_by, pc_accountable, issue_description, desired_date, image_upload, priority];
+        const values = [help_ticket_no, location, raised_by, pc_accountable, issue_description, desired_date, image_upload, priority, problem_solver];
         const result = await db.query(query, values);
 
         // Record initial history
@@ -55,7 +71,7 @@ exports.raiseTicket = async (req, res) => {
 // Stage 2: PC Planning
 exports.pcPlanning = async (req, res) => {
     const { id } = req.params;
-    const { pc_planned_date, problem_solver, pc_remark } = req.body;
+    const { pc_planned_date, problem_solver, pc_remark, pc_status } = req.body;
     const actionBy = req.user.id;
 
     const client = await db.pool.connect();
@@ -66,19 +82,25 @@ exports.pcPlanning = async (req, res) => {
         if (currentRes.rows.length === 0) throw new Error('Ticket not found');
         const oldValues = currentRes.rows[0];
 
+        // Authorization Check: Only assigned PC can edit
+        if (oldValues.pc_accountable !== actionBy) {
+            throw new Error('Unauthorized: Only the assigned PC can perform this action');
+        }
+
         const query = `
             UPDATE help_tickets SET
                 pc_planned_date = $1,
                 problem_solver = $2,
                 pc_remark = $3,
+                pc_status = $4, -- Updated Column
                 pc_actual_date = CURRENT_TIMESTAMP,
                 pc_time_difference = CURRENT_TIMESTAMP - created_at,
                 current_stage = 2,
                 status = 'IN_PLANNING',
                 solver_planned_date = $1 -- Initial solver planned date matches PC planned date
-            WHERE id = $4 RETURNING *`;
+            WHERE id = $5 RETURNING *`;
 
-        const result = await client.query(query, [pc_planned_date, problem_solver, pc_remark, id]);
+        const result = await client.query(query, [pc_planned_date, problem_solver, pc_remark, pc_status, id]);
 
         await recordHistory(client, id, oldValues.help_ticket_no, 2, oldValues, result.rows[0], 'PC_PLANNING_COMPLETE', actionBy, pc_remark);
 
@@ -97,7 +119,19 @@ exports.pcPlanning = async (req, res) => {
 exports.solveTicket = async (req, res) => {
     const { id } = req.params;
     const { solver_remark } = req.body;
-    const proof_upload = req.file ? `/uploads/${req.file.filename}` : null;
+
+    let proof_upload = null;
+    if (req.file) {
+        try {
+            proof_upload = await uploadToDrive(
+                req.file.buffer,
+                req.file.originalname,
+                req.file.mimetype
+            );
+        } catch (error) {
+            console.error('Drive upload failed', error);
+        }
+    }
     const actionBy = req.user.id;
 
     const client = await db.pool.connect();
@@ -115,7 +149,8 @@ exports.solveTicket = async (req, res) => {
                 proof_upload = $2,
                 solver_time_difference = CURRENT_TIMESTAMP - pc_planned_date,
                 current_stage = 3,
-                status = 'SOLVED'
+                status = 'SOLVED',
+                pc_planned_stage4 = CURRENT_TIMESTAMP + INTERVAL '4 hours' -- Auto set next stage planned date
             WHERE id = $3 RETURNING *`;
 
         const result = await client.query(query, [solver_remark, proof_upload, id]);
@@ -190,7 +225,8 @@ exports.pcConfirmation = async (req, res) => {
                 pc_remark_stage4 = $2,
                 pc_time_difference_stage4 = CURRENT_TIMESTAMP - solver_actual_date,
                 current_stage = 4,
-                status = 'CONFIRMED'
+                status = 'CONFIRMED',
+                closing_planned = CURRENT_TIMESTAMP + INTERVAL '1 day' -- Auto set closing planned date
             WHERE id = $3 RETURNING *`;
 
         const result = await client.query(query, [pc_status_stage4, pc_remark_stage4, id]);
@@ -287,7 +323,8 @@ exports.reraiseTicket = async (req, res) => {
 // List Tickets
 exports.getTickets = async (req, res) => {
     try {
-        const { stage, status, raised_by } = req.query;
+        const { stage, status, raised_by, filter_type } = req.query;
+        const userId = req.user.id;
         let query = `
             SELECT t.*, 
                 e1.First_Name || ' ' || e1.Last_Name as raiser_name,
@@ -300,15 +337,16 @@ exports.getTickets = async (req, res) => {
             WHERE 1=1`;
 
         const params = [];
-        if (stage) {
-            params.push(stage);
-            query += ` AND current_stage = $${params.length}`;
-        }
-        if (status) {
-            params.push(status);
-            query += ` AND status = $${params.length}`;
-        }
-        if (raised_by) {
+
+        // Dashboard logic
+        if (filter_type === 'assigned') {
+            params.push(userId);
+            query += ` AND (t.pc_accountable = $${params.length} OR t.problem_solver = $${params.length})`;
+        } else if (filter_type === 'raised') {
+            params.push(userId);
+            query += ` AND t.raised_by = $${params.length}`;
+        } else if (raised_by) {
+            // legacy fallback
             params.push(raised_by);
             query += ` AND raised_by = $${params.length}`;
         }
