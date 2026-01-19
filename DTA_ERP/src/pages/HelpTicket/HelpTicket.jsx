@@ -111,9 +111,9 @@ const HelpTicket = () => {
                             <p className="text-text-muted max-w-xs mx-auto text-sm">You haven't raised any tickets yet. Click "Raise New Ticket" to get started.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-1 xl:grid-cols-2 gap-3">
                             {tickets.map((ticket) => (
-                                <div key={ticket.id} className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group hover:border-primary/30 flex flex-col h-full">
+                                <div key={ticket.id} className="w-full sm:w-[360px] md:w-[430px] lg:w-[480px] bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group hover:border-primary/30 flex flex-col h-full">
                                     <div className="p-6 flex-1 flex flex-col">
                                         {/* Ticket Header */}
                                         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
