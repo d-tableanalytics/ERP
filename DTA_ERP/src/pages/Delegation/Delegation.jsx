@@ -34,8 +34,15 @@ const Delegation = () => {
     const navigate = useNavigate();
     const isAdmin = user?.role === 'Admin' || user?.role === 'SuperAdmin';
 
+    // Strict Visibility Logic
+    const visibleDelegations = React.useMemo(() => {
+        if (isAdmin) return delegations;
+        const userId = user?.User_Id || user?.id;
+        return delegations.filter(d => d.doer_id === userId);
+    }, [delegations, isAdmin, user]);
+
     const getStatCount = (label) => {
-        return delegations.filter(d => d.status === label).length;
+        return visibleDelegations.filter(d => d.status === label).length;
     };
 
     const stats = [
@@ -76,10 +83,10 @@ const Delegation = () => {
     };
 
     const exportToCSV = () => {
-        if (!delegations.length) return;
+        if (!visibleDelegations.length) return;
 
         const headers = ["ID", "Name", "Description", "Delegator", "Doer", "Department", "Priority", "Due Date", "Status", "Created At"];
-        const rows = delegations.map(d => [
+        const rows = visibleDelegations.map(d => [
             d.id,
             `"${d.delegation_name.replace(/"/g, '""')}"`, // Escape quotes
             `"${(d.description || '').replace(/"/g, '""')}"`,
@@ -122,7 +129,7 @@ const Delegation = () => {
     };
 
     const sortedDelegations = React.useMemo(() => {
-        let sortableItems = [...delegations];
+        let sortableItems = [...visibleDelegations];
         if (sortConfig.key) {
             sortableItems.sort((a, b) => {
                 let aValue = a[sortConfig.key];
@@ -160,13 +167,13 @@ const Delegation = () => {
             });
         }
         return sortableItems;
-    }, [delegations, sortConfig]);
+    }, [visibleDelegations, sortConfig]);
 
     // Pagination Logic
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentItems = viewMode === 'calendar' ? delegations : sortedDelegations.slice(indexOfFirstItem, indexOfLastItem); // Calendar usually shows all or its own month view logic
-    const totalPages = Math.ceil(delegations.length / itemsPerPage);
+    const currentItems = viewMode === 'calendar' ? visibleDelegations : sortedDelegations.slice(indexOfFirstItem, indexOfLastItem); // Calendar usually shows all or its own month view logic
+    const totalPages = Math.ceil(visibleDelegations.length / itemsPerPage);
 
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -286,7 +293,7 @@ const Delegation = () => {
                             <Loader className="w-48 h-48" />
                             <p className="mt-2 text-text-muted font-bold text-sm">Loading delegations...</p>
                         </div>
-                    ) : delegations.length === 0 ? (
+                    ) : visibleDelegations.length === 0 ? (
                         <div className="flex flex-col items-center justify-center p-20 bg-bg-card border border-border-main rounded-2xl">
                             <span className="material-symbols-outlined text-5xl text-text-muted opacity-20 mb-3">inventory_2</span>
                             <p className="font-bold text-text-muted">No delegations found.</p>
@@ -443,7 +450,7 @@ const Delegation = () => {
                             {viewMode === 'calendar' && (
                                 <div className="animate-in fade-in duration-500">
                                     <DelegationCalendar
-                                        delegations={delegations}
+                                        delegations={visibleDelegations}
                                         user={user}
                                         isAdmin={isAdmin}
                                         onEdit={handleEdit}
@@ -456,7 +463,7 @@ const Delegation = () => {
                             {viewMode !== 'calendar' && (
                                 <div className="bg-bg-card border border-border-main rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm mt-4">
                                     <div className="text-sm text-text-muted">
-                                        Showing <span className="font-bold text-text-main">{indexOfFirstItem + 1}-{Math.min(indexOfLastItem, delegations.length)}</span> of <span className="font-bold text-text-main">{delegations.length}</span>
+                                        Showing <span className="font-bold text-text-main">{indexOfFirstItem + 1}-{Math.min(indexOfLastItem, visibleDelegations.length)}</span> of <span className="font-bold text-text-main">{visibleDelegations.length}</span>
                                     </div>
                                     <div className="flex gap-2">
                                         <button

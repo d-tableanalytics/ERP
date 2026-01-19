@@ -33,7 +33,9 @@ export const createChecklist = createAsyncThunk(
             // or just reload list if we view masters. 
             // For this UI, the user expects to see the "Task" immediately. 
             // We can optionally trigger generation endpoint
-            await axios.get(`${API_URL}/test-generation`, { verifyToken: false }); // Hacky trigger
+            await axios.get(`${API_URL}/test-generation`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
             return response.data;
         } catch (error) {
@@ -70,6 +72,28 @@ export const updateChecklistTask = createAsyncThunk(
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update checklist task');
+        }
+    }
+);
+
+// Update a checklist task status (Patch)
+export const updateChecklistStatus = createAsyncThunk(
+    'checklist/updateStatus',
+    async ({ id, data }, { getState, rejectWithValue }) => {
+        const { token } = getState().auth;
+        try {
+            // Determine content type automatically (if FormData, browser handles it)
+            const config = {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    ...(data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {})
+                }
+            };
+
+            const response = await axios.patch(`${API_URL}/task/${id}`, data, config);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to update status');
         }
     }
 );
@@ -111,7 +135,13 @@ const checklistSlice = createSlice({
             })
             // Update Task
             .addCase(updateChecklistTask.fulfilled, (state, action) => {
-                // Optimistic update or just re-fetch happens in component
+                const index = state.checklists.findIndex(c => c.id === action.payload.id);
+                if (index !== -1) {
+                    state.checklists[index] = { ...state.checklists[index], ...action.payload };
+                }
+            })
+            // Update Status (Patch)
+            .addCase(updateChecklistStatus.fulfilled, (state, action) => {
                 const index = state.checklists.findIndex(c => c.id === action.payload.id);
                 if (index !== -1) {
                     state.checklists[index] = { ...state.checklists[index], ...action.payload };

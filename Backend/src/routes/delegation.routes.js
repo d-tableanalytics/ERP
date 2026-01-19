@@ -33,7 +33,7 @@ router.post('/',
     authorize('SuperAdmin', 'Admin', 'Employee'),
     upload.fields([
         { name: 'voice_note', maxCount: 1 },
-        { name: 'reference_docs', maxCount: 5 }
+        { name: 'reference_docs', maxCount: 20 }
     ]),
     delegationController.createDelegation
 );
@@ -43,10 +43,10 @@ router.post('/:id/remarks', delegationController.addRemark);
 
 // PUT /api/delegations/:id - Update delegation
 router.put('/:id',
-    authorize('SuperAdmin', 'Admin'), // Assuming only admins can edit for now
+    authorize('SuperAdmin', 'Admin', 'Employee'), // Allow Employees to update status/upload evidence
     upload.fields([
         { name: 'voice_note', maxCount: 1 },
-        { name: 'reference_docs', maxCount: 5 }
+        { name: 'reference_docs', maxCount: 20 }
     ]),
     delegationController.updateDelegation
 );
