@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import MainLayout from '../../components/layout/MainLayout';
 import HelpTicketForm from '../../components/HelpTicket/HelpTicketForm';
 import HelpTicketTracker from '../../components/HelpTicket/HelpTicketTracker';
+import TicketDetailModal from '../../components/HelpTicket/TicketDetailModal';
 import { toast } from 'react-hot-toast';
 
 const HelpTicket = () => {
@@ -10,10 +11,13 @@ const HelpTicket = () => {
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [selectedTicket, setSelectedTicket] = useState(null);
+    const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' or 'raised'
 
     const fetchTickets = async () => {
+        setLoading(true);
         try {
-            const response = await fetch('/api/help-tickets', {
+            const response = await fetch(`/api/help-tickets?filter_type=${activeTab}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -29,7 +33,7 @@ const HelpTicket = () => {
 
     useEffect(() => {
         if (token) fetchTickets();
-    }, [token]);
+    }, [token, activeTab]);
 
     const handleFormSuccess = () => {
         fetchTickets();
@@ -60,6 +64,26 @@ const HelpTicket = () => {
                     >
                         <span className="material-symbols-outlined">add_circle</span>
                         Raise New Ticket
+                    </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex items-center gap-4 border-b border-border-main">
+                    <button
+                        onClick={() => setActiveTab('assigned')}
+                        className={`pb-3 px-1 relative font-bold text-sm transition-colors ${activeTab === 'assigned' ? 'text-primary' : 'text-text-muted hover:text-text-main'
+                            }`}
+                    >
+                        Assigned to Me
+                        {activeTab === 'assigned' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></span>}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('raised')}
+                        className={`pb-3 px-1 relative font-bold text-sm transition-colors ${activeTab === 'raised' ? 'text-primary' : 'text-text-muted hover:text-text-main'
+                            }`}
+                    >
+                        Raised by Me
+                        {activeTab === 'raised' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></span>}
                     </button>
                 </div>
 
@@ -141,7 +165,10 @@ const HelpTicket = () => {
                                                 <span className="text-xs font-bold text-text-main truncate">{ticket.solver_name || 'Unassigned'}</span>
                                             </div>
                                             <div className="flex flex-col justify-end">
-                                                <button className="bg-bg-main hover:bg-border-main text-text-main font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-2 justify-center w-full">
+                                                <button
+                                                    onClick={() => setSelectedTicket(ticket)}
+                                                    className="bg-bg-main hover:bg-border-main text-text-main font-bold py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center gap-2 justify-center w-full"
+                                                >
                                                     View Details
                                                 </button>
                                             </div>
@@ -184,6 +211,16 @@ const HelpTicket = () => {
                     </div>
                 </div>
             </div>
+            {selectedTicket && (
+                <TicketDetailModal
+                    ticket={selectedTicket}
+                    onClose={() => setSelectedTicket(null)}
+                    onUpdate={() => {
+                        fetchTickets();
+                        // Optional: Keep modal open or close it? Usually close on success which is handled in modal
+                    }}
+                />
+            )}
         </MainLayout>
     );
 };
