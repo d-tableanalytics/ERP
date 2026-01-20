@@ -3,25 +3,38 @@ const cron = require('node-cron');
 
 // Create a new master template
 exports.createChecklistMaster = async (req, res) => {
-    console.log(req.body);
+
     const {
-        question, assignee_id, doer_id, priority, department,
-        verification_required, verifier_id, attachment_required,
+        question, assignee_id, assignee_name, doer_id, doer_name, priority, department,
+        verification_required, verifier_id, verifier_name, attachment_required,
         frequency, from_date, due_date, weekly_days, selected_dates
     } = req.body;
 
     try {
         const query = `
             INSERT INTO checklist_master (
-                question, assignee_id, doer_id, priority, department,
-                verification_required, verifier_id, attachment_required,
+                question, assignee_id, assignee_name, doer_id, doer_name, priority, department,
+                verification_required, verifier_id, verifier_name, attachment_required,
                 frequency, from_date, due_date, weekly_days, selected_dates
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`;
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`;
 
         const values = [
-            question, assignee_id, doer_id, priority, department,
-            verification_required, verifier_id, attachment_required,
-            frequency, from_date, due_date, weekly_days, selected_dates
+            question,
+            assignee_id || null, // Convert '' or undefined to null
+            assignee_name,
+            doer_id || null,     // Convert '' to null (Fixes invalid input syntax for integer)
+            doer_name,
+            priority,
+            department,
+            verification_required,
+            verifier_id || null, // Convert '' to null
+            verifier_name,
+            attachment_required,
+            frequency,
+            from_date,
+            due_date,
+            weekly_days,
+            selected_dates
         ];
 
         const result = await db.query(query, values);
@@ -35,25 +48,39 @@ exports.createChecklistMaster = async (req, res) => {
 // Update template details
 exports.updateChecklistMaster = async (req, res) => {
     const { id } = req.params;
-    console.log(req.body);
+
     const {
-        question, assignee_id, doer_id, priority, department,
-        verification_required, verifier_id, attachment_required,
+        question, assignee_id, assignee_name, doer_id, doer_name, priority, department,
+        verification_required, verifier_id, verifier_name, attachment_required,
         frequency, from_date, due_date, weekly_days, selected_dates
     } = req.body;
 
     try {
         const query = `
             UPDATE checklist_master SET
-                question = $1, assignee_id = $2, doer_id = $3, priority = $4, department = $5,
-                verification_required = $6, verifier_id = $7, attachment_required = $8,
-                frequency = $9, from_date = $10, due_date = $11, weekly_days = $12, selected_dates = $13
-            WHERE id = $14 RETURNING *`;
+                question = $1, assignee_id = $2, assignee_name = $3, doer_id = $4, doer_name = $5, priority = $6, department = $7,
+                verification_required = $8, verifier_id = $9, verifier_name = $10, attachment_required = $11,
+                frequency = $12, from_date = $13, due_date = $14, weekly_days = $15, selected_dates = $16
+            WHERE id = $17 RETURNING *`;
 
         const values = [
-            question, assignee_id, doer_id, priority, department,
-            verification_required, verifier_id, attachment_required,
-            frequency, from_date, due_date, weekly_days, selected_dates, id
+            question,
+            assignee_id || null,
+            assignee_name,
+            doer_id || null,
+            doer_name,
+            priority,
+            department,
+            verification_required,
+            verifier_id || null,
+            verifier_name,
+            attachment_required,
+            frequency,
+            from_date,
+            due_date,
+            weekly_days,
+            selected_dates,
+            id
         ];
 
         const result = await db.query(query, values);
@@ -68,7 +95,7 @@ exports.updateChecklistMaster = async (req, res) => {
 // Delete a template
 exports.deleteChecklistMaster = async (req, res) => {
     const { id } = req.params;
-    console.log(id);
+
     try {
         await db.query('DELETE FROM checklist_master WHERE id = $1', [id]);
         res.status(200).json({ message: 'Template deleted successfully' });
@@ -82,10 +109,19 @@ exports.deleteChecklistMaster = async (req, res) => {
 exports.updateChecklistStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-    console.log(id, status);
+
     try {
-        const query = 'UPDATE checklist SET status = $1 WHERE id = $2 RETURNING *';
-        const result = await db.query(query, [status, id]);
+        const query = 'UPDATE checklist SET status = $1, proof_file_path = COALESCE($2, proof_file_path) WHERE id = $3 RETURNING *';
+
+        let proofPath = null;
+        if (req.file) {
+            const fileName = `proof_${id}_${Date.now()}_${req.file.originalname}`;
+            const filePath = `uploads/${fileName}`;
+            require('fs').writeFileSync(filePath, req.file.buffer);
+            proofPath = filePath;
+        }
+
+        const result = await db.query(query, [status, proofPath, id]);
         if (result.rows.length === 0) return res.status(404).json({ message: 'Checklist task not found' });
         res.status(200).json(result.rows[0]);
     } catch (err) {
@@ -97,30 +133,44 @@ exports.updateChecklistStatus = async (req, res) => {
 // Update checklist task details (Edit)
 exports.updateChecklistTaskDetails = async (req, res) => {
     const { id } = req.params;
-    console.log(id);
+
     const {
-        question, assignee_id, doer_id, priority, department,
-        verification_required, attachment_required, due_date
+        question, assignee_id, assignee_name, doer_id, doer_name, priority, department,
+        verification_required, verifier_id, verifier_name, attachment_required, due_date
     } = req.body;
-    console.log(question, assignee_id, doer_id, priority, department,
-        verification_required, attachment_required, due_date);
+
 
     try {
         const query = `
             UPDATE checklist SET
                 question = COALESCE($1, question),
                 assignee_id = COALESCE($2, assignee_id),
-                doer_id = COALESCE($3, doer_id),
-                priority = COALESCE($4, priority),
-                department = COALESCE($5, department),
-                verification_required = COALESCE($6, verification_required),
-                attachment_required = COALESCE($7, attachment_required),
-                due_date = COALESCE($8, due_date)
-            WHERE id = $9 RETURNING *`;
+                assignee_name = COALESCE($3, assignee_name),
+                doer_id = COALESCE($4, doer_id),
+                doer_name = COALESCE($5, doer_name),
+                priority = COALESCE($6, priority),
+                department = COALESCE($7, department),
+                verification_required = COALESCE($8, verification_required),
+                verifier_id = COALESCE($9, verifier_id),
+                verifier_name = COALESCE($10, verifier_name),
+                attachment_required = COALESCE($11, attachment_required),
+                due_date = COALESCE($12, due_date)
+            WHERE id = $13 RETURNING *`;
 
         const values = [
-            question, assignee_id, doer_id, priority, department,
-            verification_required, attachment_required, due_date, id
+            question,
+            assignee_id || null,
+            assignee_name,
+            doer_id || null,
+            doer_name,
+            priority,
+            department,
+            verification_required,
+            verifier_id || null,
+            verifier_name,
+            attachment_required,
+            (due_date === '' || due_date === undefined) ? null : due_date,
+            id
         ];
 
         const result = await db.query(query, values);
@@ -136,7 +186,7 @@ exports.updateChecklistTaskDetails = async (req, res) => {
 // Delete a specific task instance
 exports.deleteChecklistTask = async (req, res) => {
     const { id } = req.params;
-    console.log(id);
+
     try {
         await db.query('DELETE FROM checklist WHERE id = $1', [id]);
         res.status(200).json({ message: 'Checklist task deleted successfully' });
@@ -148,21 +198,41 @@ exports.deleteChecklistTask = async (req, res) => {
 
 // Get all checklist tasks (with filtering)
 exports.getChecklists = async (req, res) => {
-    const { role, id: userId, email } = req.user;
-    console.log(role, userId, email);
-    try {
+    const { role, id: userId, User_Id } = req.user;
+    const currentUserId = userId || User_Id; // Handle potential inconsistent naming
 
-        const query = `
-            SELECT 
-                c.*, 
-                CONCAT(e1.First_Name, ' ', e1.Last_Name) as assignee_name,
-                CONCAT(e2.First_Name, ' ', e2.Last_Name) as doer_name
-            FROM checklist c
-            LEFT JOIN employees e1 ON c.assignee_id = e1.User_Id
-            LEFT JOIN employees e2 ON c.doer_id = e2.User_Id
-            ORDER BY c.created_at DESC
-        `;
-        const result = await db.query(query);
+    try {
+        let query;
+        let queryParams = [];
+
+        if (role === 'Admin' || role === 'SuperAdmin') {
+            query = `
+                SELECT 
+                    c.*, 
+                    COALESCE(NULLIF(TRIM(CONCAT(e1.First_Name, ' ', e1.Last_Name)), ''), c.assignee_name) as assignee_name,
+                    COALESCE(NULLIF(TRIM(CONCAT(e2.First_Name, ' ', e2.Last_Name)), ''), c.doer_name) as doer_name
+                FROM checklist c
+                LEFT JOIN employees e1 ON c.assignee_id = e1.User_Id
+                LEFT JOIN employees e2 ON c.doer_id = e2.User_Id
+                ORDER BY c.id DESC
+            `;
+        } else {
+            // Ensure non-admins only see tasks where they are Assignee, Doer, or Verifier
+            query = `
+                SELECT 
+                    c.*, 
+                    COALESCE(NULLIF(TRIM(CONCAT(e1.First_Name, ' ', e1.Last_Name)), ''), c.assignee_name) as assignee_name,
+                    COALESCE(NULLIF(TRIM(CONCAT(e2.First_Name, ' ', e2.Last_Name)), ''), c.doer_name) as doer_name
+                FROM checklist c
+                LEFT JOIN employees e1 ON c.assignee_id = e1.User_Id
+                LEFT JOIN employees e2 ON c.doer_id = e2.User_Id
+                WHERE c.assignee_id = $1 OR c.doer_id = $1 OR c.verifier_id = $1
+                ORDER BY c.id DESC
+            `;
+            queryParams = [currentUserId];
+        }
+
+        const result = await db.query(query, queryParams);
         res.status(200).json(result.rows);
     } catch (err) {
         console.error('Error fetching checklists:', err);
@@ -190,6 +260,22 @@ const generateDailyTasks = async () => {
                 shouldCreate = true;
             } else if (master.frequency === 'monthly' && master.selected_dates.includes(todayDate)) {
                 shouldCreate = true;
+            } else if (master.frequency === 'quarterly') {
+                const startDate = new Date(master.from_date);
+                const startMonth = startDate.getMonth();
+                const currentMonth = now.getMonth();
+                // Check if date matches AND month diff is multiple of 3
+                if (master.selected_dates.includes(todayDate) && (currentMonth - startMonth + 12) % 3 === 0) {
+                    shouldCreate = true;
+                }
+            } else if (master.frequency === 'yearly') {
+                const startDate = new Date(master.from_date);
+                const startMonth = startDate.getMonth();
+                const currentMonth = now.getMonth();
+                // Check if date matches AND month matches
+                if (master.selected_dates.includes(todayDate) && currentMonth === startMonth) {
+                    shouldCreate = true;
+                }
             }
 
             if (shouldCreate) {
@@ -200,16 +286,20 @@ const generateDailyTasks = async () => {
                 );
 
                 if (duplicateCheck.rows.length === 0) {
+                    // Default due_date to end of today (23:59:59) for daily tasks
+                    const dueDate = new Date();
+                    dueDate.setHours(23, 59, 59, 999);
+
                     const insertQuery = `
                         INSERT INTO checklist (
-                            master_id, question, assignee_id, doer_id, priority, department,
-                            verification_required, verifier_id, attachment_required, frequency
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`;
+                            master_id, question, assignee_id, assignee_name, doer_id, doer_name, priority, department,
+                            verification_required, verifier_id, verifier_name, attachment_required, frequency, due_date
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`;
 
                     const values = [
-                        master.id, master.question, master.assignee_id, master.doer_id,
+                        master.id, master.question, master.assignee_id, master.assignee_name, master.doer_id, master.doer_name,
                         master.priority, master.department, master.verification_required,
-                        master.verifier_id, master.attachment_required, master.frequency
+                        master.verifier_id, master.verifier_name, master.attachment_required, master.frequency, dueDate
                     ];
 
                     await db.query(insertQuery, values);

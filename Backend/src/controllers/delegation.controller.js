@@ -17,10 +17,7 @@ exports.createDelegation = async (req, res) => {
 
     try {
         // Test connection first
-        const isConnected = await testDriveConnection();
-        if (!isConnected) {
-            console.warn('⚠️ Google Drive connection test failed. Using fallback storage.');
-        }
+
 
         if (req.files && req.files['voice_note']) {
             const file = req.files['voice_note'][0];
@@ -92,8 +89,10 @@ exports.getDelegations = async (req, res) => {
             query = 'SELECT * FROM delegation ORDER BY created_at DESC';
         } else {
             // Doer sees only their assigned tasks OR tasks they delegated
-            query = 'SELECT * FROM delegation WHERE doer_id = $1 OR doer_name = $2 OR delegator_id = $1 OR delegator_name = $2 ORDER BY created_at DESC';
-            values = [req.user.id, email];
+            // Use ID-based filtering for accuracy. fallback to User_Id if id is missing.
+            const userId = req.user.id || req.user.User_Id;
+            query = 'SELECT * FROM delegation WHERE doer_id = $1 OR delegator_id = $1 ORDER BY created_at DESC';
+            values = [userId];
         }
 
         const result = await db.query(query, values);
@@ -207,8 +206,34 @@ exports.updateDelegation = async (req, res) => {
             );
         }
 
+        // 3.5 Handle File Uploads
+        let new_voice_note_url = null;
+        let new_reference_docs = [];
+
+        if (req.files) {
+            if (req.files['voice_note']) {
+                try {
+                    const file = req.files['voice_note'][0];
+                    new_voice_note_url = await uploadToDrive(file.buffer, file.originalname, file.mimetype);
+                } catch (e) {
+                    console.warn('Voice upload failed on update:', e);
+                }
+            }
+            if (req.files['reference_docs']) {
+                new_reference_docs = await Promise.all(req.files['reference_docs'].map(async (file) => {
+                    try {
+                        return await uploadToDrive(file.buffer, file.originalname, file.mimetype);
+                    } catch (e) {
+                        console.warn('Doc upload failed on update:', e);
+                        return null;
+                    }
+                }));
+                new_reference_docs = new_reference_docs.filter(url => url !== null);
+            }
+        }
+
         // 4. Update Delegation
-        // Use COALESCE to allow partial updates.
+        // Note: For arrays like reference_docs, we append new files to existing ones using array_cat
         const updateQuery = `
             UPDATE delegation 
             SET delegation_name = COALESCE($1, delegation_name),
@@ -219,8 +244,13 @@ exports.updateDelegation = async (req, res) => {
                 priority = COALESCE($6, priority),
                 due_date = COALESCE($7, due_date),
                 evidence_required = COALESCE($8, evidence_required),
-                status = COALESCE($9, status)
-            WHERE id = $10 RETURNING *`;
+                status = COALESCE($9, status),
+                voice_note_url = COALESCE($10, voice_note_url),
+                reference_docs = CASE 
+                                    WHEN $11::text[] IS NOT NULL THEN array_cat(reference_docs, $11::text[]) 
+                                    ELSE reference_docs 
+                                 END
+            WHERE id = $12 RETURNING *`;
 
         const values = [
             delegation_name || null,
@@ -232,7 +262,9 @@ exports.updateDelegation = async (req, res) => {
             due_date || null,
             evidence_required !== undefined ? (evidence_required === 'true' || evidence_required === true) : null,
             status || null,
-            id
+            new_voice_note_url, // $10
+            new_reference_docs.length > 0 ? new_reference_docs : null, // $11
+            id // $12
         ];
 
         const result = await client.query(updateQuery, values);

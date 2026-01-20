@@ -3,17 +3,22 @@ import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { createChecklist, updateChecklistTask } from '../../store/slices/checklistSlice';
 import toast from 'react-hot-toast';
+import DaySelector from './DaySelector';
+import MultiDateSelector from './MultiDateSelector';
+import CustomDatePicker from '../common/CustomDatePicker';
 
 const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) => {
     const dispatch = useDispatch();
-    const { token } = useSelector((state) => state.auth);
+    const { token, user } = useSelector((state) => state.auth);
     const [employees, setEmployees] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
-    const [isDoerDropdownOpen, setIsDoerDropdownOpen] = useState(false);
+    const [activeDropdown, setActiveDropdown] = useState(null); // 'assignee', 'doer', 'verifier', 'department' or null
     const [assigneeSearch, setAssigneeSearch] = useState('');
     const [doerSearch, setDoerSearch] = useState('');
+    const [verifierSearch, setVerifierSearch] = useState('');
+
+
 
     const [formData, setFormData] = useState({
         task: '',
@@ -27,7 +32,9 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
         start_date: '',
         due_date: '',
         verification_required: false,
-        attachment_required: false
+        attachment_required: false,
+        verifier_id: '',
+        verifier_name: ''
     });
 
     const isEditMode = !!checklistToEdit;
@@ -49,14 +56,17 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                     start_date: checklistToEdit.created_at ? new Date(checklistToEdit.created_at).toISOString().slice(0, 16) : '',
                     due_date: checklistToEdit.due_date ? new Date(checklistToEdit.due_date).toISOString().slice(0, 16) : '',
                     verification_required: checklistToEdit.verification_required || false,
+                    verifier_id: checklistToEdit.verifier_id || '',
+                    verifier_name: checklistToEdit.verifier_name || '',
                     attachment_required: checklistToEdit.attachment_required || false
                 });
             } else {
                 // Reset form on open for create
                 setFormData({
                     task: '',
-                    assignee_id: '',
-                    assignee_name: '',
+
+                    assignee_id: user?.id || user?.User_Id || '',
+                    assignee_name: user?.name || `${user?.first_name || user?.First_Name || ''} ${user?.last_name || user?.Last_Name || ''}`.trim(),
                     doer_id: '',
                     doer_name: '',
                     department: '',
@@ -64,6 +74,8 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                     frequency: 'daily',
                     start_date: new Date().toISOString().slice(0, 16),
                     due_date: '',
+                    weekly_days: [],
+                    selected_dates: [],
                     verification_required: false,
                     attachment_required: false
                 });
@@ -96,11 +108,17 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
         const payload = {
             question: formData.task,
             assignee_id: formData.assignee_id,
+            assignee: formData.assignee_name, // Send name as 'assignee' or 'assignee_name' depending on backend. Sending both to be safe or just standardizing.
+            assignee_name: formData.assignee_name,
             doer_id: formData.doer_id,
+            doer: formData.doer_name,
+            doer_name: formData.doer_name,
             priority: formData.priority,
             department: formData.department,
             verification_required: formData.verification_required,
             attachment_required: formData.attachment_required,
+            verifier_id: formData.verifier_id,
+            verifier_name: formData.verifier_name,  // Send name if backend supports it later
             // For Edit, we send due_date. For Create, we send start_date (which becomes from_date/due_date logic)
             due_date: isEditMode ? formData.due_date : formData.start_date,
         };
@@ -117,14 +135,35 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                 toast.error('Failed to update checklist: ' + error);
             }
         } else {
+            // Auto-infer dates/days if not explicitly selected
+            let finalWeeklyDays = formData.frequency === 'weekly' ? formData.weekly_days : [];
+            const isDateFrequency = ['monthly', 'quarterly', 'yearly'].includes(formData.frequency);
+            let finalSelectedDates = isDateFrequency ? formData.selected_dates : [];
+
+            if (formData.start_date) {
+                const startDateObj = new Date(formData.start_date);
+
+                // If weekly and no days selected, use start_date's day
+                if (formData.frequency === 'weekly' && finalWeeklyDays.length === 0) {
+                    const dayName = startDateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                    finalWeeklyDays = [dayName];
+                }
+
+                // If monthly/quarterly/yearly and no dates selected, use start_date's date
+                if (isDateFrequency && finalSelectedDates.length === 0) {
+                    finalSelectedDates = [startDateObj.getDate()];
+                }
+            }
+
             // Create Master Logic
             const createPayload = {
                 ...payload,
                 frequency: formData.frequency,
                 from_date: formData.start_date,
-                weekly_days: [],
-                selected_dates: []
+                weekly_days: finalWeeklyDays,
+                selected_dates: finalSelectedDates
             };
+
             try {
                 await dispatch(createChecklist(createPayload)).unwrap();
                 toast.success('Checklist created successfully');
@@ -189,18 +228,23 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
 
                         {/* Assignee */}
                         <div className="relative group">
-                            <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Assignee *</label>
+                            <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Assignee</label>
                             <div
                                 className="bg-bg-main rounded-2xl p-3 flex items-center justify-between cursor-pointer border border-border-main hover:border-yellow-500/50 transition-all"
-                                onClick={() => setIsAssigneeDropdownOpen(!isAssigneeDropdownOpen)}
+                                onClick={() => setActiveDropdown(activeDropdown === 'assignee' ? null : 'assignee')}
                             >
-                                <span className={`truncate text-sm font-bold ${formData.assignee_name ? 'text-text-main' : 'text-text-muted'}`}>
-                                    {formData.assignee_name || 'Search assignee...'}
-                                </span>
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <div className="size-6 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center font-bold text-[8px] uppercase">
+                                        {(formData.assignee_name || 'A')[0]}
+                                    </div>
+                                    <span className={`truncate text-sm font-bold ${formData.assignee_name ? 'text-text-main' : 'text-text-muted'}`}>
+                                        {formData.assignee_name || 'Select assignee...'}
+                                    </span>
+                                </div>
                                 <span className="material-symbols-outlined text-text-muted text-[18px]">expand_more</span>
                             </div>
 
-                            {isAssigneeDropdownOpen && (
+                            {activeDropdown === 'assignee' && (
                                 <div className="absolute z-50 w-full mt-2 bg-bg-card border border-border-main rounded-xl shadow-xl p-2 flex flex-col max-h-48">
                                     <input
                                         type="text"
@@ -214,11 +258,11 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                                     <div className="overflow-y-auto custom-scrollbar flex-1 min-h-0">
                                         {filterEmployees(assigneeSearch).map(emp => (
                                             <div
-                                                key={emp.User_Id}
+                                                key={emp.id}
                                                 className="p-2 hover:bg-bg-main rounded-lg cursor-pointer flex items-center gap-2 text-xs"
                                                 onClick={() => {
-                                                    setFormData({ ...formData, assignee_id: emp.User_Id, assignee_name: `${emp.First_Name} ${emp.Last_Name}` });
-                                                    setIsAssigneeDropdownOpen(false);
+                                                    setFormData({ ...formData, assignee_id: emp.id, assignee_name: `${emp.First_Name} ${emp.Last_Name}` });
+                                                    setActiveDropdown(null);
                                                 }}
                                             >
                                                 <div className="size-6 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center font-bold text-[8px] uppercase">{emp.First_Name[0]}</div>
@@ -235,7 +279,7 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                             <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Doer</label>
                             <div
                                 className="bg-bg-main rounded-2xl p-3 flex items-center justify-between cursor-pointer border border-border-main hover:border-yellow-500/50 transition-all"
-                                onClick={() => setIsDoerDropdownOpen(!isDoerDropdownOpen)}
+                                onClick={() => setActiveDropdown(activeDropdown === 'doer' ? null : 'doer')}
                             >
                                 <span className={`truncate text-sm font-bold ${formData.doer_name ? 'text-text-main' : 'text-text-muted'}`}>
                                     {formData.doer_name || 'Search doer...'}
@@ -243,7 +287,7 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                                 <span className="material-symbols-outlined text-text-muted text-[18px]">expand_more</span>
                             </div>
 
-                            {isDoerDropdownOpen && (
+                            {activeDropdown === 'doer' && (
                                 <div className="absolute z-50 w-full mt-2 bg-bg-card border border-border-main rounded-xl shadow-xl p-2 flex flex-col max-h-48">
                                     <input
                                         type="text"
@@ -257,11 +301,11 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                                     <div className="overflow-y-auto custom-scrollbar flex-1 min-h-0">
                                         {filterEmployees(doerSearch).map(emp => (
                                             <div
-                                                key={emp.User_Id}
+                                                key={emp.id}
                                                 className="p-2 hover:bg-bg-main rounded-lg cursor-pointer flex items-center gap-2 text-xs"
                                                 onClick={() => {
-                                                    setFormData({ ...formData, doer_id: emp.User_Id, doer_name: `${emp.First_Name} ${emp.Last_Name}` });
-                                                    setIsDoerDropdownOpen(false);
+                                                    setFormData({ ...formData, doer_id: emp.id, doer_name: `${emp.First_Name} ${emp.Last_Name}` });
+                                                    setActiveDropdown(null);
                                                 }}
                                             >
                                                 <div className="size-6 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-[8px] uppercase">{emp.First_Name[0]}</div>
@@ -274,18 +318,36 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                         </div>
 
                         {/* Department */}
-                        <div>
+                        <div className="relative group">
                             <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Department</label>
-                            <select
-                                className="w-full bg-bg-main border border-border-main rounded-2xl p-3 text-sm text-text-main font-bold focus:outline-none focus:ring-2 focus:ring-yellow-500/50 appearance-none cursor-pointer hover:border-yellow-500/50 transition-all"
-                                value={formData.department}
-                                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                            <div
+                                className="bg-bg-main rounded-2xl p-3 flex items-center justify-between cursor-pointer border border-border-main hover:border-yellow-500/50 transition-all"
+                                onClick={() => setActiveDropdown(activeDropdown === 'department' ? null : 'department')}
                             >
-                                <option value="">Search department...</option>
-                                {departments.map(dept => (
-                                    <option key={dept.id} value={dept.name}>{dept.name}</option>
-                                ))}
-                            </select>
+                                <span className={`truncate text-sm font-bold ${formData.department ? 'text-text-main' : 'text-text-muted'}`}>
+                                    {formData.department || 'Select department...'}
+                                </span>
+                                <span className="material-symbols-outlined text-text-muted text-[18px]">expand_more</span>
+                            </div>
+
+                            {activeDropdown === 'department' && (
+                                <div className="absolute z-50 w-full mt-2 bg-bg-card border border-border-main rounded-xl shadow-xl p-2 flex flex-col max-h-48">
+                                    <div className="overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                                        {departments.map(dept => (
+                                            <div
+                                                key={dept.id}
+                                                className="p-2 hover:bg-bg-main rounded-lg cursor-pointer flex items-center gap-2 text-xs"
+                                                onClick={() => {
+                                                    setFormData({ ...formData, department: dept.name });
+                                                    setActiveDropdown(null);
+                                                }}
+                                            >
+                                                <span className="text-text-main font-medium">{dept.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -299,9 +361,9 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                                     type="button"
                                     onClick={() => setFormData({ ...formData, priority: p.toLowerCase() })}
                                     className={`py-3 rounded-xl border font-bold text-sm transition-all ${formData.priority === p.toLowerCase()
-                                        ? p === 'High' ? 'bg-bg-card border-red-500 text-red-500 shadow-[0_0_15px_-3px_rgba(239,68,68,0.3)]'
-                                            : p === 'Medium' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/20' // Matched reference blue
-                                                : 'bg-bg-card border-green-500 text-green-500 shadow-[0_0_15px_-3px_rgba(34,197,94,0.3)]'
+                                        ? p === 'High' ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20'
+                                            : p === 'Medium' ? 'bg-yellow-400 text-black border-yellow-400 shadow-lg shadow-yellow-400/20'
+                                                : 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/20'
                                         : 'bg-bg-main/50 border-transparent text-text-muted hover:bg-bg-main'
                                         }`}
                                 >
@@ -333,45 +395,129 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
                         </div>
                     )}
 
+                    {/* Weekly Days Selector */}
+                    {!isEditMode && formData.frequency === 'weekly' && (
+                        <DaySelector
+                            selectedDays={formData.weekly_days}
+                            onChange={(days) => setFormData({ ...formData, weekly_days: days })}
+                        />
+                    )}
+
+
+
+
                     {/* Date */}
                     <div>
-                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">
-                            {isEditMode ? 'Due Date & Time' : 'From Date & Time *'}
-                        </label>
-                        <input
-                            type="datetime-local"
-                            required
-                            className="w-full bg-orange-50/5 border border-border-main rounded-xl p-3 text-sm text-text-main font-bold focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-                            value={isEditMode ? formData.due_date : formData.start_date}
-                            onChange={(e) => isEditMode
-                                ? setFormData({ ...formData, due_date: e.target.value })
-                                : setFormData({ ...formData, start_date: e.target.value })
+                        <CustomDatePicker
+                            label={isEditMode ? 'Due Date & Time' : 'From Date & Time *'}
+                            multiple={!isEditMode && ['monthly', 'quarterly', 'yearly'].includes(formData.frequency)}
+                            value={
+                                !isEditMode && ['monthly', 'quarterly', 'yearly'].includes(formData.frequency) && formData.selected_dates?.length > 0 && formData.start_date
+                                    ? formData.selected_dates.map(day => {
+                                        const d = new Date(formData.start_date);
+                                        d.setDate(day);
+                                        return d.toISOString();
+                                    })
+                                    : (isEditMode ? formData.due_date : formData.start_date)
                             }
+                            onChange={(val) => {
+                                if (Array.isArray(val)) {
+                                    // Handle Multi-Select
+                                    if (val.length > 0) {
+                                        const sorted = val.sort();
+                                        const startDate = sorted[0];
+                                        const days = sorted.map(d => new Date(d).getDate());
+                                        setFormData({ ...formData, start_date: startDate, selected_dates: days });
+                                    } else {
+                                        setFormData({ ...formData, start_date: '', selected_dates: [] });
+                                    }
+                                } else {
+                                    // Handle Single Select
+                                    if (isEditMode) {
+                                        setFormData({ ...formData, due_date: val });
+                                    } else {
+                                        setFormData({ ...formData, start_date: val });
+                                    }
+                                }
+                            }}
                         />
                     </div>
 
                     {/* Toggles */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-orange-50/5 border border-border-main rounded-2xl p-4 flex items-center justify-between">
-                            <span className="text-xs font-bold text-text-muted">✓ Verification Required</span>
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, verification_required: !formData.verification_required })}
-                                className={`w-12 h-6 rounded-full relative transition-colors ${formData.verification_required ? 'bg-yellow-500' : 'bg-bg-main border border-border-main'}`}
-                            >
-                                <div className={`size-4 rounded-full bg-white absolute top-1 transition-all ${formData.verification_required ? 'left-7' : 'left-1'}`} />
-                            </button>
+                    {/* Toggles & Verification Logic */}
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Verification Toggle */}
+                            <div className={`border rounded-2xl p-4 flex items-center justify-between transition-all ${formData.verification_required ? 'bg-yellow-500/10 border-yellow-500' : 'bg-bg-main border-border-main'}`}>
+                                <span className={`text-xs font-bold ${formData.verification_required ? 'text-yellow-600' : 'text-text-muted'}`}>✓ Verification Required</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, verification_required: !formData.verification_required })}
+                                    className={`w-12 h-6 rounded-full relative transition-colors ${formData.verification_required ? 'bg-yellow-500' : 'bg-gray-700'}`}
+                                >
+                                    <div className={`size-4 rounded-full bg-white absolute top-1 transition-all ${formData.verification_required ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
+
+                            {/* Attachment Toggle */}
+                            <div className={`bg-bg-main border border-border-main rounded-2xl p-4 flex items-center justify-between`}>
+                                <span className="text-xs font-bold text-text-muted">📎 Task Attachment Required</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, attachment_required: !formData.attachment_required })}
+                                    className={`w-12 h-6 rounded-full relative transition-colors ${formData.attachment_required ? 'bg-yellow-500' : 'bg-gray-700'}`}
+                                >
+                                    <div className={`size-4 rounded-full bg-white absolute top-1 transition-all ${formData.attachment_required ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
                         </div>
-                        <div className="bg-orange-50/5 border border-border-main rounded-2xl p-4 flex items-center justify-between">
-                            <span className="text-xs font-bold text-text-muted">📎 Task Attachment Required</span>
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, attachment_required: !formData.attachment_required })}
-                                className={`w-12 h-6 rounded-full relative transition-colors ${formData.attachment_required ? 'bg-yellow-500' : 'bg-bg-main border border-border-main'}`}
-                            >
-                                <div className={`size-4 rounded-full bg-white absolute top-1 transition-all ${formData.attachment_required ? 'left-7' : 'left-1'}`} />
-                            </button>
-                        </div>
+
+                        {/* Verifier Dropdown (Visible only if Verification Required) */}
+                        {formData.verification_required && (
+                            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Verifier Name *</label>
+                                <div className="relative group">
+                                    <div
+                                        className="bg-bg-main rounded-2xl p-3 flex items-center justify-between cursor-pointer border border-border-main hover:border-yellow-500/50 transition-all"
+                                        onClick={() => setActiveDropdown(activeDropdown === 'verifier' ? null : 'verifier')}
+                                    >
+                                        <span className={`truncate text-sm font-bold ${formData.verifier_name ? 'text-text-main' : 'text-text-muted'}`}>
+                                            {formData.verifier_name || 'Search verifier...'}
+                                        </span>
+                                        <span className="material-symbols-outlined text-text-muted text-[18px]">expand_more</span>
+                                    </div>
+
+                                    {activeDropdown === 'verifier' && (
+                                        <div className="absolute z-50 w-full mt-2 bg-bg-card border border-border-main rounded-xl shadow-xl p-2 flex flex-col max-h-48 bottom-full mb-2">
+                                            <input
+                                                type="text"
+                                                autoFocus
+                                                placeholder="Search..."
+                                                className="w-full bg-bg-main border border-border-main rounded-lg px-3 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
+                                                value={verifierSearch}
+                                                onChange={(e) => setVerifierSearch(e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                            <div className="overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                                                {filterEmployees(verifierSearch).map(emp => (
+                                                    <div
+                                                        key={emp.id}
+                                                        className="p-2 hover:bg-bg-main rounded-lg cursor-pointer flex items-center gap-2 text-xs"
+                                                        onClick={() => {
+                                                            setFormData({ ...formData, verifier_id: emp.id, verifier_name: `${emp.First_Name} ${emp.Last_Name}` });
+                                                            setActiveDropdown(null);
+                                                        }}
+                                                    >
+                                                        <div className="size-6 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[8px] uppercase">{emp.First_Name[0]}</div>
+                                                        <span className="text-text-main font-medium">{emp.First_Name} {emp.Last_Name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                 </form>

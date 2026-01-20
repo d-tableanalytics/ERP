@@ -8,6 +8,8 @@ import Delegation from './pages/Delegation/Delegation';
 import './index.css';
 import Loader from './components/common/Loader';
 import { Toaster } from 'react-hot-toast';
+import { logout } from './store/slices/authSlice';
+import axios from 'axios';
 
 // Lazy load the DelegationDetail component
 const DelegationDetail = lazy(() => import('./pages/Delegation/DelegationDetail'));
@@ -27,7 +29,24 @@ const LoadingFallback = () => (
   </div>
 );
 
+
+
 function App() {
+  // Setup Axios Interceptor for global 401 handling
+  React.useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          store.dispatch(logout());
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => axios.interceptors.response.eject(interceptor);
+  }, []);
+
   return (
     <Provider store={store}>
       <Toaster

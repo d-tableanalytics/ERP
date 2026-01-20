@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchEmployees, fetchDepartments } from '../../store/slices/masterSlice';
+import { createDelegation, updateDelegation } from '../../store/slices/delegationSlice';
 import toast from 'react-hot-toast';
 
 const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit }) => {
@@ -19,8 +20,21 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
         department: '',
         priority: 'medium',
         due_date: '',
-        evidence_required: true
+        evidence_required: true,
+        delegator_id: '',
+        delegator_name: ''
     });
+
+    // Update delegator info when user data is available
+    useEffect(() => {
+        if (user && !delegationToEdit) {
+            setFormData(prev => ({
+                ...prev,
+                delegator_id: user.id || user.User_Id || '',
+                delegator_name: user.name || (user.First_Name ? `${user.First_Name} ${user.Last_Name}` : '') || ''
+            }));
+        }
+    }, [user, delegationToEdit]);
 
     // UI State
     const [searchTerm, setSearchTerm] = useState('');
@@ -127,8 +141,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
 
         const data = new FormData();
         Object.keys(formData).forEach(key => data.append(key, formData[key]));
-        data.append('delegator_id', user.id);
-        data.append('delegator_name', user.name);
+
 
         if (audioBlob) {
             data.append('voice_note', audioBlob, 'voice-note.webm');
@@ -140,27 +153,17 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
 
         try {
             if (delegationToEdit) {
-                await axios.put(`http://localhost:5000/api/delegations/${delegationToEdit.id}`, data, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'multipart/form-data'
-                    }
-                });
+                await dispatch(updateDelegation({ id: delegationToEdit.id, formData: data })).unwrap();
                 toast.success('Delegation updated successfully');
             } else {
-                await axios.post('http://localhost:5000/api/delegations', data, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'multipart/form-data'
-                    }
-                });
+                await dispatch(createDelegation(data)).unwrap();
                 toast.success('Delegation created successfully');
             }
             onSuccess();
             onClose();
         } catch (error) {
             console.error('Error saving delegation:', error);
-            toast.error(error.response?.data?.message || 'Failed to save delegation');
+            toast.error(error?.message || 'Failed to save delegation');
         } finally {
             setIsSubmitting(false);
         }
@@ -257,10 +260,35 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                         </div>
 
                         <div className="md:col-span-4">
-                            <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Delegated By</label>
-                            <div className="bg-bg-main/50 border border-border-main rounded-[1rem] p-3 text-sm font-bold text-text-muted/60 flex items-center gap-2 cursor-not-allowed">
-                                <span className="material-symbols-outlined text-[18px]">verified</span>
-                                <span className="truncate">{user?.name || 'Authorized'}</span>
+                            <label className="block text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2 px-1">Delegated By (Admin)</label>
+                            <div className="relative">
+                                <select
+                                    className="w-full bg-bg-main border border-border-main rounded-2xl p-3 pl-10 text-sm text-text-main font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all cursor-pointer"
+                                    value={formData.delegator_id}
+                                    onChange={(e) => {
+                                        const selectedAdmin = employees.find(emp => emp.id.toString() === e.target.value);
+                                        if (selectedAdmin) {
+                                            setFormData({
+                                                ...formData,
+                                                delegator_id: selectedAdmin.id,
+                                                delegator_name: selectedAdmin.name || `${selectedAdmin.First_Name} ${selectedAdmin.Last_Name}`
+                                            });
+                                        }
+                                    }}
+                                >
+                                    {/* Default Option if current user is not admin or no selection */}
+                                    <option value="">Select Admin</option>
+                                    {employees
+                                        .filter(emp => ['Admin', 'SuperAdmin'].includes(emp.role))
+                                        .map(admin => (
+                                            <option key={admin.id} value={admin.id}>
+                                                {admin.name || `${admin.First_Name} ${admin.Last_Name}`}
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none text-[18px]">verified</span>
+                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none text-[18px]">expand_more</span>
                             </div>
                         </div>
 
@@ -456,20 +484,20 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                                         <span className="material-symbols-outlined text-2xl">cloud_upload</span>
                                     </div>
                                     <span className="text-[11px] font-black text-text-main uppercase tracking-tighter">Add files</span>
-                                    <span className="text-[8px] text-text-muted mt-0.5 uppercase tracking-widest">PDF, Images • Max 5</span>
+                                    <span className="text-[8px] text-text-muted mt-0.5 uppercase tracking-widest">PDF, Images • Max 20</span>
                                 </div>
                                 {files.length > 0 && (
                                     <div className="mt-3 flex flex-wrap gap-1 relative z-30">
                                         {files.map((file, i) => (
-                                            <div key={i} className="bg-bg-card border border-border-main rounded-lg px-2 py-1 flex items-center gap-2 group/file hover:border-primary/50 transition-all">
-                                                <span className="text-[8px] font-bold text-text-main truncate max-w-[80px]">{file.name}</span>
+                                            <div key={i} className="bg-bg-card border border-border-main rounded-lg px-2 py-1 flex items-center gap-2 group/file hover:border-primary/50 transition-all mw-full" title={file.name}>
+                                                <span className="text-[10px] font-bold text-text-main truncate max-w-[150px]">{file.name}</span>
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setFiles(files.filter((_, idx) => idx !== i));
                                                     }}
-                                                    className="size-4 rounded-md hover:bg-red-500 hover:text-white flex items-center justify-center transition-all"
+                                                    className="size-4 rounded-md hover:bg-red-500 hover:text-white flex items-center justify-center transition-all bg-bg-main shadow-sm"
                                                 >
                                                     <span className="material-symbols-outlined text-[10px]">close</span>
                                                 </button>

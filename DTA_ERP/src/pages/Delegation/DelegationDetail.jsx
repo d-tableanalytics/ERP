@@ -10,6 +10,9 @@ const DelegationDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const { user } = useSelector((state) => state.auth);
+    const isAdmin = user?.role === 'Admin' || user?.role === 'SuperAdmin';
+
 
     // Try to get delegation from Redux cache first
     const cachedDelegation = useSelector((state) => state.delegation.delegationsById[id]);
@@ -80,6 +83,14 @@ const DelegationDetail = () => {
             return;
         }
 
+        // Validation: Ensure evidence is uploaded if required and status is APPROVAL WAITING
+        if (selectedStatus === 'APPROVAL WAITING' && delegation.evidence_required) {
+            if (evidenceFiles.length === 0) {
+                toast.error('Evidence is required for approval');
+                return;
+            }
+        }
+
         setIsUpdating(true);
         try {
             const payload = {
@@ -88,8 +99,13 @@ const DelegationDetail = () => {
                 remark: remark, // Send remark if present
             };
 
-            // If status is Need Revision or Hold, send the new due date
-            if ((selectedStatus === 'NEED REVISION' || selectedStatus === 'HOLD') && revisedDueDate) {
+            // Validation: Ensure revised due date is provided for REVISION/HOLD
+            if ((selectedStatus === 'NEED REVISION' || selectedStatus === 'HOLD')) {
+                if (!revisedDueDate) {
+                    toast.error('Please provide a revised due date');
+                    setIsUpdating(false);
+                    return;
+                }
                 payload.due_date = revisedDueDate;
             }
 
@@ -310,43 +326,53 @@ const DelegationDetail = () => {
                             <div className="space-y-4">
                                 <label className="text-[10px] font-bold text-text-muted uppercase">Select Status</label>
                                 <div className="flex flex-wrap gap-2">
-                                    <button
-                                        onClick={() => handleStatusSelect('NEED CLARITY')}
-                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'NEED CLARITY' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
-                                    >
-                                        <span className="material-symbols-outlined text-base">help</span>
-                                        Need Clarity
-                                    </button>
-                                    <button
-                                        onClick={() => handleStatusSelect('APPROVAL WAITING')}
-                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'APPROVAL WAITING' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
-                                    >
-                                        <span className="material-symbols-outlined text-base">hourglass_top</span>
-                                        Approval Waiting
-                                    </button>
-                                    <button
-                                        onClick={() => handleStatusSelect('COMPLETED')}
-                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'COMPLETED' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
-                                    >
-                                        <span className="material-symbols-outlined text-base">check</span>
-                                        Completed
-                                    </button>
+                                    {user?.id === delegation?.doer_id && (
+                                        <button
+                                            onClick={() => handleStatusSelect('NEED CLARITY')}
+                                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'NEED CLARITY' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-base">help</span>
+                                            Need Clarity
+                                        </button>
+                                    )}
+                                    {user?.id === delegation?.doer_id && (
+                                        <button
+                                            onClick={() => handleStatusSelect('APPROVAL WAITING')}
+                                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'APPROVAL WAITING' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-base">hourglass_top</span>
+                                            Approval Waiting
+                                        </button>
+                                    )}
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => handleStatusSelect('COMPLETED')}
+                                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'COMPLETED' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-base">check</span>
+                                            Completed
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    <button
-                                        onClick={() => handleStatusSelect('NEED REVISION')}
-                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'NEED REVISION' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
-                                    >
-                                        <span className="material-symbols-outlined text-base">sync</span>
-                                        Need Revision
-                                    </button>
-                                    <button
-                                        onClick={() => handleStatusSelect('HOLD')}
-                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'HOLD' ? 'bg-slate-600 text-white shadow-lg shadow-slate-600/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
-                                    >
-                                        <span className="material-symbols-outlined text-base">pause</span>
-                                        Hold
-                                    </button>
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => handleStatusSelect('NEED REVISION')}
+                                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'NEED REVISION' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-base">sync</span>
+                                            Need Revision
+                                        </button>
+                                    )}
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => handleStatusSelect('HOLD')}
+                                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === 'HOLD' ? 'bg-slate-600 text-white shadow-lg shadow-slate-600/20' : 'bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-base">pause</span>
+                                            Hold
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -377,7 +403,9 @@ const DelegationDetail = () => {
                             {/* Evidence Upload (Only for Approval Waiting) */}
                             {selectedStatus === 'APPROVAL WAITING' && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                    <label className="text-[10px] font-bold text-text-muted uppercase">Attach Evidence <span className="text-red-500">*</span></label>
+                                    <label className="text-[10px] font-bold text-text-muted uppercase">
+                                        Attach Evidence {delegation.evidence_required && <span className="text-red-500">*</span>}
+                                    </label>
                                     <div
                                         onClick={() => fileInputRef.current?.click()}
                                         className="border-2 border-dashed border-border-main rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-bg-main/50 hover:border-primary/30 transition-all group"
