@@ -14,6 +14,7 @@ import axios from 'axios';
 // Lazy load the DelegationDetail component
 const DelegationDetail = lazy(() => import('./pages/Delegation/DelegationDetail'));
 const Checklist = lazy(() => import('./pages/Checklist/Checklist'));
+const HelpTicket = lazy(() => import('./pages/HelpTicket/HelpTicket'));
 
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
@@ -117,6 +118,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <Checklist />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <HelpTicket />
                 </Suspense>
               </ProtectedRoute>
             }

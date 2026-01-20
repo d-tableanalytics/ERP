@@ -23,13 +23,17 @@ const authRoutes = require('./src/routes/auth.routes');
 const delegationRoutes = require('./src/routes/delegation.routes');
 const employeeRoutes = require('./src/routes/employee.routes');
 const checklistRoutes = require('./src/routes/checklist.routes');
+const helpTicketRoutes = require('./src/routes/helpTicket.routes');
 const { createChecklistTables } = require('./src/models/checklist.model');
+const { createHelpTicketTables } = require('./src/models/helpTicket.model');
+const { createLocationTable } = require('./src/models/location.model');
 const { startChecklistCron } = require('./src/controllers/checklist.controller');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/delegations', delegationRoutes);
 app.use('/api/master', employeeRoutes);
 app.use('/api/checklist', checklistRoutes);
+app.use('/api/help-tickets', helpTicketRoutes);
 app.use('/uploads', express.static('uploads'));
 
 // Initialize Database Tables
@@ -38,6 +42,8 @@ Promise.all([
     createDelegationTables(),
     createDepartmentTable(),
     createChecklistTables(),
+    createHelpTicketTables(),
+    createLocationTable(),
 ])
     .then(() => {
         console.log('Database synchronization complete');
