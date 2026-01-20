@@ -34,7 +34,10 @@ app.use('/api/delegations', delegationRoutes);
 app.use('/api/master', employeeRoutes);
 app.use('/api/checklist', checklistRoutes);
 app.use('/api/help-tickets', helpTicketRoutes);
-app.use('/uploads', express.static('uploads'));
+const fs = require('fs');
+if (fs.existsSync('uploads')) {
+    app.use('/uploads', express.static('uploads'));
+}
 
 // Initialize Database Tables
 Promise.all([

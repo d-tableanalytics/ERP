@@ -6,9 +6,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure uploads directory exists
+// Ensure uploads directory exists (skipped on Vercel)
 const uploadDir = 'uploads';
-if (!fs.existsSync(uploadDir)) {
+if (process.env.NODE_ENV !== 'production' && !fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
 
