@@ -36,12 +36,12 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
             {!isMobile && (
                 <div className="p-4 border-b border-border-main flex items-center justify-between">
                     <div className={`flex items-center gap-3 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-                        <div className="bg-primary rounded-lg size-10 flex items-center justify-center text-white shadow-sm">
-                            <span className="material-symbols-outlined text-2xl">grid_view</span>
+                        <div className="size-10 flex items-center justify-center shadow-sm overflow-hidden">
+                            <img src="/d-tab-logo.png" alt="D-Tab Logo" className="w-full h-full object-contain" />
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col">
-                                <h1 className="text-base font-bold text-text-main leading-tight">Nexus ERP</h1>
+                                <h1 className="text-base font-bold text-text-main leading-tight">D-Tab</h1>
                                 <p className="text-text-muted text-xs">v2.4</p>
                             </div>
                         )}

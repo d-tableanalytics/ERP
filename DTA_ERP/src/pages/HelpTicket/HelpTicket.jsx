@@ -6,6 +6,8 @@ import HelpTicketTracker from '../../components/HelpTicket/HelpTicketTracker';
 import TicketDetailModal from '../../components/HelpTicket/TicketDetailModal';
 import { toast } from 'react-hot-toast';
 
+import { API_BASE_URL } from '../../config';
+
 const HelpTicket = () => {
     const { token } = useSelector((state) => state.auth);
     const [tickets, setTickets] = useState([]);
@@ -17,7 +19,7 @@ const HelpTicket = () => {
     const fetchTickets = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`/api/help-tickets?filter_type=${activeTab}`, {
+            const response = await fetch(`${API_BASE_URL}/api/help-tickets?filter_type=${activeTab}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {

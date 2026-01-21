@@ -1,8 +1,10 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { setTheme, updateUserTheme } from '../../store/slices/authSlice';
+import { useNavigate } from 'react-router-dom';
 
 const Header = ({ title = "Dashboard Overview", onMenuClick }) => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const { theme } = useSelector((state) => state.auth);
 
     const toggleTheme = () => {
@@ -38,11 +40,19 @@ const Header = ({ title = "Dashboard Overview", onMenuClick }) => {
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                    <button className="p-2 rounded-xl hover:bg-bg-main text-text-muted relative transition-colors">
+                    <button
+                        onClick={() => navigate('/notifications')}
+                        className="p-2 rounded-xl hover:bg-bg-main text-text-muted relative transition-colors"
+                        title="Notifications"
+                    >
                         <span className="material-symbols-outlined text-[24px]">notifications</span>
                         <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-bg-card"></span>
                     </button>
-                    <button className="hidden md:block p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors">
+                    <button
+                        onClick={() => navigate('/help-demo')}
+                        className="hidden md:block p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors"
+                        title="Help"
+                    >
                         <span className="material-symbols-outlined text-[24px]">help</span>
                     </button>
                     <button
@@ -54,7 +64,11 @@ const Header = ({ title = "Dashboard Overview", onMenuClick }) => {
                             {theme === 'light' ? 'dark_mode' : 'light_mode'}
                         </span>
                     </button>
-                    <button className="hidden md:block p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors">
+                    <button
+                        onClick={() => navigate('/settings')}
+                        className="hidden md:block p-2 rounded-xl hover:bg-bg-main text-text-muted transition-colors"
+                        title="Settings"
+                    >
                         <span className="material-symbols-outlined text-[24px]">settings</span>
                     </button>
                 </div>

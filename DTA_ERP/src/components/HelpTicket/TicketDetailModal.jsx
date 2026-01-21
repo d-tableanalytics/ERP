@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchProblemSolvers } from '../../store/slices/masterSlice';
 import { toast } from 'react-hot-toast';
+import { API_BASE_URL } from '../../config';
 
 const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
     const { token, user } = useSelector((state) => state.auth);
@@ -61,7 +62,7 @@ const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
         if (!formData.solver_planned_date || !formData.problem_solver) {
             return toast.error('Solver and Date are required');
         }
-        await submitAction(`/api/help-tickets/pc-planning/${ticket.id}`, 'PUT', {
+        await submitAction(`${API_BASE_URL}/api/help-tickets/pc-planning/${ticket.id}`, 'PUT', {
             pc_planned_date: formData.solver_planned_date,
             problem_solver: formData.problem_solver,
             pc_status: formData.pc_status,
@@ -78,7 +79,7 @@ const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
             // Use plain fetch for FormData
             setLoading(true);
             try {
-                const res = await fetch(`/api/help-tickets/solve/${ticket.id}`, {
+                const res = await fetch(`${API_BASE_URL}/api/help-tickets/solve/${ticket.id}`, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}` },
                     body: data
@@ -86,7 +87,7 @@ const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
                 await handleResponse(res);
             } catch (err) { handleError(err); }
         } else {
-            await submitAction(`/api/help-tickets/revise/${ticket.id}`, 'PUT', {
+            await submitAction(`${API_BASE_URL}/api/help-tickets/revise/${ticket.id}`, 'PUT', {
                 solver_planned_date: formData.solver_planned_date,
                 solver_remark: formData.solver_remark
             });
@@ -94,14 +95,14 @@ const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
     };
 
     const handlePCConfirm = async () => {
-        await submitAction(`/api/help-tickets/pc-confirm/${ticket.id}`, 'PUT', {
+        await submitAction(`${API_BASE_URL}/api/help-tickets/pc-confirm/${ticket.id}`, 'PUT', {
             pc_status_stage4: formData.pc_status_stage4,
             pc_remark_stage4: formData.pc_remark_stage4
         });
     };
 
     const handleClosure = async (isReraise = false) => {
-        const url = isReraise ? `/api/help-tickets/reraise/${ticket.id}` : `/api/help-tickets/close/${ticket.id}`;
+        const url = isReraise ? `${API_BASE_URL}/api/help-tickets/reraise/${ticket.id}` : `${API_BASE_URL}/api/help-tickets/close/${ticket.id}`;
         const body = isReraise ? { remarks: formData.remarks } : {
             closing_rating: formData.closing_rating,
             closing_status: formData.closing_status,

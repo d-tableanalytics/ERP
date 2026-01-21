@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
+import { API_BASE_URL } from '../../config';
 import MainLayout from '../../components/layout/MainLayout';
 import Loader from '../../components/common/Loader';
 import { fetchDelegationById, updateDelegationStatus, addDelegationRemark } from '../../store/slices/delegationSlice';
@@ -280,7 +281,7 @@ const DelegationDetail = () => {
                                                         if (url && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
                                                             const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
                                                             if (match && match[1]) {
-                                                                return `http://localhost:5000/api/delegations/audio/${match[1]}`;
+                                                                return `${API_BASE_URL}/api/delegations/audio/${match[1]}`;
                                                             }
                                                         }
                                                         return url;

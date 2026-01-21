@@ -15,8 +15,8 @@ const LeftPanel = () => {
 
             {/* Branding Top */}
             <div className="relative z-10 flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-white">
-                    <span className="material-symbols-outlined text-2xl">grid_view</span>
+                <div className="flex items-center justify-center size-10 shadow-sm overflow-hidden">
+                    <img src="/d-tab-logo.png" alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <h1 className="text-white text-xl font-bold tracking-tight">Enterprise ERP</h1>
             </div>

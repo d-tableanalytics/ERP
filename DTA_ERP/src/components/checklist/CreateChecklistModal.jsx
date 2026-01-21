@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config';
 import { useDispatch, useSelector } from 'react-redux';
 import { createChecklist, updateChecklistTask } from '../../store/slices/checklistSlice';
 import toast from 'react-hot-toast';
@@ -86,13 +87,13 @@ const CreateChecklistModal = ({ isOpen, onClose, onSuccess, checklistToEdit }) =
     const fetchInitialData = async () => {
         try {
             // Fetch employees
-            const empRes = await axios.get('http://localhost:5000/api/master/employees', {
+            const empRes = await axios.get(`${API_BASE_URL}/api/master/employees`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setEmployees(empRes.data);
 
             // Fetch departments
-            const deptRes = await axios.get('http://localhost:5000/api/master/departments', {
+            const deptRes = await axios.get(`${API_BASE_URL}/api/master/departments`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDepartments(deptRes.data);

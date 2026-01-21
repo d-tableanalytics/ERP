@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { API_BASE_URL } from '../../config';
 import MainLayout from '../../components/layout/MainLayout';
 import { fetchChecklists, deleteChecklist, updateChecklistTask, updateChecklistStatus } from '../../store/slices/checklistSlice';
 import Loader from '../../components/common/Loader';
@@ -283,7 +284,7 @@ const Checklist = () => {
                                                         <span>{item.verification_required ? 'Yes' : 'No'}</span>
                                                         {item.proof_file_path && (
                                                             <a
-                                                                href={`http://localhost:5000/${item.proof_file_path}`}
+                                                                href={`${API_BASE_URL}/${item.proof_file_path}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-[10px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-0.5 hover:underline"
