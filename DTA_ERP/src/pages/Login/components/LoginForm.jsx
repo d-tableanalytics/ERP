@@ -26,8 +26,8 @@ const LoginForm = () => {
         <div className="w-full max-w-[480px] flex flex-col gap-8">
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center gap-3 mb-4">
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-white">
-                    <span className="material-symbols-outlined text-2xl">grid_view</span>
+                <div className="flex items-center justify-center size-10 shadow-sm overflow-hidden">
+                    <img src="/d-tab-logo.png" alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <h1 className="text-slate-900 dark:text-white text-xl font-bold tracking-tight">Enterprise ERP</h1>
             </div>
@@ -111,7 +111,7 @@ const LoginForm = () => {
             <div className="flex flex-col items-center gap-4 mt-4">
                 <p className="text-slate-400 text-xs text-center max-w-xs leading-relaxed">
                     Protected by enterprise-grade security. <br />
-                    By logging in, you agree to our <a className="underline hover:text-primary" href="#">Terms of Service</a> and <a className="underline hover:text-primary" href="#">Privacy Policy</a>.
+                    By logging in, you agree to our <a className="underline hover:text-primary" href="/terms">Terms of Service</a> and <a className="underline hover:text-primary" href="/privacy">Privacy Policy</a>.
                 </p>
             </div>
         </div>

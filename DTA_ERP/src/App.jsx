@@ -11,10 +11,12 @@ import { Toaster } from 'react-hot-toast';
 import { logout } from './store/slices/authSlice';
 import axios from 'axios';
 
-// Lazy load the DelegationDetail component
+// Lazy load modules
 const DelegationDetail = lazy(() => import('./pages/Delegation/DelegationDetail'));
 const Checklist = lazy(() => import('./pages/Checklist/Checklist'));
 const HelpTicket = lazy(() => import('./pages/HelpTicket/HelpTicket'));
+const DemoModule = lazy(() => import('./pages/DemoModule')); // Reusable Demo Page
+const PublicPage = lazy(() => import('./pages/PublicPage')); // Reusable Public Page
 
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
@@ -132,6 +134,26 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Demo Module Routes */}
+          <Route path="/attendance" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="attendance" /></Suspense></ProtectedRoute>} />
+          <Route path="/salary" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="salary" /></Suspense></ProtectedRoute>} />
+          <Route path="/fms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="fms" /></Suspense></ProtectedRoute>} />
+          <Route path="/todo" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="todo" /></Suspense></ProtectedRoute>} />
+          <Route path="/ims" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="ims" /></Suspense></ProtectedRoute>} />
+          <Route path="/hrms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="hrms" /></Suspense></ProtectedRoute>} />
+
+          <Route path="/profile" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="profile" /></Suspense></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="notifications" /></Suspense></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="settings" /></Suspense></ProtectedRoute>} />
+          <Route path="/help-demo" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="help" /></Suspense></ProtectedRoute>} />
+
+          {/* Public Pages */}
+          <Route path="/help-center" element={<Suspense fallback={<LoadingFallback />}><PublicPage type="help-center" /></Suspense>} />
+          <Route path="/contact-support" element={<Suspense fallback={<LoadingFallback />}><PublicPage type="contact-support" /></Suspense>} />
+          <Route path="/terms" element={<Suspense fallback={<LoadingFallback />}><PublicPage type="terms" /></Suspense>} />
+          <Route path="/privacy" element={<Suspense fallback={<LoadingFallback />}><PublicPage type="privacy" /></Suspense>} />
+
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </Router>

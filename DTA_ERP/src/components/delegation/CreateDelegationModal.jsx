@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchEmployees, fetchDepartments } from '../../store/slices/masterSlice';
 import { createDelegation, updateDelegation } from '../../store/slices/delegationSlice';
@@ -440,7 +441,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                                                     if (audioUrl && (audioUrl.includes('drive.google.com') || audioUrl.includes('docs.google.com'))) {
                                                         const match = audioUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || audioUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
                                                         if (match && match[1]) {
-                                                            return `http://localhost:5000/api/delegations/audio/${match[1]}`;
+                                                            return `${API_BASE_URL}/api/delegations/audio/${match[1]}`;
                                                         }
                                                     }
                                                     return audioUrl;

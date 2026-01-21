@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-hot-toast';
 import { fetchLocations, fetchPCAccountables, fetchProblemSolvers } from '../../store/slices/masterSlice';
+import { API_BASE_URL } from '../../config';
 
 const HelpTicketForm = ({ onSuccess }) => {
     const { user, token } = useSelector((state) => state.auth);
@@ -51,7 +52,7 @@ const HelpTicketForm = ({ onSuccess }) => {
 
         try {
             // Helper to make API calls with bearer token
-            const response = await fetch('/api/help-tickets/raise', {
+            const response = await fetch(`${API_BASE_URL}/api/help-tickets/raise`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: data

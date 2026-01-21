@@ -13,8 +13,8 @@ const LoginPage = () => {
                 {/* Top Helper Links */}
                 <div className="flex justify-end p-6 md:p-10">
                     <div className="flex gap-6">
-                        <a className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="#">Help Center</a>
-                        <a className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="#">Contact Support</a>
+                        <a className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="/help-center">Help Center</a>
+                        <a className="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="/contact-support">Contact Support</a>
                     </div>
                 </div>
 

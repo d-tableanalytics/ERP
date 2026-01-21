@@ -1,8 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config';
 
 // Use relative path to let Vite proxy handle the base URL
-const API_URL = '/api/master';
+const API_URL = `${API_BASE_URL}/api/master`;
 
 export const fetchEmployees = createAsyncThunk(
     'master/fetchEmployees',
