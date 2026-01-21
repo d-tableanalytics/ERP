@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 const DelegationCard = ({ delegation, user, isAdmin, onEdit, onDelete }) => {
     const navigate = useNavigate();
 
-    // Helper to format date
+   
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleString('en-IN', {
