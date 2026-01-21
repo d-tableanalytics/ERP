@@ -1,6 +1,6 @@
-import  { Suspense, useEffect ,lazy } from 'react';
+import { Suspense, useEffect, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import {  useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import LoginPage from './pages/Login/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Delegation from './pages/Delegation/Delegation';
@@ -18,6 +18,7 @@ const Checklist = lazy(() => import('./pages/Checklist/Checklist'));
 const HelpTicket = lazy(() => import('./pages/HelpTicket/HelpTicket'));
 const DemoModule = lazy(() => import('./pages/DemoModule')); // Reusable Demo Page
 const PublicPage = lazy(() => import('./pages/PublicPage')); // Reusable Public Page
+const ToDoBoard = lazy(() => import('./pages/ToDo/ToDoBoard'));
 
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
@@ -35,17 +36,17 @@ const LoadingFallback = () => (
 
 
 function App() {
-    const dispatch = useDispatch();
-   useEffect(() => {
+  const dispatch = useDispatch();
+  useEffect(() => {
     checkAutoLogout(dispatch, logout);
 
     const loginTime = localStorage.getItem('loginTime');
-   
+
     if (!loginTime) return;
 
     const TEN_MIN = 10 * 60 * 1000;
     const remainingTime = TEN_MIN - (Date.now() - loginTime);
-  
+
     if (remainingTime > 0) {
       const timer = setTimeout(() => {
         dispatch(logout());
@@ -55,7 +56,7 @@ function App() {
     }
   }, [dispatch]);
 
- 
+
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (res) => res,
@@ -160,7 +161,7 @@ function App() {
           <Route path="/attendance" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="attendance" /></Suspense></ProtectedRoute>} />
           <Route path="/salary" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="salary" /></Suspense></ProtectedRoute>} />
           <Route path="/fms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="fms" /></Suspense></ProtectedRoute>} />
-          <Route path="/todo" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="todo" /></Suspense></ProtectedRoute>} />
+          <Route path="/todo" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><ToDoBoard /></Suspense></ProtectedRoute>} />
           <Route path="/ims" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="ims" /></Suspense></ProtectedRoute>} />
           <Route path="/hrms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="hrms" /></Suspense></ProtectedRoute>} />
 
