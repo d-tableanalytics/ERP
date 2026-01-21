@@ -11,6 +11,8 @@ export const loginUser = createAsyncThunk(
             const response = await axios.post(`${API_URL}/login`, credentials);
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
+            localStorage.setItem('loginTime', Date.now()); 
+
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response.data.message || 'Login failed');
@@ -50,8 +52,10 @@ const authSlice = createSlice({
             state.user = null;
             state.token = null;
             state.theme = 'light';
+            state.error = null;
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            localStorage.removeItem('loginTime');
         },
         setTheme: (state, action) => {
             state.theme = action.payload;

@@ -1,7 +1,6 @@
-import React, { Suspense, lazy } from 'react';
+import  { Suspense, useEffect ,lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider, useSelector } from 'react-redux';
-import { store } from './store/store';
+import {  useSelector } from 'react-redux';
 import LoginPage from './pages/Login/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Delegation from './pages/Delegation/Delegation';
@@ -10,8 +9,10 @@ import Loader from './components/common/Loader';
 import { Toaster } from 'react-hot-toast';
 import { logout } from './store/slices/authSlice';
 import axios from 'axios';
+import { useDispatch } from 'react-redux';
+import { checkAutoLogout } from './utils/autoLogout';
 
-// Lazy load modules
+
 const DelegationDetail = lazy(() => import('./pages/Delegation/DelegationDetail'));
 const Checklist = lazy(() => import('./pages/Checklist/Checklist'));
 const HelpTicket = lazy(() => import('./pages/HelpTicket/HelpTicket'));
@@ -34,23 +35,43 @@ const LoadingFallback = () => (
 
 
 function App() {
-  // Setup Axios Interceptor for global 401 handling
-  React.useEffect(() => {
+    const dispatch = useDispatch();
+   useEffect(() => {
+    checkAutoLogout(dispatch, logout);
+
+    const loginTime = localStorage.getItem('loginTime');
+   
+    if (!loginTime) return;
+
+    const TEN_MIN = 10 * 60 * 1000;
+    const remainingTime = TEN_MIN - (Date.now() - loginTime);
+  
+    if (remainingTime > 0) {
+      const timer = setTimeout(() => {
+        dispatch(logout());
+      }, remainingTime);
+
+      return () => clearTimeout(timer);
+    }
+  }, [dispatch]);
+
+ 
+  useEffect(() => {
     const interceptor = axios.interceptors.response.use(
-      (response) => response,
+      (res) => res,
       (error) => {
         if (error.response?.status === 401) {
-          store.dispatch(logout());
+          dispatch(logout());
         }
         return Promise.reject(error);
       }
     );
 
     return () => axios.interceptors.response.eject(interceptor);
-  }, []);
+  }, [dispatch]);
 
   return (
-    <Provider store={store}>
+    <>
       <Toaster
         position="top-right"
         reverseOrder={false}
@@ -157,7 +178,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </Router>
-    </Provider>
+    </>
   );
 }
 
