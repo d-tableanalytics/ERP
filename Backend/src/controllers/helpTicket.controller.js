@@ -1,5 +1,6 @@
 const db = require('../config/db.config');
 const { uploadToDrive } = require('../utils/googleDrive');
+const { addBusinessHours } = require('../utils/dateUtils');
 
 // Helper to generate Ticket No: HT-YYYYMMDD-XXXX
 const generateTicketNo = async () => {
@@ -10,6 +11,16 @@ const generateTicketNo = async () => {
     );
     const count = parseInt(result.rows[0].count) + 1;
     return `HT-${date}-${count.toString().padStart(4, '0')}`;
+};
+
+// Helper: Get Config & Holidays
+const getTATConfig = async () => {
+    const configRes = await db.query('SELECT * FROM help_ticket_config WHERE id = 1');
+    const holidaysRes = await db.query('SELECT * FROM help_ticket_holidays');
+    return {
+        config: configRes.rows[0],
+        holidays: holidaysRes.rows
+    };
 };
 
 // Helper to record history
@@ -43,14 +54,23 @@ exports.raiseTicket = async (req, res) => {
 
     try {
         const help_ticket_no = await generateTicketNo();
+
+        // Calculate PC Planned Date (Stage 2 TAT)
+        const { config, holidays } = await getTATConfig();
+        const pcPlannedDate = addBusinessHours(new Date(), config.stage2_tat_hours, config, holidays);
+
         const query = `
             INSERT INTO help_tickets (
                 help_ticket_no, location, raised_by, pc_accountable, issue_description, 
                 desired_date, image_upload, priority, current_stage, status,
-                pc_planned_date, problem_solver -- Set default PC Planned date and Problem Solver
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'OPEN', CURRENT_TIMESTAMP + INTERVAL '1 day', $9) RETURNING *`;
+                pc_planned_date, problem_solver
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'OPEN', $10, $9) RETURNING *`;
 
-        const values = [help_ticket_no, location, raised_by, pc_accountable, issue_description, desired_date, image_upload, priority, problem_solver];
+        const values = [
+            help_ticket_no, location, raised_by, pc_accountable, issue_description,
+            desired_date, image_upload, priority, problem_solver, pcPlannedDate
+        ];
+
         const result = await db.query(query, values);
 
         // Record initial history
@@ -142,6 +162,10 @@ exports.solveTicket = async (req, res) => {
         if (currentRes.rows.length === 0) throw new Error('Ticket not found');
         const oldValues = currentRes.rows[0];
 
+        // Calculate Stage 4 planned date
+        const { config, holidays } = await getTATConfig();
+        const pcPlannedStage4 = addBusinessHours(new Date(), config.stage4_tat_hours, config, holidays);
+
         const query = `
             UPDATE help_tickets SET
                 solver_actual_date = CURRENT_TIMESTAMP,
@@ -150,10 +174,10 @@ exports.solveTicket = async (req, res) => {
                 solver_time_difference = CURRENT_TIMESTAMP - pc_planned_date,
                 current_stage = 3,
                 status = 'SOLVED',
-                pc_planned_stage4 = CURRENT_TIMESTAMP + INTERVAL '4 hours' -- Auto set next stage planned date
+                pc_planned_stage4 = $4
             WHERE id = $3 RETURNING *`;
 
-        const result = await client.query(query, [solver_remark, proof_upload, id]);
+        const result = await client.query(query, [solver_remark, proof_upload, id, pcPlannedStage4]);
 
         await recordHistory(client, id, oldValues.help_ticket_no, 3, oldValues, result.rows[0], 'TICKET_SOLVED', actionBy, solver_remark);
 
@@ -218,6 +242,10 @@ exports.pcConfirmation = async (req, res) => {
         if (currentRes.rows.length === 0) throw new Error('Ticket not found');
         const oldValues = currentRes.rows[0];
 
+        // Calculate Stage 5 Closing Planned Date
+        const { config, holidays } = await getTATConfig();
+        const closingPlanned = addBusinessHours(new Date(), config.stage5_tat_hours, config, holidays);
+
         const query = `
             UPDATE help_tickets SET
                 pc_actual_stage4 = CURRENT_TIMESTAMP,
@@ -226,10 +254,10 @@ exports.pcConfirmation = async (req, res) => {
                 pc_time_difference_stage4 = CURRENT_TIMESTAMP - solver_actual_date,
                 current_stage = 4,
                 status = 'CONFIRMED',
-                closing_planned = CURRENT_TIMESTAMP + INTERVAL '1 day' -- Auto set closing planned date
+                closing_planned = $4
             WHERE id = $3 RETURNING *`;
 
-        const result = await client.query(query, [pc_status_stage4, pc_remark_stage4, id]);
+        const result = await client.query(query, [pc_status_stage4, pc_remark_stage4, id, closingPlanned]);
 
         await recordHistory(client, id, oldValues.help_ticket_no, 4, oldValues, result.rows[0], 'PC_CONFIRMED', actionBy, pc_remark_stage4);
 
