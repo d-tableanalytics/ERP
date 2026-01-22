@@ -385,3 +385,166 @@ Fetch full detail including the history of revisions and stage changes.
 - **URL**: `/api/help-tickets/:id`
 - **Method**: `GET`
 - **Access**: Private
+
+---
+
+## Help Ticket Configuration Endpoints
+
+### 1. Get Configuration
+Fetch the current help ticket configuration settings and all upcoming holidays.
+
+- **URL**: `/api/help-ticket-config`
+- **Method**: `GET`
+- **Access**: Private (JWT Required)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Success Response
+**Code**: `200 OK`
+```json
+{
+  "settings": {
+    "id": 1,
+    "stage2_tat_hours": 24,
+    "stage4_tat_hours": 48,
+    "stage5_tat_hours": 72,
+    "office_start_time": "09:00:00",
+    "office_end_time": "18:00:00",
+    "working_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
+  },
+  "holidays": [
+    {
+      "id": 1,
+      "holiday_date": "2026-02-14",
+      "description": "Valentine's Day",
+      "created_at": "2024-01-15T10:30:00Z"
+    },
+    {
+      "id": 2,
+      "holiday_date": "2026-03-08",
+      "description": "International Women's Day",
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+#### Error Response
+**Code**: `404 Not Found`
+```json
+{
+  "message": "Configuration not found"
+}
+```
+
+---
+
+### 2. Update Configuration
+Update help ticket workflow settings like TAT (Turn-Around Time) hours, office hours, and working days.
+
+- **URL**: `/api/help-ticket-config`
+- **Method**: `PUT`
+- **Access**: Private (JWT Required)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Request Body
+```json
+{
+  "stage2_tat_hours": 24,
+  "stage4_tat_hours": 48,
+  "stage5_tat_hours": 72,
+  "office_start_time": "09:00:00",
+  "office_end_time": "18:00:00",
+  "working_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+}
+```
+
+> [!NOTE]
+> - `stage2_tat_hours`: Turn-Around Time for PC Planning stage (in hours)
+> - `stage4_tat_hours`: Turn-Around Time for PC Confirmation stage (in hours)
+> - `stage5_tat_hours`: Turn-Around Time for Closure/Re-raise stage (in hours)
+> - `office_start_time` and `office_end_time`: Working hours in HH:MM:SS format
+> - `working_days`: Array of weekday names (e.g., ["Monday", "Tuesday", ...])
+
+#### Success Response
+**Code**: `200 OK`
+```json
+{
+  "id": 1,
+  "stage2_tat_hours": 24,
+  "stage4_tat_hours": 48,
+  "stage5_tat_hours": 72,
+  "office_start_time": "09:00:00",
+  "office_end_time": "18:00:00",
+  "working_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2026-01-22T15:45:30Z"
+}
+```
+
+---
+
+### 3. Add Holiday
+Add a new holiday date to the system.
+
+- **URL**: `/api/help-ticket-config/holidays`
+- **Method**: `POST`
+- **Access**: Private (JWT Required)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Request Body
+```json
+{
+  "holiday_date": "2026-03-08",
+  "description": "International Women's Day"
+}
+```
+
+#### Success Response
+**Code**: `201 Created`
+```json
+{
+  "id": 3,
+  "holiday_date": "2026-03-08",
+  "description": "International Women's Day",
+  "created_at": "2026-01-22T15:50:00Z"
+}
+```
+
+#### Error Response
+**Code**: `400 Bad Request` (Holiday already exists for this date)
+```json
+{
+  "message": "Holiday already exists for this date"
+}
+```
+
+---
+
+### 4. Remove Holiday
+Delete a holiday from the system.
+
+- **URL**: `/api/help-ticket-config/holidays/:id`
+- **Method**: `DELETE`
+- **Access**: Private (JWT Required)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Path Parameter
+- `id`: The ID of the holiday to remove (integer)
+
+#### Success Response
+**Code**: `200 OK`
+```json
+{
+  "message": "Holiday removed"
+}
+```
+
+#### Error Response
+**Code**: `500 Internal Server Error`
+```json
+{
+  "message": "Error removing holiday"
+}
+```

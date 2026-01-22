@@ -44,7 +44,7 @@ function App() {
 
     if (!loginTime) return;
 
-    const TEN_MIN = 10 * 60 * 1000;
+    const TEN_MIN = 8 * 60 * 60 * 1000;
     const remainingTime = TEN_MIN - (Date.now() - loginTime);
 
     if (remainingTime > 0) {

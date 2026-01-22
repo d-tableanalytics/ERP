@@ -31,6 +31,11 @@ const checklistRoutes = require('./src/routes/checklist.routes');
 const helpTicketRoutes = require('./src/routes/helpTicket.routes');
 const todoRoutes = require('./src/routes/todo.routes');
 
+const helpTicketConfigRoutes = require('./src/routes/helpTicketConfig.routes');
+const { createChecklistTables } = require('./src/models/checklist.model');
+const { createHelpTicketTables } = require('./src/models/helpTicket.model');
+const { createHelpTicketConfigTable } = require('./src/models/helpTicketConfig.model');
+const { createLocationTable } = require('./src/models/location.model');
 const { startChecklistCron } = require('./src/controllers/checklist.controller');
 
 // Routes registration
@@ -41,6 +46,7 @@ app.use('/api/checklist', checklistRoutes);
 app.use('/api/help-tickets', helpTicketRoutes);
 app.use('/api/todos', todoRoutes);
 
+app.use('/api/help-ticket-config', helpTicketConfigRoutes);
 const fs = require('fs');
 if (fs.existsSync('uploads')) {
     app.use('/uploads', express.static('uploads'));
@@ -54,6 +60,7 @@ Promise.all([
     createChecklistTables(),
     createHelpTicketTables(),
     createTodoTables(),
+    createHelpTicketConfigTable(),
     createLocationTable(),
 ])
     .then(() => {

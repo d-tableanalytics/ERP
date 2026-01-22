@@ -27,14 +27,19 @@ const createChecklistTables = async () => {
         master_id INTEGER REFERENCES checklist_master(id) ON DELETE CASCADE,
         question TEXT NOT NULL,
         assignee_id INTEGER,
+        assignee_name VARCHAR(255),
         doer_id INTEGER,
+        doer_name VARCHAR(255),
         priority VARCHAR(20),
         department VARCHAR(100),
         verification_required BOOLEAN,
         verifier_id INTEGER,
+        verifier_name VARCHAR(255),
         attachment_required BOOLEAN,
         frequency VARCHAR(20),
         status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Completed', 'In Progress', 'Verified')),
+        proof_file_url TEXT,
+        due_date TIMESTAMPTZ,
         created_at DATE DEFAULT CURRENT_DATE
     );
     `;
