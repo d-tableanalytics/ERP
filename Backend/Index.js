@@ -23,6 +23,8 @@ const { createChecklistTables } = require('./src/models/checklist.model');
 const { createHelpTicketTables } = require('./src/models/helpTicket.model');
 const { createTodoTables } = require('./src/models/todo.model');
 const { createLocationTable } = require('./src/models/location.model');
+const { createHelpTicketConfigTable } = require('./src/models/helpTicketConfig.model');
+const { startChecklistCron } = require('./src/controllers/checklist.controller');
 
 const authRoutes = require('./src/routes/auth.routes');
 const delegationRoutes = require('./src/routes/delegation.routes');
@@ -30,13 +32,9 @@ const employeeRoutes = require('./src/routes/employee.routes');
 const checklistRoutes = require('./src/routes/checklist.routes');
 const helpTicketRoutes = require('./src/routes/helpTicket.routes');
 const todoRoutes = require('./src/routes/todo.routes');
-
 const helpTicketConfigRoutes = require('./src/routes/helpTicketConfig.routes');
-const { createChecklistTables } = require('./src/models/checklist.model');
-const { createHelpTicketTables } = require('./src/models/helpTicket.model');
-const { createHelpTicketConfigTable } = require('./src/models/helpTicketConfig.model');
-const { createLocationTable } = require('./src/models/location.model');
-const { startChecklistCron } = require('./src/controllers/checklist.controller');
+
+
 
 // Routes registration
 app.use('/api/auth', authRoutes);
