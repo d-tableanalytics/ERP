@@ -5,7 +5,13 @@ import { API_BASE_URL } from '../../config';
 const API_URL = `${API_BASE_URL}/api/delegations`;
 
 // Async thunk to fetch all delegations
-export const fetchDelegations = createAsyncThunk(
+export const /* `fetchDelegations` is an async thunk function that is used to fetch all delegations
+from the API. It makes a GET request to the API endpoint
+`/api/delegations` with the authorization token from the Redux state. If
+the request is successful, it returns the response data (list of delegations). If there
+is an error, it handles the error by returning the error message or a default message
+'Failed to fetch delegations'. */
+fetchDelegations = createAsyncThunk(
     'delegation/fetchDelegations',
     async (_, { getState, rejectWithValue }) => {
         try {
