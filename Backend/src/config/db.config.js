@@ -4,10 +4,10 @@ require('dotenv').config();
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false, // Required for Neon DB
+        rejectUnauthorized: false,
     },
-    connectionTimeoutMillis: 5000,
-    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 60000,
 });
 
 pool.on('connect', () => {
