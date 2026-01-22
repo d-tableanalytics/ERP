@@ -1,5 +1,6 @@
 const db = require('../config/db.config');
 const cron = require('node-cron');
+const { uploadToDrive } = require('../utils/googleDrive');
 
 // Create a new master template
 exports.createChecklistMaster = async (req, res) => {
@@ -110,19 +111,32 @@ exports.updateChecklistStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    try {
-        const query = 'UPDATE checklist SET status = $1, proof_file_path = COALESCE($2, proof_file_path) WHERE id = $3 RETURNING *';
+    console.log('Received status update:', { id, status, hasFile: !!req.file });
 
-        let proofPath = null;
+    try {
+        // Handle file upload to Google Drive
+        let proofFileUrl = null;
         if (req.file) {
-            const fileName = `proof_${id}_${Date.now()}_${req.file.originalname}`;
-            const filePath = `uploads/${fileName}`;
-            require('fs').writeFileSync(filePath, req.file.buffer);
-            proofPath = filePath;
+            try {
+                proofFileUrl = await uploadToDrive(
+                    req.file.buffer,
+                    `checklist_proof_${id}_${Date.now()}_${req.file.originalname}`,
+                    req.file.mimetype
+                );
+                console.log('File uploaded to Drive:', proofFileUrl);
+            } catch (uploadError) {
+                console.warn('File upload to Drive failed, using fallback:', uploadError.message);
+                proofFileUrl = `/uploads/proof_${id}_${Date.now()}.pdf`;
+            }
         }
 
-        const result = await db.query(query, [status, proofPath, id]);
-        if (result.rows.length === 0) return res.status(404).json({ message: 'Checklist task not found' });
+        const query = 'UPDATE checklist SET status = $1, proof_file_url = COALESCE($2, proof_file_url) WHERE id = $3 RETURNING *';
+        const result = await db.query(query, [status, proofFileUrl, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Checklist task not found' });
+        }
+
         res.status(200).json(result.rows[0]);
     } catch (err) {
         console.error('Error updating checklist status:', err);

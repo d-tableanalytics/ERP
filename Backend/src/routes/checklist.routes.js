@@ -23,7 +23,7 @@ const upload = multer({ storage });
 
 // Checklist Task Routes (Instances)
 router.get('/', verifyToken, checklistController.getChecklists); // Fetch all
-router.patch('/task/:id', verifyToken, checklistController.updateChecklistStatus); // Status only
+router.patch('/task/:id', verifyToken, upload.single('proof_file'), checklistController.updateChecklistStatus); // Status with file upload
 router.put('/task/:id', verifyToken, checklistController.updateChecklistTaskDetails); // Full edit
 router.delete('/task/:id', verifyToken, checklistController.deleteChecklistTask);
 

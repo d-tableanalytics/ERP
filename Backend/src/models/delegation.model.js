@@ -38,8 +38,8 @@ const createDelegationTables = async () => {
     CREATE TABLE IF NOT EXISTS revision_history (
         id SERIAL PRIMARY KEY,
         delegation_id INTEGER REFERENCES delegation(id) ON DELETE CASCADE,
-        old_due_date DATE,
-        new_due_date DATE,
+        old_due_date TIMESTAMPTZ,
+        new_due_date TIMESTAMPTZ,
         old_status VARCHAR(50),
         new_status VARCHAR(50),
         reason TEXT,

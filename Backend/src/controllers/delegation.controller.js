@@ -1,6 +1,5 @@
 const db = require('../config/db.config');
 
-
 // In delegation.controller.js
 const { uploadToDrive, testDriveConnection } = require('../utils/googleDrive');
 
@@ -10,6 +9,8 @@ exports.createDelegation = async (req, res) => {
         doer_id, doer_name, department, priority, due_date,
         evidence_required
     } = req.body;
+
+    console.log('Received due_date:', due_date);
 
     // Handle File Uploads to Google Drive
     let voice_note_url = null;
@@ -56,9 +57,21 @@ exports.createDelegation = async (req, res) => {
         status
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`;
 
+        // Convert due_date to proper timestamp
+        // datetime-local sends "2026-01-26T17:10" without timezone
+        // We need to treat this as IST (UTC+5:30) and store it properly
+        let formattedDueDate = null;
+        if (due_date) {
+            // Append IST timezone offset to the datetime string
+            // Format: "2026-01-26T17:10" -> "2026-01-26T17:10:00+05:30"
+            const dateStr = due_date.includes('T') ? due_date : `${due_date}T00:00`;
+            formattedDueDate = `${dateStr}:00+05:30`;
+        }
+        console.log('Formatted due_date for DB:', formattedDueDate);
+
         const values = [
             delegation_name, description, delegator_id, delegator_name,
-            doer_id, doer_name, department, priority, due_date,
+            doer_id, doer_name, department, priority, formattedDueDate,
             voice_note_url, reference_docs,
             evidence_required === 'true' || evidence_required === true,
             'NEED CLARITY'
@@ -79,7 +92,7 @@ exports.createDelegation = async (req, res) => {
 // Get delegations with role-based filtering
 exports.getDelegations = async (req, res) => {
     const { role, email } = req.user;
-
+    console.log(req.user);
     try {
         let query;
         let values = [];
@@ -96,6 +109,7 @@ exports.getDelegations = async (req, res) => {
         }
 
         const result = await db.query(query, values);
+        console.log(result.rows);
         res.json(result.rows);
     } catch (err) {
         console.error(err);
@@ -156,6 +170,7 @@ exports.getDelegationDetail = async (req, res) => {
 // Update delegation
 exports.updateDelegation = async (req, res) => {
     const { id } = req.params;
+    console.log(req.body);
     const {
         delegation_name, description, doer_id, doer_name,
         department, priority, due_date, evidence_required, status,
@@ -252,6 +267,18 @@ exports.updateDelegation = async (req, res) => {
                                  END
             WHERE id = $12 RETURNING *`;
 
+        // Convert due_date to proper timestamp
+        // datetime-local sends "2026-01-26T17:10" without timezone
+        // We need to treat this as IST (UTC+5:30) and store it properly
+        let formattedDueDate = null;
+        if (due_date) {
+            // Append IST timezone offset to the datetime string
+            const dateStr = due_date.includes('T') ? due_date : `${due_date}T00:00`;
+            formattedDueDate = `${dateStr}:00+05:30`;
+        }
+        console.log('Update - Received due_date:', due_date);
+        console.log('Update - Formatted due_date for DB:', formattedDueDate);
+
         const values = [
             delegation_name || null,
             description || null,
@@ -259,7 +286,7 @@ exports.updateDelegation = async (req, res) => {
             doer_name || null,
             department || null,
             priority || null,
-            due_date || null,
+            formattedDueDate,
             evidence_required !== undefined ? (evidence_required === 'true' || evidence_required === true) : null,
             status || null,
             new_voice_note_url, // $10
@@ -272,6 +299,7 @@ exports.updateDelegation = async (req, res) => {
         await client.query('COMMIT');
 
         console.log('✅ Delegation updated:', id);
+        console.log(res.json(result.rows[0]));
         res.json(result.rows[0]);
     } catch (err) {
         await client.query('ROLLBACK');
