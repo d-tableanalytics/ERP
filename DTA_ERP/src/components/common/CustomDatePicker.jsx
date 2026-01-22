@@ -7,7 +7,7 @@ const CustomDatePicker = ({ value, onChange, label, multiple = false }) => {
         if (Array.isArray(val)) return val.length > 0 ? new Date(val[0]) : new Date();
         return val ? new Date(val) : new Date();
     };
-
+    
     const [currentMonth, setCurrentMonth] = useState(parseDate(value));
     const [selectedDate, setSelectedDate] = useState(Array.isArray(value) && !multiple ? parseDate(value[0]) : parseDate(value));
     // For multi-select
@@ -252,7 +252,10 @@ const CustomDatePicker = ({ value, onChange, label, multiple = false }) => {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => onChange(multiple ? [] : '')}
+                                    onClick={() => {
+                                        onChange(multiple ? [] : '');
+                                        setShowPicker(false);
+                                    }}
                                     className="w-full py-3 rounded-xl bg-[#1A1D2D] text-text-muted text-[10px] font-bold uppercase tracking-wider hover:text-white hover:bg-[#252836] transition-all"
                                 >
                                     Clear
