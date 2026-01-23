@@ -3,11 +3,11 @@ import { useSelector, useDispatch } from 'react-redux';
 import { fetchEmployees } from '../../store/slices/masterSlice';
 import { createTodo } from '../../store/slices/todoSlice';
 import toast from 'react-hot-toast';
-
+import useHolidayCheck from "../../hooks/useHolidayCheck";
 const CreateTodoModal = ({ isOpen, onClose }) => {
     const dispatch = useDispatch();
     const { employees } = useSelector((state) => state.master);
-
+const { isHolidayDate } = useHolidayCheck();
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -31,7 +31,12 @@ const CreateTodoModal = ({ isOpen, onClose }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
+          if (isHolidayDate(formData.due_date)) {
+    toast.error(
+      "This date is not available. Please select another date."
+    );
+    return;
+  }
         setIsSubmitting(true);
         try {
             await dispatch(createTodo({

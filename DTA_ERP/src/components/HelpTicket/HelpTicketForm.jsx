@@ -3,12 +3,13 @@ import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-hot-toast';
 import { fetchLocations, fetchPCAccountables, fetchProblemSolvers } from '../../store/slices/masterSlice';
 import { API_BASE_URL } from '../../config';
-
+import useHolidayCheck from "../../hooks/useHolidayCheck";
 const HelpTicketForm = ({ onSuccess }) => {
     const { user, token } = useSelector((state) => state.auth);
     const { locations, pcAccountables, problemSolvers } = useSelector((state) => state.master);
     const dispatch = useDispatch();
     const [loading, setLoading] = useState(false);
+const { isHolidayDate } = useHolidayCheck();
 
     const [formData, setFormData] = useState({
         location: '',
@@ -39,8 +40,14 @@ const HelpTicketForm = ({ onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
+       
+          if (isHolidayDate(formData.desired_date)) {
+        console.log(formData.desired_date)
+      toast.error("This date is not available. Please select another date.");
+      return;
+    }
 
+     setLoading(true);
         const data = new FormData();
         Object.keys(formData).forEach(key => {
             if (key === 'image' && formData[key]) {

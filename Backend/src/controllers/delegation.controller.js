@@ -4,13 +4,14 @@ const db = require('../config/db.config');
 const { uploadToDrive, testDriveConnection } = require('../utils/googleDrive');
 
 exports.createDelegation = async (req, res) => {
+    
     const {
         delegation_name, description, delegator_id, delegator_name,
         doer_id, doer_name, department, priority, due_date,
         evidence_required
     } = req.body;
 
-    console.log('Received due_date:', due_date);
+    // console.log('Received due_date:', req.body);
 
     // Handle File Uploads to Google Drive
     let voice_note_url = null;
