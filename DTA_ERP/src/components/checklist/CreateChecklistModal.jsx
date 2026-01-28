@@ -27,7 +27,7 @@ const CreateChecklistModal = ({
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [doerSearch, setDoerSearch] = useState("");
   const [verifierSearch, setVerifierSearch] = useState("");
-  const { isHolidayDate } = useHolidayCheck();
+  const { isInvalidDate } = useHolidayCheck();
 
   const [formData, setFormData] = useState({
     task: "",
@@ -121,12 +121,12 @@ const CreateChecklistModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isHolidayDate(formData.due_date)) {
+    if (isInvalidDate(formData.due_date)) {
        
       toast.error("This date is not available. Please select another date.");
       return;
     }
-     if (isHolidayDate(formData.start_date)) {
+     if (isInvalidDate(formData.start_date)) {
        
       toast.error("This date is not available. Please select another date.");
       return;

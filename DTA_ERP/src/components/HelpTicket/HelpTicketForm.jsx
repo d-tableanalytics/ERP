@@ -9,7 +9,7 @@ const HelpTicketForm = ({ onSuccess }) => {
     const { locations, pcAccountables, problemSolvers } = useSelector((state) => state.master);
     const dispatch = useDispatch();
     const [loading, setLoading] = useState(false);
-const { isHolidayDate } = useHolidayCheck();
+    const { isInvalidDate  } = useHolidayCheck();
 
     const [formData, setFormData] = useState({
         location: '',
@@ -41,11 +41,11 @@ const { isHolidayDate } = useHolidayCheck();
     const handleSubmit = async (e) => {
         e.preventDefault();
        
-          if (isHolidayDate(formData.desired_date)) {
-        console.log(formData.desired_date)
-      toast.error("This date is not available. Please select another date.");
-      return;
-    }
+      if (isInvalidDate(formData.desired_date)) {
+  toast.error("Selected date is not available. Please choose another date.");
+  return;
+}
+
 
      setLoading(true);
         const data = new FormData();

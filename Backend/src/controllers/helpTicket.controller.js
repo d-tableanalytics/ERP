@@ -36,6 +36,7 @@ const recordHistory = async (client, ticketId, ticketNo, stage, oldValues, newVa
 exports.raiseTicket = async (req, res) => {
     const { location, pc_accountable, issue_description, desired_date, priority, problem_solver } = req.body;
     const raised_by = req.user.id;
+       
 
     let image_upload = null;
     if (req.file) {
@@ -53,11 +54,15 @@ exports.raiseTicket = async (req, res) => {
     }
 
     try {
+       
         const help_ticket_no = await generateTicketNo();
 
         // Calculate PC Planned Date (Stage 2 TAT)
-        const { config, holidays } = await getTATConfig();
+        const { config, holidays } = await getTATConfig(); 
+      
         const pcPlannedDate = addBusinessHours(new Date(), config.stage2_tat_hours, config, holidays);
+
+       
 
         const query = `
             INSERT INTO help_tickets (
@@ -65,14 +70,14 @@ exports.raiseTicket = async (req, res) => {
                 desired_date, image_upload, priority, current_stage, status,
                 pc_planned_date, problem_solver
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'OPEN', $10, $9) RETURNING *`;
-
+          
         const values = [
             help_ticket_no, location, raised_by, pc_accountable, issue_description,
             desired_date, image_upload, priority, problem_solver, pcPlannedDate
         ];
-
+        
         const result = await db.query(query, values);
-
+        
         // Record initial history
         const client = await db.pool.connect();
         try {
@@ -81,6 +86,7 @@ exports.raiseTicket = async (req, res) => {
             client.release();
         }
 
+       
         res.status(201).json(result.rows[0]);
     } catch (err) {
         console.error(err);
@@ -115,7 +121,7 @@ exports.pcPlanning = async (req, res) => {
                 pc_status = $4, -- Updated Column
                 pc_actual_date = CURRENT_TIMESTAMP,
                 pc_time_difference = CURRENT_TIMESTAMP - created_at,
-                current_stage = 2,
+                current_stage = 3,
                 status = 'IN_PLANNING',
                 solver_planned_date = $1 -- Initial solver planned date matches PC planned date
             WHERE id = $5 RETURNING *`;
@@ -172,7 +178,7 @@ exports.solveTicket = async (req, res) => {
                 solver_remark = $1,
                 proof_upload = $2,
                 solver_time_difference = CURRENT_TIMESTAMP - pc_planned_date,
-                current_stage = 3,
+                current_stage = 4,
                 status = 'SOLVED',
                 pc_planned_stage4 = $4
             WHERE id = $3 RETURNING *`;
@@ -252,7 +258,7 @@ exports.pcConfirmation = async (req, res) => {
                 pc_status_stage4 = $1,
                 pc_remark_stage4 = $2,
                 pc_time_difference_stage4 = CURRENT_TIMESTAMP - solver_actual_date,
-                current_stage = 4,
+                current_stage = 5,
                 status = 'CONFIRMED',
                 closing_planned = $4
             WHERE id = $3 RETURNING *`;
@@ -292,7 +298,7 @@ exports.closeTicket = async (req, res) => {
                 closing_status = $1,
                 closing_rating = $2,
                 closing_time_difference = CURRENT_TIMESTAMP - pc_actual_stage4,
-                current_stage = 5,
+                current_stage = 6,
                 status = 'CLOSED'
             WHERE id = $3 RETURNING *`;
 
@@ -328,7 +334,7 @@ exports.reraiseTicket = async (req, res) => {
         const query = `
             UPDATE help_tickets SET
                 reraise_date = CURRENT_TIMESTAMP,
-                current_stage = 1, -- Reset to stage 1
+                current_stage = 3, -- Reset to stage 3
                 status = 'RERAISED',
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $1 RETURNING *`;
@@ -347,6 +353,59 @@ exports.reraiseTicket = async (req, res) => {
         client.release();
     }
 };
+
+
+//help ticket history 
+exports.getHelpTicketHistoryById = async (req, res) => {
+    const { id } = req.params;
+
+    const client = await db.pool.connect();
+    try {
+        const query = `
+            SELECT 
+                hth.id,
+                hth.ticket_id,
+                hth.ticket_no,
+                hth.stage,
+                hth.action_type,
+                hth.action_by,
+                hth.remarks,
+                hth.new_values,
+                hth.action_date
+            FROM help_ticket_history hth
+            WHERE hth.id = $1
+           
+        `;
+
+        const result = await client.query(query, [id]);
+
+        return res.status(200).json({
+            success: true,
+            count: result.rows.length,
+            data: result.rows
+        });
+
+    } catch (err) {
+        console.error('getHelpTicketHistoryById error:', err);
+
+        // 🔐 Specific DB error handling
+        if (err.code === '42P01') {
+            return res.status(500).json({
+                success: false,
+                message: 'Database table missing (users or history table not found)'
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch help ticket history'
+        });
+
+    } finally {
+        client.release();
+    }
+};
+
 
 // List Tickets
 exports.getTickets = async (req, res) => {

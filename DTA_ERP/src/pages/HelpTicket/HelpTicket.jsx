@@ -3,19 +3,21 @@ import { useSelector } from "react-redux";
 import MainLayout from "../../components/layout/MainLayout";
 import HelpTicketForm from "../../components/HelpTicket/HelpTicketForm";
 import HelpTicketTracker from "../../components/HelpTicket/HelpTicketTracker";
+import HelpTicketHistoryModal from "../../components/HelpTicket/HelpTicketHistoryModal";
 import TicketDetailModal from "../../components/HelpTicket/TicketDetailModal";
 import { toast } from "react-hot-toast";
 import Loader from "../../components/common/Loader";
 import { API_BASE_URL } from "../../config";
-
+import { RotateCcw } from "lucide-react";
 const HelpTicket = () => {
   const { token } = useSelector((state) => state.auth);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedHistory, setSelectedHistory] = useState(null);
+  const [openModal, setOpenModal] = useState(false);
   const [activeTab, setActiveTab] = useState("assigned");
-
   const fetchTickets = async () => {
     setLoading(true);
     try {
@@ -169,22 +171,37 @@ const HelpTicket = () => {
                         >
                           {ticket.priority}
                         </span>
+                        <span className="relative group inline-flex">
+                          {ticket.reraise_date && (
+                            <>
+                              <RotateCcw className="w-5 h-5 text-red-500 cursor-pointer" />
+
+                              {/* Tooltip */}
+                              <span
+                                className="absolute bottom-full mt-6 hidden group-hover:block
+        whitespace-nowrap rounded bg-black px-2 py-1 text-xs text-white shadow"
+                              >
+                                Ticket Reraised
+                              </span>
+                            </>
+                          )}
+                        </span>
                       </div>
                       <span className="text-xs font-bold text-text-muted bg-bg-main px-3 py-1 rounded-lg">
                         {new Date(ticket.created_at).toLocaleDateString()}
                       </span>
                     </div>
 
-                    <div className="mb-4 space-y-2 flex-1">
+                    <div className="mb-4 space-y-2 flex justify-between flex-1">
+                      <h3 className="text-lg font-bold text-text-main leading-tight line-clamp-2">
+                        {ticket.issue_description}
+                      </h3>
                       <span className="text-xs font-bold text-text-muted flex items-center gap-1">
                         <span className="material-symbols-outlined text-sm">
                           location_on
                         </span>
                         {ticket.location}
                       </span>
-                      <h3 className="text-lg font-bold text-text-main leading-tight line-clamp-2">
-                        {ticket.issue_description}
-                      </h3>
                     </div>
 
                     {ticket.image_upload && (
@@ -209,43 +226,58 @@ const HelpTicket = () => {
                     </div>
 
                     {/* Footer Info */}
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border-main/50">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">
-                          Raised By
-                        </span>
-                        <span className="text-xs font-bold text-text-main truncate">
-                          {ticket.raiser_name}
-                        </span>
+                    <div className="pt-4 border-t border-border-main/50 space-y-4">
+                      {/* TOP ROW → 3 DETAILS IN ONE ROW */}
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">
+                            Raised By
+                          </span>
+                          <span className="text-xs font-bold text-text-main truncate">
+                            {ticket.raiser_name}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">
+                            PC Owner
+                          </span>
+                          <span className="text-xs font-bold text-text-main truncate">
+                            {ticket.pc_name || "Unassigned"}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">
+                            Solver
+                          </span>
+                          <span className="text-xs font-bold text-text-main truncate">
+                            {ticket.solver_name || "Unassigned"}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">
-                          PC Owner
-                        </span>
-                        <span className="text-xs font-bold text-text-main truncate">
-                          {ticket.pc_name || "Unassigned"}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-text-muted uppercase tracking-tighter">
-                          Solver
-                        </span>
-                        <span className="text-xs font-bold text-text-main truncate">
-                          {ticket.solver_name || "Unassigned"}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col justify-end">
+                      {/* BOTTOM ROW → BOTH BUTTONS */}
+                      <div className="flex justify-between gap-2">
                         <button
                           onClick={() => setSelectedTicket(ticket)}
                           className="bg-bg-main hover:bg-border-main text-text-main
-                         font-bold py-1.5 px-3 rounded-lg text-xs
-                         transition-colors flex items-center gap-2
-                         justify-center w-full"
+      font-bold py-1.5 px-6 rounded-lg text-xs
+      transition-colors flex items-center gap-2"
                         >
                           View Details
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedHistory(ticket.id);
+                            setOpenModal(true);
+                          }}
+                          className="bg-bg-main hover:bg-border-main text-text-main
+  font-bold py-1.5 px-3 rounded-lg text-xs
+  transition-colors flex items-center gap-2"
+                        >
+                          View History
                         </button>
                       </div>
                     </div>
@@ -296,6 +328,16 @@ const HelpTicket = () => {
           onUpdate={() => {
             fetchTickets();
             // Optional: Keep modal open or close it? Usually close on success which is handled in modal
+          }}
+        />
+      )}
+      {openModal && selectedHistory && (
+        <HelpTicketHistoryModal
+          show={openModal}
+          ticketId={selectedHistory}
+          onClose={() => {
+            setOpenModal(false);
+            setSelectedHistory(null);
           }}
         />
       )}

@@ -44,7 +44,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
     const [isSubmitting, setIsSubmitting] = useState(false);
     // const [isLoadingData, setIsLoadingData] = useState(false); // Removed in favor of Redux state
     const [fetchError, setFetchError] = useState(null);
-    const { isHolidayDate } = useHolidayCheck();
+    const { isInvalidDate } = useHolidayCheck();
     // Audio State
     const [isRecording, setIsRecording] = useState(false);
     const [audioBlob, setAudioBlob] = useState(null);
@@ -144,7 +144,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
         const data = new FormData();
         Object.keys(formData).forEach(key => data.append(key, formData[key]));
 
-         if (isHolidayDate(formData.due_date)) {
+         if (isInvalidDate(formData.due_date)) {
           toast.error(
          "This date is not available. Please select another date."
          );
@@ -329,6 +329,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                                     className="w-full bg-bg-main border border-border-main rounded-2xl p-3 pl-10 text-sm text-text-main font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
                                     value={formData.due_date}
                                     onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                                    
                                 />
                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none text-[18px]">event</span>
                             </div>
