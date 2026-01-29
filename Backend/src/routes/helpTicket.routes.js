@@ -44,4 +44,11 @@ router.put('/reraise/:id', helpTicketController.reraiseTicket);
 router.get('/', helpTicketController.getTickets);
 router.get('/:id', helpTicketController.getTicketById);
 
+
+// routes/helpTickets-history.routes.js
+router.get(
+  '/history/:id',
+  helpTicketController.getHelpTicketHistoryById
+);
+
 module.exports = router;

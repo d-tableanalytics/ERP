@@ -2,6 +2,14 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchHelpTicketConfig } from "../store/slices/helpTicketConfigSlice";
 
+/**
+ * Convert ISO date (YYYY-MM-DD) to local Date object safely
+ */
+const parseISOToLocalDate = (date) => {
+  if (!date) return null;
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day); // local time
+};
 
 const useHolidayCheck = () => {
   const dispatch = useDispatch();
@@ -10,7 +18,6 @@ const useHolidayCheck = () => {
     (state) => state.helpTicketConfig
   );
 
- 
   useEffect(() => {
     if (!holidays.length) {
       dispatch(fetchHelpTicketConfig());
@@ -18,24 +25,48 @@ const useHolidayCheck = () => {
   }, [dispatch, holidays.length]);
 
   /**
-   * Check if a date is a holiday
-   * @param {string | Date} dateTime
-   * @returns {boolean}
+   * Check if selected date is a holiday
    */
-  const isHolidayDate = (dateTime) => {
-    if (!dateTime || !holidays.length) return false;
+  const isHolidayDate = (dateISO) => {
+    if (!dateISO || !holidays.length) return false;
 
-    const selectedDate = new Date(dateTime).toDateString();
+    const selectedDate = parseISOToLocalDate(dateISO).toDateString();
 
     return holidays.some((h) => {
-      const holidayDate = new Date(h.holiday_date).toDateString();
+      const holidayDate = parseISOToLocalDate(
+        h.holiday_date.slice(0, 10)
+      ).toDateString();
+
       return holidayDate === selectedDate;
     });
+  };
+
+  /**
+   * Check if selected date is in the past
+   */
+  const isPastDate = (dateISO) => {
+    if (!dateISO) return false;
+
+    const selectedDate = parseISOToLocalDate(dateISO);
+    const today = new Date();
+
+    today.setHours(0, 0, 0, 0);
+
+    return selectedDate < today;
+  };
+
+  /**
+   * Combined validation
+   */
+  const isInvalidDate = (dateISO) => {
+    return isPastDate(dateISO) || isHolidayDate(dateISO);
   };
 
   return {
     holidays,
     isHolidayDate,
+    isPastDate,
+    isInvalidDate,
     isHolidayLoading: isLoading,
   };
 };

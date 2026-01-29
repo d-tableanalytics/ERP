@@ -9,7 +9,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    console.log(user);
+   
 
     const menuItems = [
         { icon: 'dashboard', label: 'Dashboard', path: '/dashboard' },

@@ -9,7 +9,7 @@ const MainLayout = ({ children, title }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     React.useEffect(() => {
-        console.log('Current theme:', theme);
+
         if (theme === 'dark') {
             document.documentElement.classList.add('dark');
             document.documentElement.style.colorScheme = 'dark';
