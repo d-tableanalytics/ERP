@@ -4,7 +4,7 @@ import delegationReducer from './slices/delegationSlice';
 import checklistReducer from './slices/checklistSlice';
 import masterReducer from './slices/masterSlice';
 import todoReducer from './slices/todoSlice';
-
+import helpTicketConfigReducer from './slices/helpTicketConfigSlice';
 export const store = configureStore({
     reducer: {
         auth: authReducer,
@@ -12,5 +12,6 @@ export const store = configureStore({
         checklist: checklistReducer,
         master: masterReducer,
         todo: todoReducer,
+        helpTicketConfig:helpTicketConfigReducer,
     },
 });

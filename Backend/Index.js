@@ -35,7 +35,6 @@ const todoRoutes = require('./src/routes/todo.routes');
 const helpTicketConfigRoutes = require('./src/routes/helpTicketConfig.routes');
 
 
-
 // Routes registration
 app.use('/api/auth', authRoutes);
 app.use('/api/delegations', delegationRoutes);
@@ -45,10 +44,10 @@ app.use('/api/help-tickets', helpTicketRoutes);
 app.use('/api/todos', todoRoutes);
 
 app.use('/api/help-ticket-config', helpTicketConfigRoutes);
-const fs = require('fs');
-if (fs.existsSync('uploads')) {
-    app.use('/uploads', express.static('uploads'));
-}
+// const fs = require('fs');
+// if (fs.existsSync('uploads')) {
+//     app.use('/uploads', express.static('uploads'));
+// }
 
 // Initialize Database Tables
 Promise.all([

@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { fetchEmployees, fetchDepartments } from '../../store/slices/masterSlice';
 import { createDelegation, updateDelegation } from '../../store/slices/delegationSlice';
 import toast from 'react-hot-toast';
+import useHolidayCheck from "../../hooks/useHolidayCheck";
 
 const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit }) => {
     const { token, user } = useSelector((state) => state.auth);
@@ -43,7 +44,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
     const [isSubmitting, setIsSubmitting] = useState(false);
     // const [isLoadingData, setIsLoadingData] = useState(false); // Removed in favor of Redux state
     const [fetchError, setFetchError] = useState(null);
-
+    const { isHolidayDate } = useHolidayCheck();
     // Audio State
     const [isRecording, setIsRecording] = useState(false);
     const [audioBlob, setAudioBlob] = useState(null);
@@ -138,12 +139,17 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsSubmitting(true);
-
+       
+         
         const data = new FormData();
         Object.keys(formData).forEach(key => data.append(key, formData[key]));
 
-
+         if (isHolidayDate(formData.due_date)) {
+          toast.error(
+         "This date is not available. Please select another date."
+         );
+       return;
+       }
         if (audioBlob) {
             data.append('voice_note', audioBlob, 'voice-note.webm');
         }
@@ -151,7 +157,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
         files.forEach(file => {
             data.append('reference_docs', file);
         });
-
+     
         try {
             if (delegationToEdit) {
                 await dispatch(updateDelegation({ id: delegationToEdit.id, formData: data })).unwrap();
@@ -162,6 +168,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
             }
             onSuccess();
             onClose();
+             setIsSubmitting(true);
         } catch (error) {
             console.error('Error saving delegation:', error);
             toast.error(error?.message || 'Failed to save delegation');

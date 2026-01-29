@@ -10,6 +10,7 @@ import {
   fetchDelegations,
   deleteDelegation,
 } from "../../store/slices/delegationSlice";
+import { fetchHelpTicketConfig } from "../../store/slices/helpTicketConfigSlice";
 import toast from "react-hot-toast";
 
 const Delegation = () => {
@@ -142,6 +143,8 @@ const Delegation = () => {
     if (delegations.length === 0) {
       dispatch(fetchDelegations());
     }
+    // Fetch holidays for the calendar
+    dispatch(fetchHelpTicketConfig());
   }, [dispatch, delegations.length]);
 
   useEffect(() => {

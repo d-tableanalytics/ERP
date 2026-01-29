@@ -1,472 +1,110 @@
-import React from "react";
 import MainLayout from "../components/layout/MainLayout";
 import StatCard from "../components/dashboard/StatCard";
+import { getModuleConfig, formatTime12h } from "./dummyData";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
 
-const getModuleConfig = (type) => {
-  switch (type) {
-    case "attendance":
-      return {
-        title: "Attendance Management",
-        stats: [
-          {
-            title: "Present Today",
-            value: "1,145",
-            icon: "how_to_reg",
-            trend: "92%",
-            trendLabel: "Daily Average",
-            color: "green",
-          },
-          {
-            title: "Absent",
-            value: "45",
-            icon: "person_off",
-            trend: "+2%",
-            trendLabel: "vs Yesterday",
-            color: "red",
-          },
-          {
-            title: "Late Arrivals",
-            value: "23",
-            icon: "timer_off",
-            trend: "-5%",
-            trendLabel: "Improving",
-            color: "orange",
-          },
-          {
-            title: "On Leave",
-            value: "37",
-            icon: "flight_takeoff",
-            trend: "Normal",
-            trendLabel: "Planned",
-            color: "blue",
-          },
-        ],
-        tableHeaders: [
-          "Employee",
-          "Department",
-          "Check In",
-          "Check Out",
-          "Status",
-        ],
-        tableData: [
-          {
-            col1: "John Doe",
-            col2: "Engineering",
-            col3: "09:00 AM",
-            col4: "06:00 PM",
-            col5: "Present",
-            statusColor: "text-green-600 bg-green-100",
-          },
-          {
-            col1: "Jane Smith",
-            col2: "HR",
-            col3: "09:15 AM",
-            col4: "06:15 PM",
-            col5: "Late",
-            statusColor: "text-orange-600 bg-orange-100",
-          },
-          {
-            col1: "Robert Key",
-            col2: "Finance",
-            col3: "-",
-            col4: "-",
-            col5: "Absent",
-            statusColor: "text-red-600 bg-red-100",
-          },
-          {
-            col1: "Emily Davis",
-            col2: "Marketing",
-            col3: "08:50 AM",
-            col4: "05:50 PM",
-            col5: "Present",
-            statusColor: "text-green-600 bg-green-100",
-          },
-        ],
-      };
-    case "salary":
-      return {
-        title: "Payroll & Salary",
-        stats: [
-          {
-            title: "Total Payroll",
-            value: "$1.2M",
-            icon: "payments",
-            trend: "+1.5%",
-            trendLabel: "vs Last Month",
-            color: "blue",
-          },
-          {
-            title: "Pending Process",
-            value: "12",
-            icon: "pending",
-            trend: "Urgent",
-            trendLabel: "Action Required",
-            color: "orange",
-          },
-          {
-            title: "Avg Salary",
-            value: "$45k",
-            icon: "currency_exchange",
-            trend: "Stable",
-            trendLabel: "Yearly",
-            color: "purple",
-          },
-          {
-            title: "Bonuses Paid",
-            value: "$125k",
-            icon: "celebration",
-            trend: "+12%",
-            trendLabel: "Q4 Performance",
-            color: "green",
-          },
-        ],
-        tableHeaders: ["Employee", "Role", "Base Salary", "Bonus", "Status"],
-        tableData: [
-          {
-            col1: "Michael Brown",
-            col2: "Senior Dev",
-            col3: "$95,000",
-            col4: "$5,000",
-            col5: "Processed",
-            statusColor: "text-emerald-600 bg-emerald-100",
-          },
-          {
-            col1: "Sarah Wilson",
-            col2: "Designer",
-            col3: "$72,000",
-            col4: "$2,000",
-            col5: "Pending",
-            statusColor: "text-amber-600 bg-amber-100",
-          },
-          {
-            col1: "David Lee",
-            col2: "Manager",
-            col3: "$110,000",
-            col4: "$15,000",
-            col5: "Processed",
-            statusColor: "text-emerald-600 bg-emerald-100",
-          },
-          {
-            col1: "Lisa Ray",
-            col2: "QA Lead",
-            col3: "$88,000",
-            col4: "$4,000",
-            col5: "Processing",
-            statusColor: "text-blue-600 bg-blue-100",
-          },
-        ],
-      };
-    case "fms":
-      return {
-        title: "File Management System",
-        stats: [
-          {
-            title: "Total Files",
-            value: "45.2k",
-            icon: "folder_open",
-            trend: "+120",
-            trendLabel: "New this week",
-            color: "blue",
-          },
-          {
-            title: "Storage Used",
-            value: "1.2TB",
-            icon: "cloud_queue",
-            trend: "82%",
-            trendLabel: "Capacity",
-            color: "purple",
-          },
-          {
-            title: "Recent Uploads",
-            value: "145",
-            icon: "upload_file",
-            trend: "Active",
-            trendLabel: "Today",
-            color: "green",
-          },
-          {
-            title: "Shared Files",
-            value: "3,200",
-            icon: "share",
-            trend: "Stable",
-            trendLabel: "Internal",
-            color: "orange",
-          },
-        ],
-        tableHeaders: ["File Name", "Owner", "Size", "Last Modified", "Type"],
-        tableData: [
-          {
-            col1: "Project_Specs.pdf",
-            col2: "Alice Green",
-            col3: "2.4 MB",
-            col4: "2 hours ago",
-            col5: "PDF",
-            statusColor: "text-red-500 bg-red-50",
-          },
-          {
-            col1: "Budget_2025.xlsx",
-            col2: "Finance Team",
-            col3: "450 KB",
-            col4: "Yesterday",
-            col5: "Excel",
-            statusColor: "text-green-600 bg-green-50",
-          },
-          {
-            col1: "Logo_Assets.zip",
-            col2: "Design Team",
-            col3: "150 MB",
-            col4: "Jan 15, 2025",
-            col5: "Archive",
-            statusColor: "text-purple-600 bg-purple-50",
-          },
-          {
-            col1: "Meeting_Notes.docx",
-            col2: "John Doe",
-            col3: "25 KB",
-            col4: "Jan 12, 2025",
-            col5: "Word",
-            statusColor: "text-blue-600 bg-blue-50",
-          },
-        ],
-      };
-    case "todo":
-      return {
-        title: "Task Management (TODO)",
-        stats: [
-          {
-            title: "My Tasks",
-            value: "18",
-            icon: "assignment",
-            trend: "4 Due",
-            trendLabel: "Today",
-            color: "blue",
-          },
-          {
-            title: "Completed",
-            value: "145",
-            icon: "task_alt",
-            trend: "+12",
-            trendLabel: "This Week",
-            color: "green",
-          },
-          {
-            title: "Overdue",
-            value: "3",
-            icon: "warning",
-            trend: "Action",
-            trendLabel: "High Priority",
-            color: "red",
-          },
-          {
-            title: "Team Tasks",
-            value: "62",
-            icon: "group_work",
-            trend: "Active",
-            trendLabel: "Ongoing",
-            color: "purple",
-          },
-        ],
-        tableHeaders: ["Task", "Project", "Due Date", "Priority", "Status"],
-        tableData: [
-          {
-            col1: "Update Homepage UI",
-            col2: "Website Revamp",
-            col3: "Today",
-            col4: "High",
-            col5: "In Progress",
-            statusColor: "text-blue-600 bg-blue-100",
-          },
-          {
-            col1: "Fix Login Bug",
-            col2: "App Maintenance",
-            col3: "Tomorrow",
-            col4: "Critical",
-            col5: "Pending",
-            statusColor: "text-red-600 bg-red-100",
-          },
-          {
-            col1: "Draft Q1 Report",
-            col2: "Quarterly Review",
-            col3: "Jan 25",
-            col4: "Medium",
-            col5: "Not Started",
-            statusColor: "text-slate-600 bg-slate-100",
-          },
-          {
-            col1: "Team Sync",
-            col2: "Operations",
-            col3: "Jan 26",
-            col4: "Low",
-            col5: "Done",
-            statusColor: "text-emerald-600 bg-emerald-100",
-          },
-        ],
-      };
-    case "ims":
-      return {
-        title: "Inventory Management",
-        stats: [
-          {
-            title: "Total Stock",
-            value: "8,450",
-            icon: "inventory_2",
-            trend: "Good",
-            trendLabel: "Stock Level",
-            color: "blue",
-          },
-          {
-            title: "Low Stock",
-            value: "12",
-            icon: "production_quantity_limits",
-            trend: "Ordered",
-            trendLabel: "Replenishing",
-            color: "orange",
-          },
-          {
-            title: "Incoming",
-            value: "500",
-            icon: "local_shipping",
-            trend: "Tomorrow",
-            trendLabel: "Expected",
-            color: "purple",
-          },
-          {
-            title: "Damaged",
-            value: "0.5%",
-            icon: "broken_image",
-            trend: "Low",
-            trendLabel: "Quality Control",
-            color: "green",
-          },
-        ],
-        tableHeaders: ["Item Name", "Category", "SKU", "Stock Qty", "Status"],
-        tableData: [
-          {
-            col1: "Office Chair V2",
-            col2: "Furniture",
-            col3: "FUR-001",
-            col4: "145",
-            col5: "In Stock",
-            statusColor: "text-emerald-600 bg-emerald-100",
-          },
-          {
-            col1: 'Dell Monitor 24"',
-            col2: "Electronics",
-            col3: "ELE-552",
-            col4: "12",
-            col5: "Low Stock",
-            statusColor: "text-amber-600 bg-amber-100",
-          },
-          {
-            col1: "Wireless Mouse",
-            col2: "Electronics",
-            col3: "ELE-883",
-            col4: "350",
-            col5: "In Stock",
-            statusColor: "text-emerald-600 bg-emerald-100",
-          },
-          {
-            col1: "USB-C Cable",
-            col2: "Accessories",
-            col3: "ACC-102",
-            col4: "0",
-            col5: "Out of Stock",
-            statusColor: "text-red-600 bg-red-100",
-          },
-        ],
-      };
-    case "hrms":
-      return {
-        title: "HR Management System",
-        stats: [
-          {
-            title: "Total Staff",
-            value: "1,250",
-            icon: "badge",
-            trend: "+5",
-            trendLabel: "New Hires",
-            color: "blue",
-          },
-          {
-            title: "Open Positions",
-            value: "8",
-            icon: "person_search",
-            trend: "Hiring",
-            trendLabel: "Active",
-            color: "purple",
-          },
-          {
-            title: "Reviews Due",
-            value: "24",
-            icon: "rate_review",
-            trend: "Q1",
-            trendLabel: "Performance",
-            color: "orange",
-          },
-          {
-            title: "Satisfaction",
-            value: "4.8",
-            icon: "sentiment_satisfied",
-            trend: "High",
-            trendLabel: "eNPS Score",
-            color: "green",
-          },
-        ],
-        tableHeaders: [
-          "Candidate / Employee",
-          "Position",
-          "Department",
-          "Date",
-          "Status",
-        ],
-        tableData: [
-          {
-            col1: "Alex Johnson",
-            col2: "Senior Dev",
-            col3: "Engineering",
-            col4: "Joined Today",
-            col5: "Onboarding",
-            statusColor: "text-blue-600 bg-blue-100",
-          },
-          {
-            col1: "Maria Garcia",
-            col2: "Sales Lead",
-            col3: "Sales",
-            col4: "Interviewing",
-            col5: "Round 2",
-            statusColor: "text-purple-600 bg-purple-100",
-          },
-          {
-            col1: "Sam Wilson",
-            col2: "Product Manager",
-            col3: "Product",
-            col4: "Offered",
-            col5: "Pending",
-            statusColor: "text-amber-600 bg-amber-100",
-          },
-          {
-            col1: "Chris Evans",
-            col2: "Designer",
-            col3: "Design",
-            col4: "Rejected",
-            col5: "Closed",
-            statusColor: "text-slate-600 bg-slate-100",
-          },
-        ],
-      };
-    default:
-      return {
-        title: "Module",
-        stats: [],
-        tableHeaders: [],
-        tableData: [],
-      };
-  }
-};
-
+import {
+  fetchHelpTicketConfig,
+  updateHelpTicketConfig,
+  addHoliday,
+  removeHoliday,
+} from "../../src/store/slices/helpTicketConfigSlice";
 const DemoModule = ({ type }) => {
+  const dispatch = useDispatch();
   const config = getModuleConfig(type);
   const [activeSetting, setActiveSetting] = React.useState("General");
+  const { user } = useSelector((state) => state.auth);
+  const { settings, holidays, isSaving } = useSelector(
+    (state) => state.helpTicketConfig,
+  );
+  const [form, setForm] = useState({
+    auto_close_days: "",
+    reminder_days: "",
+    default_remark: "",
+  });
+  const [holidayForm, setHolidayForm] = useState({
+    holiday_date: "",
+    description: "",
+  });
+
+  useEffect(() => {
+    if (
+      activeSetting === "Help Ticket Setting" ||
+      activeSetting === "Add Holiday"
+    ) {
+      dispatch(fetchHelpTicketConfig());
+    }
+  }, [activeSetting, dispatch]);
+
+  useEffect(() => {
+    if (!settings) return;
+
+    setForm({
+      auto_close_days: settings.stage5_tat_hours
+        ? Math.ceil(settings.stage5_tat_hours / 24)
+        : "",
+      reminder_days: settings.stage2_tat_hours
+        ? Math.ceil(settings.stage2_tat_hours / 24)
+        : "",
+      default_remark: settings.default_internal_remark || "",
+    });
+  }, [settings]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveHelpTicketSettings = async () => {
+    try {
+      await dispatch(
+        updateHelpTicketConfig({
+          stage2_tat_hours: Number(form.reminder_days) * 24,
+          stage5_tat_hours: Number(form.auto_close_days) * 24,
+          default_internal_remark: form.default_remark,
+        }),
+      ).unwrap();
+
+      toast.success("Help ticket settings updated");
+    } catch (err) {
+      toast.error(err || "Failed to update settings");
+    }
+  };
+
+  const handleHolidayChange = (e) => {
+    const { name, value } = e.target;
+    setHolidayForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddHoliday = async () => {
+    if (!holidayForm.holiday_date) {
+      toast.error("Select holiday date");
+      return;
+    }
+
+    try {
+      await dispatch(addHoliday(holidayForm)).unwrap();
+      toast.success("Holiday added");
+      setHolidayForm({ holiday_date: "", description: "" });
+      dispatch(fetchHelpTicketConfig());
+    } catch (err) {
+      toast.error(err || "Failed to add holiday");
+    }
+  };
+
+  const handleDeleteHoliday = async (id) => {
+    if (!window.confirm("Delete this holiday?")) return;
+
+    try {
+      await dispatch(removeHoliday(id)).unwrap();
+      toast.success("Holiday removed");
+    } catch {
+      toast.error("Failed to remove holiday");
+    }
+  };
+
   // Profile Layout
   if (type === "profile") {
     return (
@@ -578,6 +216,11 @@ const DemoModule = ({ type }) => {
       "Team",
       "Billing",
       "Integrations",
+      ...(user?.role === "Admin" ||
+        user?.role === "SuperAdmin" ||
+        user?.role === "PC"
+        ? ["Add Holiday"]
+        : []),
       "Help Ticket Setting",
     ];
 
@@ -585,27 +228,27 @@ const DemoModule = ({ type }) => {
       <MainLayout title="Application Settings">
         <div className="max-w-4xl mx-auto bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-4 min-h-[600px]">
-            {/* ---------------- Sidebar ---------------- */}
+            {/* ================= Sidebar ================= */}
             <div className="bg-bg-main/50 border-r border-border-main p-4 space-y-1">
               {SETTINGS.map((item) => (
                 <button
                   key={item}
                   onClick={() => setActiveSetting(item)}
                   className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-bold transition-colors
-                    ${
-                      activeSetting === item
-                        ? "bg-primary/10 text-primary"
-                        : "text-text-muted hover:bg-bg-main hover:text-text-main"
-                    }`}
+                  ${
+                    activeSetting === item
+                      ? "bg-primary/10 text-primary"
+                      : "text-text-muted hover:bg-bg-main hover:text-text-main"
+                  }`}
                 >
                   {item}
                 </button>
               ))}
             </div>
 
-            {/* ---------------- Content ---------------- */}   
+            {/* ================= Content ================= */}
             <div className="md:col-span-3 p-8 space-y-8">
-              {/* ===== General Settings ===== */}
+              {/* ========= General ========= */}
               {activeSetting === "General" && (
                 <>
                   <div>
@@ -639,93 +282,253 @@ const DemoModule = ({ type }) => {
                         <option>French</option>
                       </select>
                     </div>
-
-                    {/* Dark Mode */}
-                    <div className="flex items-center justify-between pt-4 border-t border-border-main">
-                      <div>
-                        <h4 className="text-sm font-bold text-text-main">
-                          Dark Mode
-                        </h4>
-                        <p className="text-xs text-text-muted">
-                          Toggle system wide dark theme
-                        </p>
-                      </div>
-                      <div className="w-12 h-6 bg-primary rounded-full relative cursor-pointer">
-                        <div className="absolute top-1 right-1 size-4 bg-white rounded-full"></div>
-                      </div>
-                    </div>
                   </div>
                 </>
               )}
 
-              {/* ===== Help Ticket Settings ===== */}
+              {/* ========= Help Ticket Setting ========= */}
               {activeSetting === "Help Ticket Setting" && (
                 <>
+                  {/* Header */}
                   <div>
                     <h3 className="text-lg font-bold text-text-main mb-1">
                       Help Ticket Settings
                     </h3>
                     <p className="text-text-muted text-sm pb-4 border-b border-border-main">
-                      Configure automation rules for help tickets.
+                      Configure automation rules and understand SLA
+                      calculations.
                     </p>
                   </div>
 
-                  <div className="space-y-6 max-w-lg">
-                    <div className="grid gap-2">
+                  {/* Editable Settings */}
+                  <div className="space-y-5 max-w-md">
+                    {/* Auto Close */}
+                    <div className="grid gap-1">
                       <label className="text-sm font-bold text-text-main">
                         Auto Close Ticket After (Days)
                       </label>
                       <input
                         type="number"
+                        name="auto_close_days"
+                        value={form.auto_close_days}
+                        onChange={handleChange}
                         placeholder="e.g. 7"
                         className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
                       />
                       <p className="text-xs text-text-muted">
-                        Ticket will close automatically if inactive.
+                        Ticket will be closed automatically if inactive for
+                        these days.
                       </p>
                     </div>
 
-                    <div className="grid gap-2">
+                    {/* Reminder */}
+                    <div className="grid gap-1">
                       <label className="text-sm font-bold text-text-main">
                         Reminder Before Due Date (Days)
                       </label>
                       <input
                         type="number"
+                        name="reminder_days"
+                        value={form.reminder_days}
+                        onChange={handleChange}
                         placeholder="e.g. 1"
                         className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
                       />
+                      <p className="text-xs text-text-muted">
+                        User will be reminded before SLA breach.
+                      </p>
                     </div>
 
-                    <div className="grid gap-2">
+                    {/* Default Remark */}
+                    <div className="grid gap-1">
                       <label className="text-sm font-bold text-text-main">
                         Default Internal Remark
                       </label>
                       <textarea
                         rows={3}
-                        placeholder="Internal note added to every ticket"
+                        name="default_remark"
+                        value={form.default_remark}
+                        onChange={handleChange}
+                        placeholder="Internal note added automatically to tickets"
                         className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none resize-none focus:border-primary"
                       />
+                    </div>
+
+                    {/* Save Button */}
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={handleSaveHelpTicketSettings}
+                        disabled={isSaving}
+                        className="bg-primary text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50"
+                      >
+                        {isSaving ? "Saving..." : "Save Settings"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ================= READ ONLY SECTION ================= */}
+
+                  <div className="pt-6 mt-6 border-t border-border-main space-y-6 max-w-md">
+                    <h4 className="text-sm font-bold text-text-main">
+                      SLA Working Configuration
+                    </h4>
+
+                    {/* Office Hours */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-1">
+                        <label className="text-xs font-bold text-text-muted uppercase">
+                          Office Start Time
+                        </label>
+                        <input
+                          type="text"
+                          value={formatTime12h(settings?.office_start_time)}
+                          disabled
+                          className="px-4 py-2 bg-bg-main border border-border-main rounded-lg text-text-muted cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div className="grid gap-1">
+                        <label className="text-xs font-bold text-text-muted uppercase">
+                          Office End Time
+                        </label>
+                        <input
+                          type="text"
+                          value={formatTime12h(settings?.office_end_time)}
+                          disabled
+                          className="px-4 py-2 bg-bg-main border border-border-main rounded-lg text-text-muted cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Working Days */}
+                    <div className="grid gap-2">
+                      <label className="text-xs font-bold text-text-muted uppercase">
+                        Working Days
+                      </label>
+
+                      <div className="flex flex-wrap gap-2">
+                        {settings?.working_days?.length > 0 ? (
+                          settings.working_days.map((day) => (
+                            <span
+                              key={day}
+                              className="px-3 py-1 text-xs font-bold bg-bg-main border border-border-main rounded-full text-text-main"
+                            >
+                              {day}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-text-muted">
+                            Not configured
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-text-muted">
+                        SLA timers run only during office hours on these days.
+                      </p>
                     </div>
                   </div>
                 </>
               )}
 
-              {/* ===== Coming Soon Placeholder ===== */}
-              {!["General", "Help Ticket Setting"].includes(activeSetting) && (
-                <div className="flex items-center justify-center h-[300px] text-text-muted text-sm font-bold">
-                  {activeSetting} settings coming soon 🚧
-                </div>
+              {/* ========= Add Holiday ========= */}
+              {activeSetting === "Add Holiday" && (
+                <>
+                  {/* Header */}
+                  <div>
+                    <h3 className="text-lg font-bold text-text-main mb-1">
+                      Holiday Management
+                    </h3>
+                    <p className="text-text-muted text-sm pb-4 border-b border-border-main">
+                      Add and manage holidays used for SLA and TAT calculations.
+                    </p>
+                  </div>
+
+                  {/* Add Holiday Form */}
+                  <div className="space-y-6 max-w-md">
+                    {/* Holiday Date */}
+                    <div className="grid gap-1">
+                      <label className="text-sm font-bold text-text-main">
+                        Holiday Date
+                      </label>
+                      <input
+                        type="date"
+                        name="holiday_date"
+                        value={holidayForm.holiday_date}
+                        onChange={handleHolidayChange}
+                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                      />
+                      <p className="text-xs text-text-muted">
+                        This date will be excluded from SLA calculations.
+                      </p>
+                    </div>
+
+                    {/* Description */}
+                    <div className="grid gap-1">
+                      <label className="text-sm font-bold text-text-main">
+                        Holiday Description
+                      </label>
+                      <input
+                        type="text"
+                        name="description"
+                        value={holidayForm.description}
+                        onChange={handleHolidayChange}
+                        placeholder="e.g. Republic Day"
+                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    {/* Add Button */}
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={handleAddHoliday}
+                        className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90"
+                      >
+                        Add Holiday
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Holiday List */}
+                  <div className="mt-8 space-y-3 max-w-md">
+                    {holidays?.length === 0 && (
+                      <p className="text-sm text-text-muted text-center">
+                        No holidays added yet
+                      </p>
+                    )}
+
+                    {holidays?.map((h) => (
+                      <div
+                        key={h.id}
+                        className="flex justify-between items-center bg-bg-main p-3 rounded-lg border border-border-main"
+                      >
+                        <div>
+                          <p className="font-bold text-text-main">
+                            {h.description}
+                          </p>
+                          <p className="text-xs text-text-muted">
+                            {new Date(h.holiday_date).toLocaleDateString()}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteHoliday(h.id)}
+                          className="text-red-500 text-sm font-bold hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
 
-              {/* ===== Save / Cancel ===== */}
-              {["General", "Help Ticket Setting"].includes(activeSetting) && (
-                <div className="pt-6 border-t border-border-main flex justify-end gap-3">
-                  <button className="px-4 py-2 text-text-muted text-sm font-bold hover:text-text-main">
-                    Cancel
-                  </button>
-                  <button className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90">
-                    Save Changes
-                  </button>
+              {/* ========= Coming Soon ========= */}
+              {!["General", "Help Ticket Setting", "Add Holiday"].includes(
+                activeSetting,
+              ) && (
+                <div className="flex items-center justify-center h-[300px] text-text-muted font-bold">
+                  {activeSetting} settings coming soon 🚧
                 </div>
               )}
             </div>
