@@ -7,9 +7,16 @@ import { fetchHelpTicketConfig } from "../store/slices/helpTicketConfigSlice";
  */
 const parseISOToLocalDate = (date) => {
   if (!date) return null;
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(year, month - 1, day); // local time
+
+  // ✅ Handle datetime-local safely
+  const isoDate = typeof date === "string"
+    ? date.split("T")[0]
+    : date;
+
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(year, month - 1, day);
 };
+
 
 const useHolidayCheck = () => {
   const dispatch = useDispatch();

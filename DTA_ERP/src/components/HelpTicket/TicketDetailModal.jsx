@@ -3,11 +3,12 @@ import { useSelector, useDispatch } from "react-redux";
 import { fetchProblemSolvers } from "../../store/slices/masterSlice";
 import { toast } from "react-hot-toast";
 import { API_BASE_URL } from "../../config";
+import useHolidayCheck from "../../hooks/useHolidayCheck";
 const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
   const { token, user } = useSelector((state) => state.auth);
   const { problemSolvers } = useSelector((state) => state.master);
   const dispatch = useDispatch();
-
+  const { isInvalidDate } = useHolidayCheck();
   const [loading, setLoading] = useState(false);
   const [actionTab, setActionTab] = useState("solve"); // 'solve' or 'revise' for Solver
   const [formData, setFormData] = useState({
@@ -64,6 +65,12 @@ const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
     if (!formData.solver_planned_date || !formData.problem_solver) {
       return toast.error("Solver and Date are required");
     }
+        if (isInvalidDate(formData.solver_planned_date)) {
+          toast.error(
+         "This date is not available. Please select another date."
+         );
+       return;
+       }
     await submitAction(
       `${API_BASE_URL}/api/help-tickets/pc-planning/${ticket.id}`,
       "PUT",
@@ -99,6 +106,12 @@ const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
         handleError(err);
       }
     } else {
+      if (isInvalidDate(formData.solver_planned_date)) {
+          toast.error(
+         "This date is not available. Please select another date."
+         );
+       return;
+       }
       await submitAction(
         `${API_BASE_URL}/api/help-tickets/revise/${ticket.id}`,
         "PUT",
@@ -122,6 +135,12 @@ const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
   };
 
   const handleClosure = async (isReraise = false) => {
+        if (isInvalidDate(formData.reraise_date)) {
+          toast.error(
+         "This date is not available. Please select another date."
+         );
+       return;
+       }
     const url = isReraise
       ? `${API_BASE_URL}/api/help-tickets/reraise/${ticket.id}`
       : `${API_BASE_URL}/api/help-tickets/close/${ticket.id}`;

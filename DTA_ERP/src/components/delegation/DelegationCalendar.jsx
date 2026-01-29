@@ -89,7 +89,7 @@ const CustomEvent = ({ event, user, isAdmin, onEdit, onDelete }) => {
 
   if (isHoliday) {
     return (
-      <div className="px-2 py-1 rounded-lg bg-purple-600 text-white text-xs font-bold">
+      <div className="px-2 py-2 rounded-lg under bg-purple-600 text-white text-xs font-bold">
         🎉 {event.title}
       </div>
     );
@@ -245,7 +245,7 @@ const DelegationCalendar = ({
                     color: var(--muted-text); 
                     font-family: inherit; 
                     height: auto !important; /* Allow calendar to grow */
-                    min-height: 800px;
+                    min-height: 900px; /* Minimum height for usability */
                 }
                 .rbc-header { 
                     border-bottom: 1px solid var(--main-border); 
