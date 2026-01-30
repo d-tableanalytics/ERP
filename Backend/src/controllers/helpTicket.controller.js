@@ -24,15 +24,49 @@ const getTATConfig = async () => {
 };
 
 // Helper to record history
-const recordHistory = async (client, ticketId, ticketNo, stage, oldValues, newValues, actionType, actionBy, remarks) => {
-    const query = `
-        INSERT INTO help_ticket_history (
-            ticket_id, ticket_no, stage, old_values, new_values, action_type, action_by, remarks
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
-    await client.query(query, [ticketId, ticketNo, stage, oldValues, newValues, actionType, actionBy, remarks]);
+const recordHistory = async (
+  client,
+  ticketId,
+  ticketNo,
+  stage,
+  oldValues,
+  newValues,
+  actionType,
+  actionBy,
+  remarks
+) => {
+  const query = `
+    INSERT INTO help_ticket_history (
+      ticket_id,
+      ticket_no,
+      stage,
+      old_values,
+      new_values,
+      action_type,
+      action_by,
+      remarks
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING *;
+  `;
+
+  const result = await client.query(query, [
+    ticketId,
+    ticketNo,
+    stage,
+    oldValues,
+    newValues,
+    actionType,
+    actionBy,
+    remarks
+  ]);
+
+ 
+  return result.rows[0]; 
 };
 
-// Stage 1: Raise Ticket
+
+
 exports.raiseTicket = async (req, res) => {
     const { location, pc_accountable, issue_description, desired_date, priority, problem_solver } = req.body;
     const raised_by = req.user.id;
@@ -81,7 +115,10 @@ exports.raiseTicket = async (req, res) => {
         // Record initial history
         const client = await db.pool.connect();
         try {
-            await recordHistory(client, result.rows[0].id, help_ticket_no, 1, null, result.rows[0], 'TICKET_RAISED', raised_by, 'Ticket created');
+            const newValues = result.rows[0];
+            
+            await recordHistory(client, result.rows[0].id, help_ticket_no, 1, null,newValues , 'TICKET_RAISED', raised_by, 'Ticket created');
+            
         } finally {
             client.release();
         }
@@ -127,8 +164,8 @@ exports.pcPlanning = async (req, res) => {
             WHERE id = $5 RETURNING *`;
 
         const result = await client.query(query, [pc_planned_date, problem_solver, pc_remark, pc_status, id]);
-
-        await recordHistory(client, id, oldValues.help_ticket_no, 2, oldValues, result.rows[0], 'PC_PLANNING_COMPLETE', actionBy, pc_remark);
+        const newValues = result.rows[0];
+        await recordHistory(client, id, oldValues.help_ticket_no, 2, oldValues,newValues , 'PC_PLANNING_COMPLETE', actionBy, pc_remark);
 
         await client.query('COMMIT');
         res.json(result.rows[0]);
@@ -163,11 +200,11 @@ exports.solveTicket = async (req, res) => {
     const client = await db.pool.connect();
     try {
         await client.query('BEGIN');
-
+       
         const currentRes = await client.query('SELECT * FROM help_tickets WHERE id = $1', [id]);
         if (currentRes.rows.length === 0) throw new Error('Ticket not found');
         const oldValues = currentRes.rows[0];
-
+        
         // Calculate Stage 4 planned date
         const { config, holidays } = await getTATConfig();
         const pcPlannedStage4 = addBusinessHours(new Date(), config.stage4_tat_hours, config, holidays);
@@ -185,7 +222,9 @@ exports.solveTicket = async (req, res) => {
 
         const result = await client.query(query, [solver_remark, proof_upload, id, pcPlannedStage4]);
 
-        await recordHistory(client, id, oldValues.help_ticket_no, 3, oldValues, result.rows[0], 'TICKET_SOLVED', actionBy, solver_remark);
+        const newValues = result.rows[0];
+        
+        await recordHistory(client, id, oldValues.help_ticket_no, 3, oldValues, newValues, 'TICKET_SOLVED', actionBy, solver_remark);
 
         await client.query('COMMIT');
         res.json(result.rows[0]);
@@ -220,9 +259,11 @@ exports.reviseTicketDate = async (req, res) => {
             WHERE id = $3 RETURNING *`;
 
         const result = await client.query(query, [solver_planned_date, solver_remark, id]);
-
-        await recordHistory(client, id, oldValues.help_ticket_no, 3, oldValues, result.rows[0], 'DATE_REVISED', actionBy, solver_remark);
-
+          const newValues = result.rows[0];
+          
+        await recordHistory(client, id, oldValues.help_ticket_no, 3, oldValues, newValues ,  'DATE_REVISED', actionBy, solver_remark);
+       
+         
         await client.query('COMMIT');
         res.json(result.rows[0]);
     } catch (err) {
@@ -264,8 +305,9 @@ exports.pcConfirmation = async (req, res) => {
             WHERE id = $3 RETURNING *`;
 
         const result = await client.query(query, [pc_status_stage4, pc_remark_stage4, id, closingPlanned]);
-
-        await recordHistory(client, id, oldValues.help_ticket_no, 4, oldValues, result.rows[0], 'PC_CONFIRMED', actionBy, pc_remark_stage4);
+          const newValues = result.rows[0];
+          
+        await recordHistory(client, id, oldValues.help_ticket_no, 4, oldValues, newValues, 'PC_CONFIRMED', actionBy, pc_remark_stage4);
 
         await client.query('COMMIT');
         res.json(result.rows[0]);
@@ -303,8 +345,9 @@ exports.closeTicket = async (req, res) => {
             WHERE id = $3 RETURNING *`;
 
         const result = await client.query(query, [closing_status, closing_rating, id]);
-
-        await recordHistory(client, id, oldValues.help_ticket_no, 5, oldValues, result.rows[0], 'TICKET_CLOSED', actionBy, remarks || 'Ticket closed');
+         const newValues = result.rows[0];
+          
+        await recordHistory(client, id, oldValues.help_ticket_no, 5, oldValues, newValues, 'TICKET_CLOSED', actionBy, remarks || 'Ticket closed');
 
         await client.query('COMMIT');
         res.json(result.rows[0]);
@@ -340,8 +383,9 @@ exports.reraiseTicket = async (req, res) => {
             WHERE id = $1 RETURNING *`;
 
         const result = await client.query(query, [id]);
-
-        await recordHistory(client, id, oldValues.help_ticket_no, 5, oldValues, result.rows[0], 'TICKET_RERAISED', actionBy, remarks);
+         const newValues = result.rows[0];
+          
+        await recordHistory(client, id, oldValues.help_ticket_no, 5, oldValues, newValues, 'TICKET_RERAISED', actionBy, remarks);
 
         await client.query('COMMIT');
         res.json(result.rows[0]);
@@ -357,54 +401,55 @@ exports.reraiseTicket = async (req, res) => {
 
 //help ticket history 
 exports.getHelpTicketHistoryById = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params; 
 
-    const client = await db.pool.connect();
-    try {
-        const query = `
-            SELECT 
-                hth.id,
-                hth.ticket_id,
-                hth.ticket_no,
-                hth.stage,
-                hth.action_type,
-                hth.action_by,
-                hth.remarks,
-                hth.new_values,
-                hth.action_date
-            FROM help_ticket_history hth
-            WHERE hth.id = $1
-           
-        `;
+  const client = await db.pool.connect();
+  try {
+    const query = `
+      SELECT 
+        hth.id,
+        hth.ticket_id,
+        hth.ticket_no,
+        hth.stage,
+        hth.action_type,
+        hth.action_by,
+        hth.remarks,
+        hth.old_values,
+        hth.new_values,
+        hth.action_date
+      FROM help_ticket_history hth
+      WHERE hth.ticket_id = $1
+      ORDER BY hth.action_date DESC
+    `;
 
-        const result = await client.query(query, [id]);
+    const result = await client.query(query, [id]);
 
-        return res.status(200).json({
-            success: true,
-            count: result.rows.length,
-            data: result.rows
-        });
+    return res.status(200).json({
+      success: true,
+      count: result.rows.length,
+      data: result.rows
+    });
 
-    } catch (err) {
-        console.error('getHelpTicketHistoryById error:', err);
+  } catch (err) {
+    console.error('getHelpTicketHistoryById error:', err);
 
-        // 🔐 Specific DB error handling
-        if (err.code === '42P01') {
-            return res.status(500).json({
-                success: false,
-                message: 'Database table missing (users or history table not found)'
-            });
-        }
-
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to fetch help ticket history'
-        });
-
-    } finally {
-        client.release();
+    if (err.code === '42P01') {
+      return res.status(500).json({
+        success: false,
+        message: 'Database table missing (help_ticket_history not found)'
+      });
     }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch help ticket history'
+    });
+
+  } finally {
+    client.release();
+  }
 };
+
 
 
 // List Tickets

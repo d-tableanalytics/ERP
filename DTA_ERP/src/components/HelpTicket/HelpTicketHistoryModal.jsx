@@ -3,9 +3,98 @@ import { X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { getHelpTicketHistoryById } from "../../store/slices/masterSlice";
 
+const IMPORTANT_FIELDS_BY_ACTION = {
+  DATE_REVISED: ["solver_planned_date"],
+};
+
+const normalizeValue = (val) => {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "string" && val.trim() === "") return null;
+  return val;
+};
+
+const formatValue = (val) => {
+  const normalized = normalizeValue(val);
+  if (normalized === null) return "-";
+
+
+  if (typeof normalized === "string" && normalized.includes("T")) {
+    return new Date(normalized).toLocaleDateString();
+  }
+
+  if (typeof normalized === "object") {
+    return Object.entries(normalized)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ");
+  }
+
+  return String(normalized);
+};
+
+
+
+const getChangedFields = (oldVal = {}, newVal = {}, actionType) => {
+  const changes = [];
+  const importantFields = IMPORTANT_FIELDS_BY_ACTION[actionType] || [];
+
+  Object.keys(newVal || {}).forEach((key) => {
+    const oldValue = normalizeValue(oldVal?.[key]);
+    const newValue = normalizeValue(newVal?.[key]);
+
+    // Skip empty → empty
+    if (oldValue === null && newValue === null) return;
+
+    const isChanged =
+      JSON.stringify(oldValue) !== JSON.stringify(newValue);
+
+    const isImportant = importantFields.includes(key);
+
+    
+    if (isChanged || isImportant) {
+      changes.push({
+        field: key,
+        oldValue,
+        newValue,
+        important: isImportant,
+      });
+    }
+  });
+
+  return changes;
+};
+
+
+const DiffRow = ({ field, oldValue, newValue, important }) => {
+  return (
+    <div
+      className={`grid grid-cols-12 gap-3 items-start text-xs ${
+        important
+          ? "ring-1 ring-primary/40 rounded-lg p-1 bg-primary/5"
+          : ""
+      }`}
+    >
+      {/* Field */}
+      <div className="col-span-3 text-text-muted font-semibold capitalize break-words">
+        {field.replaceAll("_", " ")}
+      </div>
+
+      {/* Old */}
+      <div className="col-span-4 bg-red-50 text-red-700 px-3 py-2 rounded-lg break-words max-h-24 overflow-auto">
+        {formatValue(oldValue)}
+      </div>
+
+      {/* New */}
+      <div className="col-span-5 bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg break-words max-h-24 overflow-auto font-semibold">
+        {formatValue(newValue)}
+      </div>
+    </div>
+  );
+};
+
+/* ===================== MAIN COMPONENT ===================== */
+
 const HelpTicketHistoryModal = ({ ticketId, onClose }) => {
   const dispatch = useDispatch();
-
   const { helpTicketHistory, isLoading } = useSelector(
     (state) => state.master
   );
@@ -17,140 +106,121 @@ const HelpTicketHistoryModal = ({ ticketId, onClose }) => {
   }, [ticketId, dispatch]);
 
   if (!ticketId) return null;
-  if (!helpTicketHistory) return null;
 
-  // latest history record
-  const history = helpTicketHistory?.data?.[0];
-  if (!history) return null;
-
-  const {
-    ticket_no,
-    action_type,
-    stage,
-    action_date,
-    action_by,
-    remarks,
-    new_values,
-  } = history;
-
-  const formatDate = (date) =>
-    date ? new Date(date).toLocaleString() : "-";
-
-  /* ---------------- UI COMPONENT ---------------- */
-  const ChangeRow = ({ label, newVal }) => {
-    if (!newVal) return null;
-
-    return (
-      <div className="flex justify-between items-center bg-bg-main/60 px-3 py-2 rounded-lg">
-        <span className="text-xs font-semibold text-text-muted">
-          {label}
-        </span>
-        <span className="text-xs font-bold text-emerald-600">
-          {newVal}
-        </span>
-      </div>
-    );
-  };
+  const histories = helpTicketHistory?.data || [];
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-bg-card border border-border-main w-full max-w-3xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-bg-card border border-border-main w-full max-w-5xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
 
         {/* ================= HEADER ================= */}
-        <div className="p-5 border-b border-border-main flex justify-between items-start">
+        <div className="p-5 border-b border-border-main flex justify-between items-center">
           <div>
             <h2 className="text-lg font-bold text-text-main">
               Ticket History
             </h2>
-
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-bold text-text-muted">
-                {ticket_no}
-              </span>
-
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
-                {action_type?.replaceAll("_", " ")}
-              </span>
-            </div>
+            <p className="text-xs text-text-muted">
+              Ticket ID: {ticketId}
+            </p>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-bg-main"
+            className="p-2 rounded hover:bg-bg-main"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* ================= BODY ================= */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-8">
 
-          {/* LOADING */}
           {isLoading && (
-            <p className="text-sm text-text-muted text-center">
+            <p className="text-center text-sm text-text-muted">
               Loading history...
             </p>
           )}
 
-          {/* META INFO */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {[
-              ["Action Type", action_type],
-              ["Stage", `Stage ${stage}`],
-              ["Action By (ID)", action_by],
-              ["Action Date", formatDate(action_date)],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="bg-bg-main/40 p-3 rounded-lg"
-              >
-                <label className="text-[10px] font-bold uppercase text-text-muted">
-                  {label}
-                </label>
-                <p className="text-xs font-bold text-text-main mt-1">
-                  {value}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* REMARKS */}
-          {remarks && (
-            <div className="bg-bg-main/40 p-4 rounded-lg">
-              <label className="text-[10px] font-bold uppercase text-text-muted">
-                Remarks
-              </label>
-              <p className="text-sm text-text-main mt-1">
-                {remarks}
-              </p>
-            </div>
+          {!isLoading && histories.length === 0 && (
+            <p className="text-center text-sm text-text-muted">
+              No history found
+            </p>
           )}
 
-          {/* NEW VALUES */}
-          <div className="border-t border-border-main pt-4 space-y-3">
-            <h3 className="text-sm font-bold text-primary">
-              Updated Values
-            </h3>
+          {histories.map((item) => {
+            const {
+              id,
+              ticket_no,
+              stage,
+              action_type,
+              action_by,
+              action_date,
+              remarks,
+              old_values,
+              new_values,
+            } = item;
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <ChangeRow label="Status" newVal={new_values?.status} />
-              <ChangeRow label="Current Stage" newVal={new_values?.current_stage} />
-              <ChangeRow
-                label="Reraise Date"
-                newVal={new_values?.reraise_date?.split("T")[0]}
-              />
-              <ChangeRow
-                label="Solver Planned Date"
-                newVal={new_values?.solver_planned_date?.split("T")[0]}
-              />
-              <ChangeRow
-                label="PC Planned Date"
-                newVal={new_values?.pc_planned_date?.split("T")[0]}
-              />
-              <ChangeRow label="Priority" newVal={new_values?.priority} />
-              <ChangeRow label="Location" newVal={new_values?.location} />
-            </div>
-          </div>
+            const changes = getChangedFields(
+              old_values,
+              new_values,
+              action_type
+            );
+
+            return (
+              <div
+                key={id}
+                className="border border-border-main rounded-xl p-5 bg-bg-main/40 space-y-4"
+              >
+                {/* Meta */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-sm font-bold text-primary uppercase tracking-wide">
+                      {action_type.replaceAll("_", " ")}
+                    </h4>
+                    <p className="text-[11px] text-text-muted">
+                      Stage {stage} •{" "}
+                      {new Date(action_date).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-text-muted">
+                      Ticket: {ticket_no}
+                    </p>
+                  </div>
+
+                  <span className="text-[11px] text-text-muted">
+                    By User #{action_by}
+                  </span>
+                </div>
+
+                {/* Remarks */}
+                {remarks && remarks.trim() !== "" && (
+                  <div className="bg-bg-main/50 p-3 rounded-lg text-xs">
+                    <strong>Remarks:</strong> {remarks}
+                  </div>
+                )}
+
+                {/* Changes */}
+                {changes.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-12 text-[10px] font-bold uppercase text-text-muted">
+                      <span className="col-span-3">Field</span>
+                      <span className="col-span-4">Old</span>
+                      <span className="col-span-5">New</span>
+                    </div>
+
+                    {changes.map((chg) => (
+                      <DiffRow
+                        key={chg.field}
+                        field={chg.field}
+                        oldValue={chg.oldValue}
+                        newValue={chg.newValue}
+                        important={chg.important}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
