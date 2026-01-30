@@ -6,7 +6,7 @@ const { verifyToken } = require('../middlewares/auth.middleware');
 router.use(verifyToken);
 
 router.post('/', todoController.createTodo);
-router.get('/', todoController.getTodos);
+router.get('/:id', todoController.getTodosByUserId);
 router.patch('/:id/status', todoController.updateTodoStatus);
 router.delete('/:id', todoController.deleteTodo);
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchEmployees } from "../../store/slices/masterSlice";
-import { createTodo } from "../../store/slices/todoSlice";
+import { createTodo,fetchTodos } from "../../store/slices/todoSlice";
 import toast from "react-hot-toast";
 import useHolidayCheck from "../../hooks/useHolidayCheck";
 const CreateTodoModal = ({ isOpen, onClose }) => {
@@ -48,7 +48,7 @@ const CreateTodoModal = ({ isOpen, onClose }) => {
           status: "To Do", // Always start in To Do column
         }),
       ).unwrap();
-
+     await dispatch(fetchTodos()).unwrap();
       toast.success("Task created successfully");
       onClose();
       setFormData({
@@ -159,7 +159,7 @@ const CreateTodoModal = ({ isOpen, onClose }) => {
             >
               <option value="">Self (Default)</option>
               {employees.map((e, idx) => (
-                <option key={e.User_Id || `emp-${idx}`} value={e.User_Id}>
+                <option key={e.id || `emp-${idx}`} value={e.id}>
                   {e.First_Name} {e.Last_Name}
                 </option>
               ))}
