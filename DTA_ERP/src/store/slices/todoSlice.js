@@ -4,21 +4,31 @@ import { API_BASE_URL } from '../../config';
 
 const API_URL = `${API_BASE_URL}/api/todos`;
 
-// Fetch all todos
+
+
+
 export const fetchTodos = createAsyncThunk(
-    'todo/fetchTodos',
-    async (_, { getState, rejectWithValue }) => {
-        const { token } = getState().auth;
-        try {
-            const response = await axios.get(API_URL, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(error.response?.data?.message || 'Failed to fetch ToDos');
+  "todo/fetchTodos",
+  async (_, { getState, rejectWithValue }) => {
+    const { token, user } = getState().auth;
+
+    try {
+      const response = await axios.get(
+        `${API_URL}/${user.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
         }
+      );
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch ToDos"
+      );
     }
+  }
 );
+
 
 // Create a new todo
 export const createTodo = createAsyncThunk(
