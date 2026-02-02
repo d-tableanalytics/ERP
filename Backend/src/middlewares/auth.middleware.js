@@ -21,6 +21,7 @@ exports.verifyToken = (req, res, next) => {
 // Authorize Roles
 exports.authorize = (...roles) => {
     return (req, res, next) => {
+       
         // Support role in header for development/testing flexibility
         const userRole = req.header('role') || req.user?.role;
 
@@ -32,3 +33,5 @@ exports.authorize = (...roles) => {
         next();
     };
 };
+
+

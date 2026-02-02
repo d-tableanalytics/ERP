@@ -9,6 +9,7 @@ This document provides details for the authentication and employee management AP
 ## Authentication Endpoints
 
 ### 1. Register Employee
+
 Create a new employee record.
 
 - **URL**: `/api/auth/register`
@@ -16,6 +17,7 @@ Create a new employee record.
 - **Access**: Public (Admin only in production)
 
 #### Request Body
+
 ```json
 {
   "First_Name": "John",
@@ -33,7 +35,9 @@ Create a new employee record.
 > `Joining_Date` is now required by the database. If not provided, it will default to the current date.
 
 #### Success Response
+
 **Code**: `201 Created`
+
 ```json
 {
   "message": "Employee registered successfully",
@@ -46,7 +50,9 @@ Create a new employee record.
 ```
 
 #### Error Response
+
 **Code**: `400 Bad Request` (If email exists)
+
 ```json
 {
   "message": "Employee with this email already exists"
@@ -56,6 +62,7 @@ Create a new employee record.
 ---
 
 ### 2. Login Employee
+
 Authenticate and receive a JWT token.
 
 - **URL**: `/api/auth/login`
@@ -63,6 +70,7 @@ Authenticate and receive a JWT token.
 - **Access**: Public
 
 #### Request Body
+
 ```json
 {
   "Work_Email": "john.doe@enterprise.com",
@@ -71,7 +79,9 @@ Authenticate and receive a JWT token.
 ```
 
 #### Success Response
+
 **Code**: `200 OK`
+
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -85,7 +95,9 @@ Authenticate and receive a JWT token.
 ```
 
 #### Error Response
+
 **Code**: `400 Bad Request` (Invalid credentials)
+
 ```json
 {
   "message": "Invalid credentials"
@@ -95,6 +107,7 @@ Authenticate and receive a JWT token.
 ---
 
 ### 3. Get Current Profile
+
 Fetch details of the currently logged-in user.
 
 - **URL**: `/api/auth/me`
@@ -103,7 +116,9 @@ Fetch details of the currently logged-in user.
 - **Headers**: `Authorization: Bearer <your_token>`
 
 #### Success Response
+
 **Code**: `200 OK`
+
 ```json
 {
   "id": 1,
@@ -115,7 +130,9 @@ Fetch details of the currently logged-in user.
 ```
 
 #### Error Response
+
 **Code**: `401 Unauthorized` (Missing or invalid token)
+
 ```json
 {
   "message": "No token, authorization denied"
@@ -125,22 +142,25 @@ Fetch details of the currently logged-in user.
 ---
 
 ## Database Schema (Employee Table)
+
 For reference, these are the headers available in the `employees` table:
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `User_Id` | SERIAL | Primary Key |
-| `Work_Email` | VARCHAR | Unique Identifier |
-| `Password` | VARCHAR | Hashed Password |
-| `Role` | VARCHAR | User category (Admin/Employee/etc) |
-| `First_Name` | VARCHAR | |
-| `Last_Name` | VARCHAR | |
-| `Mobile_Number`| VARCHAR | |
+| Field           | Type    | Description                        |
+| :-------------- | :------ | :--------------------------------- |
+| `User_Id`       | SERIAL  | Primary Key                        |
+| `Work_Email`    | VARCHAR | Unique Identifier                  |
+| `Password`      | VARCHAR | Hashed Password                    |
+| `Role`          | VARCHAR | User category (Admin/Employee/etc) |
+| `First_Name`    | VARCHAR |                                    |
+| `Last_Name`     | VARCHAR |                                    |
+| `Mobile_Number` | VARCHAR |                                    |
+
 ---
 
 ## Delegation Endpoints
 
 ### 1. Create Delegation
+
 Assign a task to a doer.
 
 - **URL**: `/api/delegations`
@@ -149,6 +169,7 @@ Assign a task to a doer.
 - **Headers**: `Authorization: Bearer <your_token>`
 
 #### Request Body
+
 ```json
 {
   "delegation_name": "Quarterly Audit",
@@ -167,6 +188,7 @@ Assign a task to a doer.
 ---
 
 ### 2. List Delegations
+
 Fetch delegations based on role.
 
 - **URL**: `/api/delegations`
@@ -175,12 +197,14 @@ Fetch delegations based on role.
 - **Headers**: `Authorization: Bearer <your_token>`
 
 > [!NOTE]
+>
 > - **Admins/SuperAdmins** will see all delegations.
 > - **Employees/Doers** will see only tasks assigned to them.
 
 ---
 
 ### 3. Add Remark
+
 Add a comment or update to a delegation.
 
 - **URL**: `/api/delegations/:id/remarks`
@@ -189,6 +213,7 @@ Add a comment or update to a delegation.
 - **Headers**: `Authorization: Bearer <your_token>`
 
 #### Request Body
+
 ```json
 {
   "remark": "Audit is 50% complete. Found some discrepancies in warehouse B."
@@ -198,6 +223,7 @@ Add a comment or update to a delegation.
 ---
 
 ### 4. Get Delegation Detail
+
 Fetch full details including remarks and history.
 
 - **URL**: `/api/delegations/:id`
@@ -210,6 +236,7 @@ Fetch full details including remarks and history.
 ## Checklist Management Endpoints
 
 ### 1. Create Checklist Template (Master)
+
 Define a recurring task template.
 
 - **URL**: `/api/checklist/master`
@@ -218,6 +245,7 @@ Define a recurring task template.
 - **Headers**: `Authorization: Bearer <your_token>`
 
 #### Request Body
+
 ```json
 {
   "question": "Daily Server Health Check",
@@ -237,6 +265,7 @@ Define a recurring task template.
 ```
 
 > [!NOTE]
+>
 > - `frequency` can be: `daily`, `weekly`, `monthly`, `custom`.
 > - `weekly_days` is only used if frequency is `weekly`.
 > - `selected_dates` is only used if frequency is `monthly`.
@@ -244,6 +273,7 @@ Define a recurring task template.
 ---
 
 ### 2. Update Checklist Template
+
 Update the details of an existing master template.
 
 - **URL**: `/api/checklist/master/:id`
@@ -253,6 +283,7 @@ Update the details of an existing master template.
 ---
 
 ### 3. Delete Checklist Template
+
 Remove a master template. This will also delete all generated task instances.
 
 - **URL**: `/api/checklist/master/:id`
@@ -262,6 +293,7 @@ Remove a master template. This will also delete all generated task instances.
 ---
 
 ### 4. Update Task Status
+
 Update the status of a specific generated task instance.
 
 - **URL**: `/api/checklist/task/:id`
@@ -269,6 +301,7 @@ Update the status of a specific generated task instance.
 - **Access**: Private
 
 #### Request Body
+
 ```json
 {
   "status": "Completed"
@@ -281,6 +314,7 @@ Update the status of a specific generated task instance.
 ---
 
 ### 5. Delete Task Instance
+
 Remove a specific task instance from the system.
 
 - **URL**: `/api/checklist/task/:id`
@@ -292,6 +326,7 @@ Remove a specific task instance from the system.
 ## Help Ticket Management Endpoints (FMS Workflow)
 
 ### 1. Stage 1: Raise Help Ticket
+
 Raise a new ticket with issue details and optional image.
 
 - **URL**: `/api/help-tickets/raise`
@@ -300,6 +335,7 @@ Raise a new ticket with issue details and optional image.
 - **Access**: Private
 
 #### Form Data Fields:
+
 - `location`: string
 - `issue_description`: text
 - `pc_accountable`: integer (User_Id)
@@ -310,6 +346,7 @@ Raise a new ticket with issue details and optional image.
 ---
 
 ### 2. Stage 2: PC Planning
+
 Process Controller assigns a solver and sets planned dates.
 
 - **URL**: `/api/help-tickets/pc-planning/:id`
@@ -317,6 +354,7 @@ Process Controller assigns a solver and sets planned dates.
 - **Access**: Private
 
 #### Request Body
+
 ```json
 {
   "pc_planned_date": "2026-02-01T10:00:00Z",
@@ -328,9 +366,11 @@ Process Controller assigns a solver and sets planned dates.
 ---
 
 ### 3. Stage 3: Solver Action
+
 Solver can either solve the ticket or revise the planned date.
 
 #### Solve Ticket (Confirm Solution)
+
 - **URL**: `/api/help-tickets/solve/:id`
 - **Method**: `PUT`
 - **Headers**: `Content-Type: multipart/form-data`
@@ -340,6 +380,7 @@ Solver can either solve the ticket or revise the planned date.
   - `proof_upload`: File (optional proof image)
 
 #### Revise Date
+
 - **URL**: `/api/help-tickets/revise/:id`
 - **Method**: `PUT`
 - **Access**: Private
@@ -348,6 +389,7 @@ Solver can either solve the ticket or revise the planned date.
 ---
 
 ### 4. Stage 4: PC Confirmation
+
 PC confirms the solution provided by the solver.
 
 - **URL**: `/api/help-tickets/pc-confirm/:id`
@@ -355,6 +397,7 @@ PC confirms the solution provided by the solver.
 - **Access**: Private
 
 #### Request Body
+
 ```json
 {
   "pc_status_stage4": "CONFIRMED",
@@ -365,14 +408,17 @@ PC confirms the solution provided by the solver.
 ---
 
 ### 5. Stage 5: Closure / Re-raise
+
 User (Raiser) can close the ticket with a rating or re-raise if unsatisfied.
 
 #### Close Ticket
+
 - **URL**: `/api/help-tickets/close/:id`
 - **Method**: `PUT`
 - **Body**: `{ "closing_rating": 5, "closing_status": "SUCCESS", "remarks": "Very helpful!" }`
 
 #### Re-raise Ticket
+
 - **URL**: `/api/help-tickets/reraise/:id`
 - **Method**: `PUT`
 - **Body**: `{ "remarks": "The issue persisted after 2 days." }`
@@ -380,6 +426,7 @@ User (Raiser) can close the ticket with a rating or re-raise if unsatisfied.
 ---
 
 ### 6. Get Ticket Detail with History
+
 Fetch full detail including the history of revisions and stage changes.
 
 - **URL**: `/api/help-tickets/:id`
@@ -391,6 +438,7 @@ Fetch full detail including the history of revisions and stage changes.
 ## Help Ticket Configuration Endpoints
 
 ### 1. Get Configuration
+
 Fetch the current help ticket configuration settings and all upcoming holidays.
 
 - **URL**: `/api/help-ticket-config`
@@ -399,7 +447,9 @@ Fetch the current help ticket configuration settings and all upcoming holidays.
 - **Headers**: `Authorization: Bearer <your_token>`
 
 #### Success Response
+
 **Code**: `200 OK`
+
 ```json
 {
   "settings": {
@@ -431,7 +481,9 @@ Fetch the current help ticket configuration settings and all upcoming holidays.
 ```
 
 #### Error Response
+
 **Code**: `404 Not Found`
+
 ```json
 {
   "message": "Configuration not found"
@@ -441,6 +493,7 @@ Fetch the current help ticket configuration settings and all upcoming holidays.
 ---
 
 ### 2. Update Configuration
+
 Update help ticket workflow settings like TAT (Turn-Around Time) hours, office hours, and working days.
 
 - **URL**: `/api/help-ticket-config`
@@ -449,6 +502,7 @@ Update help ticket workflow settings like TAT (Turn-Around Time) hours, office h
 - **Headers**: `Authorization: Bearer <your_token>`
 
 #### Request Body
+
 ```json
 {
   "stage2_tat_hours": 24,
@@ -461,6 +515,7 @@ Update help ticket workflow settings like TAT (Turn-Around Time) hours, office h
 ```
 
 > [!NOTE]
+>
 > - `stage2_tat_hours`: Turn-Around Time for PC Planning stage (in hours)
 > - `stage4_tat_hours`: Turn-Around Time for PC Confirmation stage (in hours)
 > - `stage5_tat_hours`: Turn-Around Time for Closure/Re-raise stage (in hours)
@@ -468,7 +523,9 @@ Update help ticket workflow settings like TAT (Turn-Around Time) hours, office h
 > - `working_days`: Array of weekday names (e.g., ["Monday", "Tuesday", ...])
 
 #### Success Response
+
 **Code**: `200 OK`
+
 ```json
 {
   "id": 1,
@@ -486,6 +543,7 @@ Update help ticket workflow settings like TAT (Turn-Around Time) hours, office h
 ---
 
 ### 3. Add Holiday
+
 Add a new holiday date to the system.
 
 - **URL**: `/api/help-ticket-config/holidays`
@@ -494,6 +552,7 @@ Add a new holiday date to the system.
 - **Headers**: `Authorization: Bearer <your_token>`
 
 #### Request Body
+
 ```json
 {
   "holiday_date": "2026-03-08",
@@ -502,7 +561,9 @@ Add a new holiday date to the system.
 ```
 
 #### Success Response
+
 **Code**: `201 Created`
+
 ```json
 {
   "id": 3,
@@ -513,7 +574,9 @@ Add a new holiday date to the system.
 ```
 
 #### Error Response
+
 **Code**: `400 Bad Request` (Holiday already exists for this date)
+
 ```json
 {
   "message": "Holiday already exists for this date"
@@ -523,6 +586,7 @@ Add a new holiday date to the system.
 ---
 
 ### 4. Remove Holiday
+
 Delete a holiday from the system.
 
 - **URL**: `/api/help-ticket-config/holidays/:id`
@@ -531,10 +595,13 @@ Delete a holiday from the system.
 - **Headers**: `Authorization: Bearer <your_token>`
 
 #### Path Parameter
+
 - `id`: The ID of the holiday to remove (integer)
 
 #### Success Response
+
 **Code**: `200 OK`
+
 ```json
 {
   "message": "Holiday removed"
@@ -542,9 +609,332 @@ Delete a holiday from the system.
 ```
 
 #### Error Response
+
 **Code**: `500 Internal Server Error`
+
 ```json
 {
   "message": "Error removing holiday"
+}
+```
+
+## attendance API Endpoints
+
+### 1. Get attendance
+
+Fetch the all attendance.
+
+- **URL**: `/api/attendance`
+- **filters**: `/api/attendance?month=2026-02&department=IT&status=Present&user_id=1`
+- **Method**: `GET`
+- **Access**: Private (JWT Required)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Success Response
+
+**Code**: `200 OK`
+
+```json
+{
+  "success": true,
+  "count": 1,
+  "data": [
+    {
+      "id": 2,
+      "attendance_date": "2026-02-01T18:30:00.000Z",
+      "in_time": "2026-02-02T03:26:25.710Z",
+      "out_time": null,
+      "status": "Present",
+      "remark": "Half Day",
+      "type_of_leave": "Half Day",
+      "location": null,
+      "houres_worked": null,
+      "user_id": 2,
+      "first_name": "John",
+      "last_name": "Doe",
+      "work_email": "john.doe@enterprise.com",
+      "department": "IT",
+      "designation": "Software Engineer"
+    }
+  ]
+}
+```
+
+#### Error Response
+
+**Code**: `404 Not Found`
+
+```json
+{
+  "message": "attendance not found"
+}
+```
+
+### 2. punch in
+
+punch in.
+
+- **URL**: `/api/attendance/punch-in`
+- **Method**: `POST`
+- **Access**: Private (JWT Required)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Request Body
+
+```json
+{
+  "use_id": 1
+}
+```
+
+#### Success Response
+
+**Code**: `201 Created`
+
+```json
+{
+  "message": "Punch in successful",
+  "data": {
+    "id": 3,
+    "user_id": 3,
+    "attendance_date": "2026-02-01T18:30:00.000Z",
+    "in_time": "2026-02-02T04:40:27.484Z",
+    "out_time": null,
+    "status": "Present",
+    "remark": "Half Day",
+    "type_of_leave": "Half Day",
+    "location": null,
+    "houres_worked": null
+  }
+}
+```
+
+#### Error Response
+
+**Code**: `400 Bad Request` ( already punch in today)
+
+```json
+{
+  "message": "Already punched in today"
+}
+```
+
+### 3. punch out
+
+punch out.
+
+- **URL**: `/api/attendance/punch-out`
+- **Method**: `POST`
+- **Access**: Private (JWT Required)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Request Body
+
+```json
+{
+  "use_id": 3
+}
+```
+
+#### Success Response
+
+**Code**: `201 Created`
+
+```json
+{
+  "message": "Punch out successful",
+  "data": {
+    "id": 3,
+    "user_id": 3,
+    "attendance_date": "2026-02-01T18:30:00.000Z",
+    "in_time": "2026-02-02T04:40:27.484Z",
+    "out_time": "2026-02-02T04:41:49.479Z",
+    "status": "Present",
+    "remark": "Half Day",
+    "type_of_leave": "Half Day",
+    "location": null,
+    "houres_worked": "0.02"
+  }
+}
+```
+
+#### Error Response
+
+**Code**: `400 Bad Request` ( already punch out today)
+
+```json
+{
+  "message": "Already punched out today"
+}
+```
+
+## advance apyment API Endpoints
+
+### 1. Post advance
+
+Fetch the all advance.
+
+- **URL**: `/api/attendance`
+- **Method**: `POST`
+- **Access**: Private (JWT Required)
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Request Body
+
+```json
+{
+  "required_amount": 25000,
+  "reason": "Medical emergency",
+  "date_needed": "2026-02-10",
+  "repayment_period": 6
+}
+```
+
+#### Success Response
+
+**Code**: `200 OK`
+
+```json
+{
+  "message": "Advance request submitted successfully",
+  "data": {
+    "id": 1,
+    "status": "Pending"
+  }
+}
+```
+
+#### Error Response
+
+**Code**: `500 Not Found`
+
+```json
+{
+  "message": "advance not found"
+}
+```
+
+### 2. Get advance
+
+Fetch the all advance.
+
+- **URL**: `/api/attendance`
+- **filters**: `/api/attendance?user_id=1`
+- **Method**: `get`
+- **Access**: Private (JWT Required) Access Logic == Employee see self requests & ADMIN and HR can see all Employees requests
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Success Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 12,
+      "required_amount": 25000,
+      "reason": "Medical emergency",
+      "date_needed": "2026-02-10",
+      "repayment_period": 6,
+      "status": "Pending",
+      "applied_at": "2026-02-02T06:30:00.000Z",
+      "user_id": 5,
+      "first_name": "Abhi",
+      "last_name": "Kushwah",
+      "work_email": "abhi@company.com",
+      "department": "IT"
+    }
+  ]
+}
+```
+
+#### Error Response
+
+**Code**: `500 Not Found`
+
+```json
+{
+  "message": "advance not found"
+}
+```
+
+### 3. PATCH advance approve
+
+Patch for advance approve.
+
+- **URL**: `/api/attendance/approve/:id`
+- **Method**: `PATCH`
+- **Access**: Private (JWT Required) & role SuperAdmin, ADMIN
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Success Response
+
+```json
+{
+  "message": "Advance approved successfully",
+  "data": {
+    "id": 12,
+    "status": "Approved"
+  }
+}
+```
+
+#### Error Response
+
+**Code**: `500 Not Found`
+
+```json
+{
+ {
+  "message": "Advance not found or already processed"
+}
+}
+```
+
+### 3. PATCH advance rejected
+
+Patch for advance approve.
+
+- **URL**: `/api/advance/reject/:id`
+- **Method**: `PATCH`
+- **Access**: Private (JWT Required) & role SuperAdmin, ADMIN
+- **Headers**: `Authorization: Bearer <your_token>`
+
+#### Payload Body
+
+```json
+{
+  "rejection_reason": "Salary limit exceeded"
+}
+```
+
+#### Success Response
+
+```json
+{
+  "message": "Advance rejected successfully",
+  "data": {
+    "id": 12,
+    "status": "Rejected"
+  }
+}
+```
+
+#### Error Response
+
+**Code**: `500 Not Found`
+
+```json
+{
+ {
+  "message": "Advance not found or already processed"
+}
+}
+// or
+
+{
+ {
+  "message": "Only Admin and Super Admin Take Action"
+}
 }
 ```
