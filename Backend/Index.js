@@ -27,7 +27,16 @@ const { createHelpTicketConfigTable } = require('./src/models/helpTicketConfig.m
 const { startChecklistCron } = require('./src/controllers/checklist.controller');
 const {createAttendanceTable} = require('./src/models/attendance.model');
 const {createAdvanceTable} = require('./src/models/advance.model');
+const {createExpenseMasterTable, 
+    createExpenseDaysTable} = require('./src/models/expense.model')
+const { createOnboardingMasterTable} = require('./src/models/onboarding.model')
+const { createInterviewTable } = require('./src/models/interviews.model')
+const { seedFullIMSData} = require('./src/models/masterIMS.model')
+const { createInventoryTables } = require('./src/models/createIMSInventoryTables.model');           
+const { createO2DTables} = require('./src/models/o2d.model')
 
+
+const onboardingRoutes = require("./src/routes/onboarding.routes");
 const authRoutes = require('./src/routes/auth.routes');
 const delegationRoutes = require('./src/routes/delegation.routes');
 const employeeRoutes = require('./src/routes/employee.routes');
@@ -37,7 +46,10 @@ const todoRoutes = require('./src/routes/todo.routes');
 const helpTicketConfigRoutes = require('./src/routes/helpTicketConfig.routes');
 const attendanceRoutes = require('./src/routes/attendance.routes');
 const advancePayments  =  require('./src/routes/advance.routes');
-
+const expenses = require('./src/routes/expense.routes')
+const interviews = require('./src/routes/interview.routes')
+const imsInventory = require('./src/routes/imsInventory.routes');
+const O2D = require('./src/routes/o2d.routes')
 
 // Routes registration
 app.use('/api/auth', authRoutes);
@@ -49,6 +61,11 @@ app.use('/api/todos', todoRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/advance',advancePayments);
 app.use('/api/help-ticket-config', helpTicketConfigRoutes);
+app.use("/api/expenses", expenses);
+app.use("/api/onboarding", onboardingRoutes);
+app.use("/api/interviews",interviews)
+app.use("/api/ims",imsInventory)
+app.use('/api/o2d',O2D)
 // const fs = require('fs');
 // if (fs.existsSync('uploads')) {
 //     app.use('/uploads', express.static('uploads'));
@@ -65,7 +82,14 @@ Promise.all([
     createHelpTicketConfigTable(),
     createLocationTable(),
     createAttendanceTable(),
-    createAdvanceTable()
+    createAdvanceTable(),
+    createExpenseMasterTable(), 
+    createExpenseDaysTable(),
+    createOnboardingMasterTable(),
+    createInterviewTable(),
+    seedFullIMSData(),
+    createInventoryTables(),
+    createO2DTables()
 ])
     .then(() => {
         console.log('Database synchronization complete');

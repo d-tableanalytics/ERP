@@ -328,7 +328,7 @@ exports.closeTicket = async (req, res) => {
 
     const client = await db.pool.connect();
     try {
-        await client.query('BEGIN');
+        await client.query('BEGIN');    
 
         const currentRes = await client.query('SELECT * FROM help_tickets WHERE id = $1', [id]);
         if (currentRes.rows.length === 0) throw new Error('Ticket not found');

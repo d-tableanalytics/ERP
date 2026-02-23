@@ -5,18 +5,27 @@ import DataTable from "./DataTable";
 import TablePagination from "./TablePagination";
 import TableFilters from "./TableFilters";
 import { FMS_TABS } from "./FMS.data.js";
-
-const ITEMS_PER_PAGE = 5;
+import POCheckModal from "./modals/POCheckModal";
+const ITEMS_PER_PAGE =7;
 
 const Delegation = () => {
   const [activeTab, setActiveTab] = useState(FMS_TABS[0].key);
   const [page, setPage] = useState(1);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+const [selectedRow, setSelectedRow] = useState(null);
 
+const handleActionClick = (row,header) => {
+  if (header === "P.O CHECK") {
+    setSelectedRow(row);
+    setIsModalOpen(true);
+  }
+};
   const [search, setSearch] = useState({
     firm: "",
     buyer: "",
     item: "",
     uid: "",
+    po: ""
   });
 
   const [sortConfig, setSortConfig] = useState({
@@ -65,7 +74,7 @@ const Delegation = () => {
   );
 
   return (
-    <MainLayout title="FMS">
+    <MainLayout title="O2D FMS">
       {/* Filters */}
       <TableFilters values={search} onChange={setSearch} />
 
@@ -82,6 +91,8 @@ const Delegation = () => {
       {/* Table */}
       <DataTable
         columns={currentTab.columns}
+        header={currentTab.header}
+        onAction={handleActionClick}
         data={paginatedData}
         sortConfig={sortConfig}
         onSort={(key) =>
@@ -100,6 +111,11 @@ const Delegation = () => {
         total={filteredData.length}
         limit={ITEMS_PER_PAGE}
       />
+      <POCheckModal
+  isOpen={isModalOpen}
+  onClose={() => setIsModalOpen(false)}
+  poNumber={selectedRow?.poNumber}
+/>
     </MainLayout>
   );
 };
