@@ -16,6 +16,8 @@ export const FMS_TABS = [
       { key: "Company", label: "Company" },
       { key: "UID", label: "UID" },
       { key: "LeadDays", label: "	Lead Days" },
+      { key: "status", label: "Status" },
+      { key: "action", label: "Action" },
     ],
     data: [
       {
@@ -30,6 +32,8 @@ export const FMS_TABS = [
         Company: "KS",
         UID: "Order-115	",
         LeadDays: "120",
+        status: "NOT DONE",
+        action: "Action",
       },
       {
         Timestamp: "14/11/2024 11:00 AM",
@@ -263,10 +267,10 @@ export const FMS_TABS = [
     badge: 2,
     header: "P.O ENTRY",
     columns: [
-      { key: "id", label: "Offer ID",header: "P.O ENTRY", },
-      { key: "name", label: "Candidate",header: "P.O ENTRY", },
-      { key: "package", label: "Package",header: "P.O ENTRY", },
-      { key: "joining", label: "Joining Date",header: "P.O ENTRY", },
+      { key: "id", label: "Offer ID", header: "P.O ENTRY", },
+      { key: "name", label: "Candidate", header: "P.O ENTRY", },
+      { key: "package", label: "Package", header: "P.O ENTRY", },
+      { key: "joining", label: "Joining Date", header: "P.O ENTRY", },
     ],
     data: [{ id: 21, name: "Pooja", package: "8 LPA", joining: "1 Feb 2026" }],
   },

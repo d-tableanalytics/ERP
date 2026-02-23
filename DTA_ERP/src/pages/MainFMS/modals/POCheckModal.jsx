@@ -9,7 +9,7 @@ const SelectField = ({ label, value, onChange }) => {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full bg-bg-main border-b border-border-main  rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <option value="">Select</option>
         <option value="OKAY">OKAY</option>
@@ -46,10 +46,10 @@ const POCheckModal = ({ isOpen, onClose, poNumber }) => {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-      <div className="bg-white w-[500px] rounded-lg shadow-lg overflow-hidden">
+      <div className="bg-bg-main border-b border-border-main w-[500px] rounded-lg shadow-lg overflow-hidden">
 
         {/* Header */}
-        <div className="bg-blue-600 text-white px-4 py-3 flex justify-between items-center">
+        <div className="bg-blue-600  px-4 py-3 flex justify-between items-center">
           <h2 className="font-semibold">
             P.O CHECK - {poNumber}
           </h2>

@@ -1,5 +1,5 @@
 import React from "react";
-import { X } from "lucide-react";
+import { X, Eye } from "lucide-react";
 
 const ViewIMSModal = ({ isOpen, onClose, transaction }) => {
   if (!isOpen || !transaction) return null;
@@ -137,18 +137,20 @@ const ViewIMSModal = ({ isOpen, onClose, transaction }) => {
                             {item.product}
                           </td>
                           <td>
-                            {item.product_image ? (
-                              <img
-                                src={item.product_image}
-                                alt="Product"
-                                className="w-10 h-10 object-contain"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 bg-gray-200 rounded-md flex items-center justify-center">
-                                <span className="text-xs text-gray-500">No Image</span>
-                              </div>
-                            )}
-                          </td>
+  {item?.product_url ? (
+    <button
+      onClick={() => window.open(item.product_url, "_blank")}
+      className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 hover:bg-primary/20 transition"
+      title="View Image"
+    >
+      <Eye size={16} className="text-primary" />
+    </button>
+  ) : (
+    <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
+      <span className="text-[10px] text-gray-500">N/A</span>
+    </div>
+  )}
+</td>
                           <td>{item.description}</td>
                           <td>{item.moc}</td>
                           <td>{item.grade}</td>

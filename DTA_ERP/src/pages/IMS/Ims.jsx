@@ -296,7 +296,7 @@ const IMS = () => {
           <div className="flex flex-col items-center justify-center p-12">
             <Loader className="w-48 h-48" />
             <p className="mt-2 text-text-muted font-bold text-sm">
-              Loading delegations...
+              Loading ims...
             </p>
           </div>
         ) : paginatedTransactions.length === 0 ? (

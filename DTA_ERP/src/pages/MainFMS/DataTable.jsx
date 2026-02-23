@@ -1,4 +1,4 @@
-const DataTable = ({ columns, header, data, sortConfig, onSort, onAction }) => {
+const DataTable = ({ columns, header, data, sortConfig, onSort, onAction, onStatusChange }) => {
   const sortIcon = (key) => {
     if (sortConfig?.key !== key)
       return <span className="text-slate-400 text-[10px] ml-1">↕</span>;
@@ -51,18 +51,20 @@ const DataTable = ({ columns, header, data, sortConfig, onSort, onAction }) => {
                   {columns.map((col) => (
                     <td key={col.key} className="px-5 py-4 whitespace-nowrap">
                       {col.key === "status" ? (
-                        <span
-                          className={`px-3 py-1 text-xs font-semibold rounded-md text-white
-        ${
-          row[col.key] === "NOT DONE"
-            ? "bg-gray-700"
-            : row[col.key] === "NDF"
-              ? "bg-green-600"
-              : "bg-slate-600"
-        }`}
+                        <select
+                          value={row[col.key]}
+                          onChange={(e) => onStatusChange && onStatusChange(row, e.target.value)}
+                          className={`px-2 py-1 text-xs font-semibold rounded-md text-white border-none cursor-pointer outline-none
+                            ${row[col.key] === "NOT DONE"
+                              ? "bg-gray-700"
+                              : row[col.key] === "DONE"
+                                ? "bg-green-600"
+                                : "bg-slate-600"
+                            }`}
                         >
-                          {row[col.key]}
-                        </span>
+                          <option value="NOT DONE" className="bg-bg-card text-text-main">NOT DONE</option>
+                          <option value="DONE" className="bg-bg-card text-text-main">DONE</option>
+                        </select>
                       ) : col.key === "action" ? (
                         <button
                           onClick={() => onAction && onAction(row, header)}
