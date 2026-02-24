@@ -19,7 +19,9 @@ const HelpTicket = lazy(() => import('./pages/HelpTicket/HelpTicket'));
 const DemoModule = lazy(() => import('./pages/DemoModule')); // Reusable Demo Page
 const PublicPage = lazy(() => import('./pages/PublicPage')); // Reusable Public Page
 const ToDoBoard = lazy(() => import('./pages/ToDo/ToDoBoard'));
+const IMS = lazy(() => import('./pages/IMS/Ims'));
 const FMS = lazy (()=> import('./pages/MainFMS/FMSPage'));
+const O2D = lazy(() => import('./pages/O2D/O2D'));
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
   return token ? children : <Navigate to="/login" replace />;
@@ -146,6 +148,26 @@ function App() {
               </ProtectedRoute>
             }
           />
+           <Route
+            path="/ims"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <IMS />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+            <Route
+            path="/o2d"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <O2D />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/help"
             element={
@@ -160,7 +182,7 @@ function App() {
           {/* Demo Module Routes */}
           <Route path="/attendance" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="attendance" /></Suspense></ProtectedRoute>} />
           <Route path="/salary" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="salary" /></Suspense></ProtectedRoute>} />
-          <Route path="/fms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><FMS type="fms" /></Suspense></ProtectedRoute>} />
+          <Route path="/o2d-fms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><FMS type="o2d-fms" /></Suspense></ProtectedRoute>} />
           <Route path="/todo" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><ToDoBoard /></Suspense></ProtectedRoute>} />
           <Route path="/ims" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="ims" /></Suspense></ProtectedRoute>} />
           <Route path="/hrms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="hrms" /></Suspense></ProtectedRoute>} />

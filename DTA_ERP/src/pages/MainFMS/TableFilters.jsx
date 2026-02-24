@@ -5,6 +5,7 @@ const FILTERS = [
   { key: "buyer", label: "Buyer", icon: "person" },
   { key: "item", label: "Item", icon: "inventory_2" },
   { key: "uid", label: "UID", icon: "badge" },
+   { key: "po", label: "PO", icon: "receipt_long" },
 ];
 
 const DelegationFilters = ({ values, onChange }) => {
@@ -21,6 +22,7 @@ const DelegationFilters = ({ values, onChange }) => {
       buyer: "",
       item: "",
       uid: "",
+      po:""
     });
   };
 
