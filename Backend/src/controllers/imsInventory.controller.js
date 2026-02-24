@@ -163,8 +163,13 @@ exports.editTransaction = async (req, res) => {
       invoice_no,
       transaction_date,
       remarks,
-      items,
     } = req.body;
+
+    // ✅ Parse items properly (sent as JSON string in FormData)
+    const items = JSON.parse(req.body.items);
+
+    // ✅ Get all uploaded files
+    const files = req.files || [];
 
     await client.query("BEGIN");
 
@@ -227,7 +232,22 @@ exports.editTransaction = async (req, res) => {
     );
 
     /* ================= 5️⃣ INSERT NEW ITEMS + UPDATE STOCK ================= */
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      // 🔥 match correct file with item index
+      const file = files.find((f) => f.fieldname === `product_image_${i}`);
+
+      let product_url = item.product_url || null; // keep old url if exists
+
+      if (file) {
+        product_url = await uploadToDrive(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+        );
+      }
+
       const stock = await client.query(
         "SELECT total_qty FROM stock_master WHERE product=$1",
         [item.product],
@@ -237,22 +257,23 @@ exports.editTransaction = async (req, res) => {
 
       let newQty =
         transaction_type === "IN"
-          ? currentQty + item.qty
-          : currentQty - item.qty;
+          ? currentQty + Number(item.qty)
+          : currentQty - Number(item.qty);
 
       if (newQty < 0) throw new Error("Insufficient Stock");
 
       await client.query(
         `
         INSERT INTO inventory_transaction_items
-        (transaction_id, product, description, moc, grade,
+        (transaction_id, product, product_url, description, moc, grade,
          size1, size2, class_sch, sch2, less_thk,
          qty_in, qty_out, unit, location, rack_no, available_qty)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       `,
         [
           id,
           item.product,
+          product_url,
           item.description,
           item.moc,
           item.grade,

@@ -13,11 +13,11 @@ const {
 } = require("../controllers/imsInventory.controller");
 
 router.post("/transaction",
-    upload.any(),
+  upload.any(),
   verifyToken, createTransaction);
-router.put("/transaction/:id",verifyToken, editTransaction);
-router.get("/transactions",verifyToken, getAllTransactions);
-router.delete("/transaction/:id",verifyToken, deleteTransaction);
-router.get("/masters",verifyToken,getAllMasters);
+router.put("/transaction/:id", upload.any(), verifyToken, editTransaction);
+router.get("/transactions", verifyToken, getAllTransactions);
+router.delete("/transaction/:id", verifyToken, deleteTransaction);
+router.get("/masters", verifyToken, getAllMasters);
 
 module.exports = router;
