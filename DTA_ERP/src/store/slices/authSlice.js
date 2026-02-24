@@ -4,14 +4,28 @@ import { API_BASE_URL } from '../../config';
 
 const API_URL = `${API_BASE_URL}/api/auth`;
 
+const safeParseJSON = (item) => {
+    if (!item || item === 'undefined') return null;
+    try {
+        return JSON.parse(item);
+    } catch (e) {
+        console.error('Error parsing JSON from localStorage:', e);
+        return null;
+    }
+};
+
 export const loginUser = createAsyncThunk(
     'auth/loginUser',
     async (credentials, { rejectWithValue }) => {
         try {
             const response = await axios.post(`${API_URL}/login`, credentials);
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
-            localStorage.setItem('loginTime', Date.now()); 
+            if (response.data.token) localStorage.setItem('token', response.data.token);
+            if (response.data.user) {
+                localStorage.setItem('user', JSON.stringify(response.data.user));
+            } else {
+                localStorage.removeItem('user');
+            }
+            localStorage.setItem('loginTime', Date.now());
 
             return response.data;
         } catch (error) {
@@ -36,14 +50,15 @@ export const updateUserTheme = createAsyncThunk(
 );
 
 const token = localStorage.getItem('token');
-const user = localStorage.getItem('user');
+const userStr = localStorage.getItem('user');
+const user = safeParseJSON(userStr);
 
 const authSlice = createSlice({
     name: 'auth',
     initialState: {
-        user: token && user ? JSON.parse(user) : null,
+        user: token && user ? user : null,
         token: token && user ? token : null,
-        theme: (token && user) ? (JSON.parse(user).theme || 'light') : 'light',
+        theme: (token && user) ? (user.theme || 'light') : 'light',
         isLoading: false,
         error: null,
     },
@@ -76,9 +91,9 @@ const authSlice = createSlice({
             })
             .addCase(loginUser.fulfilled, (state, action) => {
                 state.isLoading = false;
-                state.user = action.payload.user;
-                state.token = action.payload.token;
-                state.theme = action.payload.user.theme || 'light';
+                state.user = action.payload?.user || null;
+                state.token = action.payload?.token || null;
+                state.theme = action.payload?.user?.theme || 'light';
             })
             .addCase(loginUser.rejected, (state, action) => {
                 state.isLoading = false;
