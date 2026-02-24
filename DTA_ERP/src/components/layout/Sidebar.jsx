@@ -18,7 +18,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
     { icon: 'assignment_ind', label: 'Delegation', path: '/delegation' },
     { icon: 'check_box', label: 'Checklist', path: '/checklist' },
     { icon: 'checklist', label: 'TODO', path: '/todo' },
-
+     { icon: "score", label: "Score", path: "/score" },
     {
       icon: 'folder_open',
       label: 'FMS',

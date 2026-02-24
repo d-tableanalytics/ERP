@@ -37,9 +37,11 @@ const createChecklistTables = async () => {
         verifier_name VARCHAR(255),
         attachment_required BOOLEAN,
         frequency VARCHAR(20),
-        status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Completed', 'In Progress', 'Verified')),
+        status VARCHAR(50) DEFAULT \'Pending\' CHECK (status IN (\'Pending\', \'Completed\', \'In Progress\', \'Verified\', \'Hold\')),
         proof_file_url TEXT,
         due_date TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        revision_count INTEGER DEFAULT 0,
         created_at DATE DEFAULT CURRENT_DATE
     );
     `;
@@ -47,6 +49,11 @@ const createChecklistTables = async () => {
     try {
         await pool.query(masterTableQuery);
         await pool.query(checklistTableQuery);
+        
+        // Ensure new columns exist for existing tables
+        await pool.query(`ALTER TABLE checklist ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`);
+        await pool.query(`ALTER TABLE checklist ADD COLUMN IF NOT EXISTS revision_count INTEGER DEFAULT 0`);
+        
         console.log('Checklist tables ensured in database');
     } catch (err) {
         console.error('Error creating checklist tables:', err);

@@ -22,6 +22,7 @@ const ToDoBoard = lazy(() => import('./pages/ToDo/ToDoBoard'));
 const IMS = lazy(() => import('./pages/IMS/Ims'));
 const FMS = lazy (()=> import('./pages/MainFMS/FMSPage'));
 const O2D = lazy(() => import('./pages/O2D/O2D'));
+const Score = lazy(()=> import('./pages/Score/Score'))
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
   return token ? children : <Navigate to="/login" replace />;
@@ -164,6 +165,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <O2D />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+           <Route
+            path="/score"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <Score />
                 </Suspense>
               </ProtectedRoute>
             }

@@ -34,6 +34,7 @@ const { createInterviewTable } = require('./src/models/interviews.model')
 const { seedFullIMSData} = require('./src/models/masterIMS.model')
 const { createInventoryTables } = require('./src/models/createIMSInventoryTables.model');           
 const { createO2DTables} = require('./src/models/o2d.model')
+const { createScoreTable } = require('./src/models/score.model');
 
 
 const onboardingRoutes = require("./src/routes/onboarding.routes");
@@ -50,6 +51,7 @@ const expenses = require('./src/routes/expense.routes')
 const interviews = require('./src/routes/interview.routes')
 const imsInventory = require('./src/routes/imsInventory.routes');
 const O2D = require('./src/routes/o2d.routes')
+const scoreRoutes = require('./src/routes/score.routes');
 
 // Routes registration
 app.use('/api/auth', authRoutes);
@@ -66,6 +68,7 @@ app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/interviews",interviews)
 app.use("/api/ims",imsInventory)
 app.use('/api/o2d',O2D)
+app.use('/api/score', scoreRoutes);
 // const fs = require('fs');
 // if (fs.existsSync('uploads')) {
 //     app.use('/uploads', express.static('uploads'));
@@ -89,7 +92,8 @@ Promise.all([
     createInterviewTable(),
     seedFullIMSData(),
     createInventoryTables(),
-    createO2DTables()
+    createO2DTables(),
+    createScoreTable()
 ])
     .then(() => {
         console.log('Database synchronization complete');

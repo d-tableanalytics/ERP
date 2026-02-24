@@ -11,7 +11,7 @@ exports.createDelegation = async (req, res) => {
         evidence_required
     } = req.body;
 
-    // console.log('Received due_date:', req.body);
+  ;
 
     // Handle File Uploads to Google Drive
     let voice_note_url = null;
@@ -26,7 +26,7 @@ exports.createDelegation = async (req, res) => {
             try {
                 voice_note_url = await uploadToDrive(file.buffer, file.originalname, file.mimetype);
             } catch (uploadError) {
-                console.warn('Voice note upload failed, using fallback:', uploadError.message);
+              
                 voice_note_url = `/uploads/voice_${Date.now()}.mp3`;
             }
         }
@@ -37,7 +37,7 @@ exports.createDelegation = async (req, res) => {
                     try {
                         return await uploadToDrive(file.buffer, file.originalname, file.mimetype);
                     } catch (uploadError) {
-                        console.warn(`Reference doc ${index} upload failed:`, uploadError.message);
+                      
                         return `/uploads/doc_${Date.now()}_${index}.pdf`;
                     }
                 })
@@ -68,7 +68,7 @@ exports.createDelegation = async (req, res) => {
             const dateStr = due_date.includes('T') ? due_date : `${due_date}T00:00`;
             formattedDueDate = `${dateStr}:00+05:30`;
         }
-        console.log('Formatted due_date for DB:', formattedDueDate);
+       
 
         const values = [
             delegation_name, description, delegator_id, delegator_name,
@@ -79,7 +79,7 @@ exports.createDelegation = async (req, res) => {
         ];
 
         const result = await db.query(query, values);
-        console.log('✅ Delegation created:', result.rows[0].id);
+      
         res.status(201).json({
             ...result.rows[0],
             message: voice_note_url ? 'Delegation created with files' : 'Delegation created (files skipped)'
@@ -171,7 +171,7 @@ exports.getDelegationDetail = async (req, res) => {
 // Update delegation
 exports.updateDelegation = async (req, res) => {
     const { id } = req.params;
-    console.log(req.body);
+   
     const {
         delegation_name, description, doer_id, doer_name,
         department, priority, due_date, evidence_required, status,
@@ -184,12 +184,23 @@ exports.updateDelegation = async (req, res) => {
         await client.query('BEGIN');
 
         // 1. Check current state for revision history
-        const currentRes = await client.query('SELECT due_date, status, delegation_name FROM delegation WHERE id = $1', [id]);
+        const currentRes = await client.query('SELECT due_date, status, delegation_name, revision_count FROM delegation WHERE id = $1', [id]);
         if (currentRes.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Delegation not found' });
         }
         const currentDelegation = currentRes.rows[0];
+
+        // ✅ Calculate Revision Count in JS
+        let newRevisionCount = Number(currentDelegation.revision_count || 0);
+
+        if (
+            status &&
+            status !== currentDelegation.status &&
+            ['NEED REVISION', 'HOLD', 'NEED CLARITY'].includes(status)
+        ) {
+            newRevisionCount += 1;
+        }
 
         // 2. Handle Revision History (if due_date changes)
         // Ensure valid dates before comparing
@@ -261,6 +272,8 @@ exports.updateDelegation = async (req, res) => {
                 due_date = COALESCE($7, due_date),
                 evidence_required = COALESCE($8, evidence_required),
                 status = COALESCE($9, status),
+                completed_at = CASE WHEN $9 = \'COMPLETED\' THEN COALESCE($13, NOW()) ELSE completed_at END,
+                revision_count = $14,
                 voice_note_url = COALESCE($10, voice_note_url),
                 reference_docs = CASE 
                                     WHEN $11::text[] IS NOT NULL THEN array_cat(reference_docs, $11::text[]) 
@@ -277,9 +290,8 @@ exports.updateDelegation = async (req, res) => {
             const dateStr = due_date.includes('T') ? due_date : `${due_date}T00:00`;
             formattedDueDate = `${dateStr}:00+05:30`;
         }
-        console.log('Update - Received due_date:', due_date);
-        console.log('Update - Formatted due_date for DB:', formattedDueDate);
 
+     
         const values = [
             delegation_name || null,
             description || null,
@@ -292,15 +304,17 @@ exports.updateDelegation = async (req, res) => {
             status || null,
             new_voice_note_url, // $10
             new_reference_docs.length > 0 ? new_reference_docs : null, // $11
-            id // $12
+            id, // $12
+            status === 'COMPLETED' ? new Date() : null, // $13
+            newRevisionCount // $14
         ];
 
         const result = await client.query(updateQuery, values);
 
         await client.query('COMMIT');
 
-        console.log('✅ Delegation updated:', id);
-        console.log(res.json(result.rows[0]));
+      
+
         res.json(result.rows[0]);
     } catch (err) {
         await client.query('ROLLBACK');
@@ -323,7 +337,7 @@ exports.deleteDelegation = async (req, res) => {
             return res.status(404).json({ message: 'Delegation not found' });
         }
 
-        console.log('🗑️ Delegation deleted:', id);
+       
         res.json({ message: 'Delegation deleted successfully', id });
     } catch (err) {
         console.error('Error deleting delegation:', err);

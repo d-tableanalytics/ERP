@@ -18,8 +18,10 @@ const createDelegationTables = async () => {
         reference_docs TEXT[],
         evidence_required BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMPTZ,
         remarks TEXT[] DEFAULT '{}',
-        revision_history JSONB[] DEFAULT '{}'
+        revision_history JSONB[] DEFAULT '{}',
+        revision_count INTEGER DEFAULT 0
     );
     `;
 
@@ -52,6 +54,11 @@ const createDelegationTables = async () => {
         await pool.query(delegationQuery);
         await pool.query(remarkQuery);
         await pool.query(revisionHistoryQuery);
+        
+        // Ensure new columns exist for existing tables
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS revision_count INTEGER DEFAULT 0`);
+        
         console.log('Delegation tables ensured in database');
     } catch (err) {
         console.error('Error creating delegation tables:', err);
