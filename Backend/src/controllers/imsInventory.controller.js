@@ -330,16 +330,48 @@ exports.editTransaction = async (req, res) => {
 };
 
 exports.getAllTransactions = async (req, res) => {
-  const result = await pool.query(`
-    SELECT m.*, json_agg(i.*) AS items
-    FROM inventory_transaction_master m
-    LEFT JOIN inventory_transaction_items i
-    ON m.id = i.transaction_id
-    GROUP BY m.id
-    ORDER BY m.created_at DESC
-  `);
+  try {
+    const userRole = req.user?.role;
+    const userId = req.user?.id;
 
-  res.json(result.rows);
+    // Check if user is authenticated
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: User not authenticated" });
+    }
+
+    let query;
+    let params;
+
+    // Admin and SuperAdmin see all transactions
+    if (userRole === "Admin" || userRole === "SuperAdmin") {
+      query = `
+        SELECT m.*, json_agg(i.*) AS items
+        FROM inventory_transaction_master m
+        LEFT JOIN inventory_transaction_items i
+        ON m.id = i.transaction_id
+        GROUP BY m.id
+        ORDER BY m.created_at DESC
+      `;
+      params = [];
+    } else {
+      // Regular users see only their own transactions
+      query = `
+        SELECT m.*, json_agg(i.*) AS items
+        FROM inventory_transaction_master m
+        LEFT JOIN inventory_transaction_items i
+        ON m.id = i.transaction_id
+        WHERE m.user_id = $1
+        GROUP BY m.id
+        ORDER BY m.created_at DESC
+      `;
+      params = [userId];
+    }
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
 exports.deleteTransaction = async (req, res) => {

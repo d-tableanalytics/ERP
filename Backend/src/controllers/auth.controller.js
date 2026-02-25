@@ -10,8 +10,6 @@ exports.register = async (req, res) => {
         First_Name, Last_Name, Work_Email, Password, Role, Designation, Department, Joining_Date
     } = req.body;
 
-    console.log(req.body);
-
     try {
         // Check if user exists
         const userExists = await db.query('SELECT * FROM employees WHERE Work_Email = $1', [Work_Email]);

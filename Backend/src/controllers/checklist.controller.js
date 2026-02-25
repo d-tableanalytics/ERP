@@ -130,10 +130,33 @@ exports.updateChecklistStatus = async (req, res) => {
             }
         }
 
-        const query = 'UPDATE checklist SET status = $1, proof_file_url = COALESCE($2, proof_file_url) WHERE id = $3 RETURNING *';
-        const result = await db.query(query, [status, proofFileUrl, id]);
+        // ✅ Fetch current state to check for status change
+        const currentChecklistRes = await db.query('SELECT status, revision_count FROM checklist WHERE id = $1', [id]);
+        if (currentChecklistRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Checklist task not found' });
+        }
+        const currentChecklist = currentChecklistRes.rows[0];
+     
+        // ✅ Calculate  Revision Count in JS
+        let newRevisionCount = Number(currentChecklist.revision_count || 0);
+        if (
+            status &&
+            status !== currentChecklist.status &&
+            ['Pending', 'Hold'].includes(status)
+        ) {
+            newRevisionCount += 1;
+        }
 
-        if (result.rows.length === 0) {
+        const completedAt = status === 'Completed' ? new Date() : null;
+        const query = `
+            UPDATE checklist 
+            SET status = $1, 
+                proof_file_url = COALESCE($2, proof_file_url), 
+                completed_at = CASE WHEN $1 = 'Completed' THEN COALESCE($4, NOW()) ELSE completed_at END,
+                revision_count = $5
+            WHERE id = $3 RETURNING *`;
+        const result = await db.query(query, [status, proofFileUrl, id, completedAt, newRevisionCount]);
+       if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Checklist task not found' });
         }
 

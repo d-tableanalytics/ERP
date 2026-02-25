@@ -11,14 +11,17 @@ const API_URL = `${API_BASE_URL}/api/ims`;
 export const fetchTransactions = createAsyncThunk(
   "ims/fetchTransactions",
   async (_, { getState, rejectWithValue }) => {
-    const { token } = getState().auth;
+    const { token, user } = getState().auth;
 
     try {
       const res = await axios.get(`${API_URL}/transactions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      return res.data;
+      return {
+        transactions: res.data,
+        userRole: user?.role,
+      };
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch transactions"
@@ -140,6 +143,7 @@ const imsSlice = createSlice({
   initialState: {
     transactions: [],
     masters: null,
+    userRole: null,
     isLoading: false,
     isSubmitting: false,
     error: null,
@@ -157,7 +161,8 @@ const imsSlice = createSlice({
       })
       .addCase(fetchTransactions.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.transactions = action.payload;
+        state.transactions = action.payload.transactions;
+        state.userRole = action.payload.userRole;
       })
       .addCase(fetchTransactions.rejected, (state, action) => {
         state.isLoading = false;
