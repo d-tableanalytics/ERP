@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { logout } from '../../store/slices/authSlice';
+import React, { useState, useEffect, useMemo } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { useNavigate, useLocation } from "react-router-dom";
+import { logout } from "../../store/slices/authSlice";
 
 const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
   const { user } = useSelector((state) => state.auth);
@@ -13,25 +13,39 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
 
   /* ================= MENU STRUCTURE ================= */
 
-  const menuItems = [
-    { icon: 'dashboard', label: 'Dashboard', path: '/dashboard' },
-    { icon: 'assignment_ind', label: 'Delegation', path: '/delegation' },
-    { icon: 'check_box', label: 'Checklist', path: '/checklist' },
-    { icon: 'checklist', label: 'TODO', path: '/todo' },
-     { icon: "score", label: "Score", path: "/score" },
-    {
-      icon: 'folder_open',
-      label: 'FMS',
-      children: [
-          { icon: 'orders', label: 'O2D FMS', path: '/o2d-fms' },
-        // { icon: 'orders', label: 'O2D', path: '/o2d' },
-        { icon: 'support_agent', label: 'Help Ticket', path: '/help' },
-      ],
-    },
+  const menuItems = useMemo(
+    () => [
+      { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
+      { icon: "assignment_ind", label: "Delegation", path: "/delegation" },
+      { icon: "check_box", label: "Checklist", path: "/checklist" },
+      { icon: "checklist", label: "TODO", path: "/todo" },
+      {
+        icon: "score",
+        label: "Scoring",
+        children: [
+          { icon: "assignment_ind", label: "Delegation", path: "/score" },
+          {
+            icon: "analytics",
+            label: "Combined MIS Score",
+            path: "/combined-mis",
+          },
+        ],
+      },
+      {
+        icon: "folder_open",
+        label: "FMS",
+        children: [
+          { icon: "orders", label: "O2D FMS", path: "/o2d-fms" },
+          // { icon: 'orders', label: 'O2D', path: '/o2d' },
+          { icon: "support_agent", label: "Help Ticket", path: "/help" },
+        ],
+      },
 
-    { icon: 'inventory_2', label: 'IMS', path: '/ims' },
-    { icon: 'person', label: 'Profile', path: '/profile' },
-  ];
+      { icon: "inventory_2", label: "IMS", path: "/ims" },
+      { icon: "person", label: "Profile", path: "/profile" },
+    ],
+    [],
+  );
 
   /* ================= AUTO OPEN PARENT IF CHILD ACTIVE ================= */
 
@@ -39,29 +53,29 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
     menuItems.forEach((item) => {
       if (item.children) {
         const childMatch = item.children.find(
-          (child) => child.path === location.pathname
+          (child) => child.path === location.pathname,
         );
         if (childMatch) {
           setOpenMenu(item.label);
         }
       }
     });
-  }, [location.pathname]);
+  }, [location.pathname, menuItems]);
 
   /* ================= LOGOUT ================= */
 
   const handleLogout = () => {
     dispatch(logout());
-    navigate('/login');
+    navigate("/login");
   };
 
   /* ================= RENDER ================= */
 
   return (
     <aside
-      className={`${isCollapsed ? 'w-20' : 'w-72'}
+      className={`${isCollapsed ? "w-20" : "w-72"}
       flex-col border-r border-border-main bg-bg-card transition-all duration-300
-      ${isMobile ? 'flex w-full border-r-0' : 'hidden md:flex'}
+      ${isMobile ? "flex w-full border-r-0" : "hidden md:flex"}
       shrink-0 h-full overflow-hidden`}
     >
       {/* ===== Branding ===== */}
@@ -69,7 +83,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
         <div className="p-4 border-b border-border-main flex items-center justify-between">
           <div
             className={`flex items-center gap-3 transition-opacity duration-300
-            ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}
+            ${isCollapsed ? "opacity-0 w-0" : "opacity-100"}`}
           >
             <div className="size-10 flex items-center justify-center shadow-sm overflow-hidden">
               <img
@@ -94,7 +108,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
             className="p-2 rounded-lg hover:bg-bg-main text-text-muted"
           >
             <span className="material-symbols-outlined text-[20px]">
-              {isCollapsed ? 'menu_open' : 'menu'}
+              {isCollapsed ? "menu_open" : "menu"}
             </span>
           </button>
         </div>
@@ -117,9 +131,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
             return (
               <div key={item.label}>
                 <button
-                  onClick={() =>
-                    setOpenMenu(isParentOpen ? null : item.label)
-                  }
+                  onClick={() => setOpenMenu(isParentOpen ? null : item.label)}
                   className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-text-muted hover:bg-bg-main transition-all"
                 >
                   <span className="material-symbols-outlined text-slate-500">
@@ -132,7 +144,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
                         {item.label}
                       </span>
                       <span className="material-symbols-outlined text-[18px]">
-                        {isParentOpen ? 'expand_less' : 'expand_more'}
+                        {isParentOpen ? "expand_less" : "expand_more"}
                       </span>
                     </>
                   )}
@@ -142,8 +154,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
                 {isParentOpen && !isCollapsed && (
                   <div className="ml-4 mt-1 space-y-1">
                     {item.children.map((child) => {
-                      const isChildActive =
-                        location.pathname === child.path;
+                      const isChildActive = location.pathname === child.path;
 
                       return (
                         <button
@@ -152,8 +163,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
                           className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm transition
                             ${
                               isChildActive
-                                ? 'bg-primary/10 text-primary'
-                                : 'text-text-muted hover:bg-bg-main'
+                                ? "bg-primary/10 text-primary"
+                                : "text-text-muted hover:bg-bg-main"
                             }`}
                         >
                           <span className="material-symbols-outlined text-[18px]">
@@ -177,8 +188,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
               className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all
                 ${
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-text-muted hover:bg-bg-main'
+                    ? "bg-primary/10 text-primary"
+                    : "text-text-muted hover:bg-bg-main"
                 }`}
             >
               <span className="material-symbols-outlined text-slate-500">
@@ -202,17 +213,17 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
           className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-red-50 text-text-muted transition-colors"
         >
           <div className="bg-bg-main rounded-full size-10 flex items-center justify-center font-bold text-text-main border-2 border-primary/20">
-            {user?.name?.charAt(0) || 'U'}
+            {user?.name?.charAt(0) || "U"}
           </div>
 
           {!isCollapsed && (
             <>
               <div className="flex flex-col flex-1 overflow-hidden">
                 <span className="text-sm font-bold truncate">
-                  {user?.name || 'User'}
+                  {user?.name || "User"}
                 </span>
                 <span className="text-xs text-text-muted truncate capitalize">
-                  {user?.role || 'Staff'}
+                  {user?.role || "Staff"}
                 </span>
               </div>
 
