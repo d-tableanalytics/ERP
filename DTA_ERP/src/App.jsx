@@ -1,34 +1,39 @@
-import { Suspense, useEffect, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import LoginPage from './pages/Login/LoginPage';
-import Dashboard from './pages/Dashboard';
-import Delegation from './pages/Delegation/Delegation';
-import './index.css';
-import Loader from './components/common/Loader';
-import { Toaster } from 'react-hot-toast';
-import { logout } from './store/slices/authSlice';
-import axios from 'axios';
-import { useDispatch } from 'react-redux';
-import { checkAutoLogout } from './utils/autoLogout';
+import { Suspense, useEffect, lazy } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { useSelector } from "react-redux";
+import LoginPage from "./pages/Login/LoginPage";
+import Dashboard from "./pages/Dashboard";
+import Delegation from "./pages/Delegation/Delegation";
+import "./index.css";
+import Loader from "./components/common/Loader";
+import { Toaster } from "react-hot-toast";
+import { logout } from "./store/slices/authSlice";
+import axios from "axios";
+import { useDispatch } from "react-redux";
+import { checkAutoLogout } from "./utils/autoLogout";
 
-
-const DelegationDetail = lazy(() => import('./pages/Delegation/DelegationDetail'));
-const Checklist = lazy(() => import('./pages/Checklist/Checklist'));
-const HelpTicket = lazy(() => import('./pages/HelpTicket/HelpTicket'));
-const DemoModule = lazy(() => import('./pages/DemoModule')); // Reusable Demo Page
-const PublicPage = lazy(() => import('./pages/PublicPage')); // Reusable Public Page
-const ToDoBoard = lazy(() => import('./pages/ToDo/ToDoBoard'));
-const IMS = lazy(() => import('./pages/IMS/Ims'));
-const FMS = lazy (()=> import('./pages/MainFMS/FMSPage'));
-const O2D = lazy(() => import('./pages/O2D/O2D'));
-const Score = lazy(()=> import('./pages/Score/Score'))
+const DelegationDetail = lazy(
+  () => import("./pages/Delegation/DelegationDetail"),
+);
+const Checklist = lazy(() => import("./pages/Checklist/Checklist"));
+const HelpTicket = lazy(() => import("./pages/HelpTicket/HelpTicket"));
+const DemoModule = lazy(() => import("./pages/DemoModule")); // Reusable Demo Page
+const PublicPage = lazy(() => import("./pages/PublicPage")); // Reusable Public Page
+const ToDoBoard = lazy(() => import("./pages/ToDo/ToDoBoard"));
+const IMS = lazy(() => import("./pages/IMS/Ims"));
+const FMS = lazy(() => import("./pages/MainFMS/FMSPage"));
+const O2D = lazy(() => import("./pages/O2D/O2D"));
+const Score = lazy(() => import("./pages/Score/Score"));
+const CombinedMIS = lazy(() => import("./pages/Score/CombinedMIS"));
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
   return token ? children : <Navigate to="/login" replace />;
 };
-
-
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-screen bg-bg-main">
@@ -36,14 +41,12 @@ const LoadingFallback = () => (
   </div>
 );
 
-
-
 function App() {
   const dispatch = useDispatch();
   useEffect(() => {
     checkAutoLogout(dispatch, logout);
 
-    const loginTime = localStorage.getItem('loginTime');
+    const loginTime = localStorage.getItem("loginTime");
 
     if (!loginTime) return;
 
@@ -59,7 +62,6 @@ function App() {
     }
   }, [dispatch]);
 
-
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (res) => res,
@@ -68,7 +70,7 @@ function App() {
           dispatch(logout());
         }
         return Promise.reject(error);
-      }
+      },
     );
 
     return () => axios.interceptors.response.eject(interceptor);
@@ -81,31 +83,31 @@ function App() {
         reverseOrder={false}
         toastOptions={{
           style: {
-            background: '#333',
-            color: '#fff',
+            background: "#333",
+            color: "#fff",
           },
           success: {
             style: {
-              background: '#22c55e', // Bright Green
-              color: '#ffffff',
-              fontWeight: 'bold',
-              border: '2px solid #166534',
+              background: "#22c55e", // Bright Green
+              color: "#ffffff",
+              fontWeight: "bold",
+              border: "2px solid #166534",
             },
             iconTheme: {
-              primary: '#ffffff',
-              secondary: '#22c55e',
+              primary: "#ffffff",
+              secondary: "#22c55e",
             },
           },
           error: {
             style: {
-              background: '#ef4444', // Bright Red
-              color: '#ffffff',
-              fontWeight: 'bold',
-              border: '2px solid #991b1b',
+              background: "#ef4444", // Bright Red
+              color: "#ffffff",
+              fontWeight: "bold",
+              border: "2px solid #991b1b",
             },
             iconTheme: {
-              primary: '#ffffff',
-              secondary: '#ef4444',
+              primary: "#ffffff",
+              secondary: "#ef4444",
             },
           },
         }}
@@ -149,7 +151,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-           <Route
+          <Route
             path="/ims"
             element={
               <ProtectedRoute>
@@ -159,7 +161,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-            <Route
+          <Route
             path="/o2d"
             element={
               <ProtectedRoute>
@@ -169,12 +171,22 @@ function App() {
               </ProtectedRoute>
             }
           />
-           <Route
+          <Route
             path="/score"
             element={
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <Score />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/combined-mis"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <CombinedMIS />
                 </Suspense>
               </ProtectedRoute>
             }
@@ -191,22 +203,140 @@ function App() {
           />
 
           {/* Demo Module Routes */}
-          <Route path="/attendance" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="attendance" /></Suspense></ProtectedRoute>} />
-          <Route path="/salary" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="salary" /></Suspense></ProtectedRoute>} />
-          <Route path="/o2d-fms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><FMS type="o2d-fms" /></Suspense></ProtectedRoute>} />
-          <Route path="/todo" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><ToDoBoard /></Suspense></ProtectedRoute>} />
-          <Route path="/ims" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="ims" /></Suspense></ProtectedRoute>} />
-          <Route path="/hrms" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="hrms" /></Suspense></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="profile" /></Suspense></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="notifications" /></Suspense></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="settings" /></Suspense></ProtectedRoute>} />
-          <Route path="/help-demo" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DemoModule type="help" /></Suspense></ProtectedRoute>} />
+          <Route
+            path="/attendance"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DemoModule type="attendance" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salary"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DemoModule type="salary" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/o2d-fms"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <FMS type="o2d-fms" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/todo"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <ToDoBoard />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ims"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DemoModule type="ims" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/hrms"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DemoModule type="hrms" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DemoModule type="profile" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DemoModule type="notifications" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DemoModule type="settings" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/help-demo"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DemoModule type="help" />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
 
           {/* Public Pages */}
-          <Route path="/help-center" element={<Suspense fallback={<LoadingFallback />}><PublicPage type="help-center" /></Suspense>} />
-          <Route path="/contact-support" element={<Suspense fallback={<LoadingFallback />}><PublicPage type="contact-support" /></Suspense>} />
-          <Route path="/terms" element={<Suspense fallback={<LoadingFallback />}><PublicPage type="terms" /></Suspense>} />
-          <Route path="/privacy" element={<Suspense fallback={<LoadingFallback />}><PublicPage type="privacy" /></Suspense>} />
+          <Route
+            path="/help-center"
+            element={
+              <Suspense fallback={<LoadingFallback />}>
+                <PublicPage type="help-center" />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/contact-support"
+            element={
+              <Suspense fallback={<LoadingFallback />}>
+                <PublicPage type="contact-support" />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/terms"
+            element={
+              <Suspense fallback={<LoadingFallback />}>
+                <PublicPage type="terms" />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/privacy"
+            element={
+              <Suspense fallback={<LoadingFallback />}>
+                <PublicPage type="privacy" />
+              </Suspense>
+            }
+          />
 
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
