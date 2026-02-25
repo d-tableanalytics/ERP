@@ -11,6 +11,7 @@ import {
   addHoliday,
   removeHoliday,
 } from "../../src/store/slices/helpTicketConfigSlice";
+import { registerUser } from "../../src/store/slices/authSlice";
 const DemoModule = ({ type }) => {
   const dispatch = useDispatch();
   const config = getModuleConfig(type);
@@ -28,11 +29,22 @@ const DemoModule = ({ type }) => {
     holiday_date: "",
     description: "",
   });
+  const [registerForm, setRegisterForm] = useState({
+    First_Name: "",
+    Last_Name: "",
+    Work_Email: "",
+    Password: "",
+    Role: "Employee",
+    Designation: "",
+    Department: "",
+    Joining_Date: new Date().toISOString().split("T")[0],
+  });
 
   useEffect(() => {
     if (
       activeSetting === "Help Ticket Setting" ||
-      activeSetting === "Add Holiday"
+      activeSetting === "Add Holiday" ||
+      activeSetting === "Add Users"
     ) {
       dispatch(fetchHelpTicketConfig());
     }
@@ -41,6 +53,7 @@ const DemoModule = ({ type }) => {
   useEffect(() => {
     if (!settings) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       auto_close_days: settings.stage5_tat_hours
         ? Math.ceil(settings.stage5_tat_hours / 24)
@@ -102,6 +115,42 @@ const DemoModule = ({ type }) => {
       toast.success("Holiday removed");
     } catch {
       toast.error("Failed to remove holiday");
+    }
+  };
+
+  const handleRegisterChange = (e) => {
+    const { name, value } = e.target;
+    setRegisterForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRegisterUser = async () => {
+    if (
+      !registerForm.First_Name ||
+      !registerForm.Last_Name ||
+      !registerForm.Work_Email ||
+      !registerForm.Password ||
+      !registerForm.Designation ||
+      !registerForm.Department
+    ) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+
+    try {
+      await dispatch(registerUser(registerForm)).unwrap();
+      toast.success("User registered successfully");
+      setRegisterForm({
+        First_Name: "",
+        Last_Name: "",
+        Work_Email: "",
+        Password: "",
+        Role: "Employee",
+        Designation: "",
+        Department: "",
+        Joining_Date: new Date().toISOString().split("T")[0],
+      });
+    } catch (err) {
+      toast.error(err || "Failed to register user");
     }
   };
 
@@ -216,9 +265,12 @@ const DemoModule = ({ type }) => {
       "Team",
       "Billing",
       "Integrations",
+      ...(user?.role === "Admin" || user?.role === "SuperAdmin"
+        ? ["Add Users"]
+        : []),
       ...(user?.role === "Admin" ||
-        user?.role === "SuperAdmin" ||
-        user?.role === "PC"
+      user?.role === "SuperAdmin" ||
+      user?.role === "PC"
         ? ["Add Holiday"]
         : []),
       "Help Ticket Setting",
@@ -426,6 +478,148 @@ const DemoModule = ({ type }) => {
                       <p className="text-xs text-text-muted">
                         SLA timers run only during office hours on these days.
                       </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ========= Add Users ========= */}
+              {activeSetting === "Add Users" && (
+                <>
+                  {/* Header */}
+                  <div>
+                    <h3 className="text-lg font-bold text-text-main mb-1">
+                      Add Users
+                    </h3>
+                    <p className="text-text-muted text-sm pb-4 border-b border-border-main">
+                      Add and manage users used for SLA and TAT calculations.
+                    </p>
+                  </div>
+
+                  <div className="space-y-6 max-w-md">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-bold text-text-main">
+                          First Name
+                        </label>
+                        <input
+                          type="text"
+                          name="First_Name"
+                          value={registerForm.First_Name}
+                          onChange={handleRegisterChange}
+                          placeholder="John"
+                          className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-bold text-text-main">
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          name="Last_Name"
+                          value={registerForm.Last_Name}
+                          onChange={handleRegisterChange}
+                          placeholder="Doe"
+                          className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-sm font-bold text-text-main">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        name="Work_Email"
+                        value={registerForm.Work_Email}
+                        onChange={handleRegisterChange}
+                        placeholder="john@example.com"
+                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-sm font-bold text-text-main">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        name="Password"
+                        value={registerForm.Password}
+                        onChange={handleRegisterChange}
+                        placeholder="••••••••"
+                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-sm font-bold text-text-main">
+                        Designation
+                      </label>
+                      <input
+                        type="text"
+                        name="Designation"
+                        value={registerForm.Designation}
+                        onChange={handleRegisterChange}
+                        placeholder="e.g. Software Engineer"
+                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-sm font-bold text-text-main">
+                        Department
+                      </label>
+                      <input
+                        type="text"
+                        name="Department"
+                        value={registerForm.Department}
+                        onChange={handleRegisterChange}
+                        placeholder="e.g. Engineering"
+                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-sm font-bold text-text-main">
+                        Joining Date
+                      </label>
+                      <input
+                        type="date"
+                        name="Joining_Date"
+                        value={registerForm.Joining_Date}
+                        onChange={handleRegisterChange}
+                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-sm font-bold text-text-main">
+                        User Role
+                      </label>
+                      <select
+                        name="Role"
+                        value={registerForm.Role}
+                        onChange={handleRegisterChange}
+                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                      >
+                        <option value="Employee">Employee</option>
+                        <option value="Staff">Staff</option>
+                        <option value="Admin">Admin</option>
+                        <option value="SuperAdmin">SuperAdmin</option>
+                        <option value="PC">PC</option>
+                      </select>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={handleRegisterUser}
+                        className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90 transition-colors"
+                      >
+                        Register Employee
+                      </button>
                     </div>
                   </div>
                 </>
