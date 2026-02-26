@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import MainLayout from "../components/layout/MainLayout";
 import StatCard from "../components/dashboard/StatCard";
 import ModuleTrends from "../components/dashboard/ModuleTrends";
@@ -59,6 +60,7 @@ const MiniPerfChart = ({ title, done, total }) => {
 
 const Dashboard = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const { summary, isLoading } = useSelector((state) => state.dashboard);
 
@@ -137,6 +139,7 @@ const Dashboard = () => {
             trend={`${dStats.done} Done`}
             trendLabel="Completed tasks"
             color="blue"
+            onClick={() => navigate("/delegation")}
           />
           <StatCard
             title="Checklists"
@@ -145,6 +148,7 @@ const Dashboard = () => {
             trend={`${cStats.done} Done`}
             trendLabel="Completed items"
             color="green"
+            onClick={() => navigate("/checklist")}
           />
           <StatCard
             title="O2D Orders"
@@ -153,6 +157,7 @@ const Dashboard = () => {
             trend={`${oStats.done} Done`}
             trendLabel="Finished orders"
             color="orange"
+            onClick={() => navigate("/o2d-fms")}
           />
           <StatCard
             title="Help Tickets"
@@ -161,6 +166,7 @@ const Dashboard = () => {
             trend={`${hStats.done} Done`}
             trendLabel="Resolved tickets"
             color="purple"
+            onClick={() => navigate("/help")}
           />
           <StatCard
             title="IMS Products"
@@ -169,6 +175,7 @@ const Dashboard = () => {
             trend={iStats.totalStock.toLocaleString()}
             trendLabel="Total stock items"
             color="blue"
+            onClick={() => navigate("/ims")}
           />
         </div>
 
