@@ -18,7 +18,7 @@ const IMS = () => {
   const { transactions = [], isLoading } = useSelector((state) => state.ims);
 
   /* ================= UI STATES ================= */
-  const [searchTerm, setSearchTerm] = useState("");
+
   const [filterType, setFilterType] = useState("ALL");
   const [viewMode, setViewMode] = useState("list");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -54,9 +54,7 @@ const IMS = () => {
   const descriptionOptions = [
     ...new Set(allItems.map((i) => i.description).filter(Boolean)),
   ];
-  const mocOptions = [
-    ...new Set(allItems.map((i) => i.moc).filter(Boolean)),
-  ];
+  const mocOptions = [...new Set(allItems.map((i) => i.moc).filter(Boolean))];
   const gradeOptions = [
     ...new Set(allItems.map((i) => i.grade).filter(Boolean)),
   ];
@@ -69,15 +67,13 @@ const IMS = () => {
   const classOptions = [
     ...new Set(allItems.map((i) => i.class_sch).filter(Boolean)),
   ];
-  const sch2Options = [
-    ...new Set(allItems.map((i) => i.sch2).filter(Boolean)),
-  ];
+  const sch2Options = [...new Set(allItems.map((i) => i.sch2).filter(Boolean))];
 
   const partyOptions = [
     ...new Set(
       (transactions || [])
         .map((t) => t?.vendor_name || t?.client_name)
-        .filter(Boolean)
+        .filter(Boolean),
     ),
   ];
 
@@ -85,14 +81,7 @@ const IMS = () => {
   const filteredTransactions = useMemo(() => {
     let data = [...transactions];
 
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      data = data.filter(
-        (t) =>
-          t.invoice_no?.toLowerCase().includes(term) ||
-          t.job_no?.toLowerCase().includes(term)
-      );
-    }
+ 
 
     if (filterType !== "ALL") {
       data = data.filter((t) => t.transaction_type === filterType);
@@ -129,9 +118,7 @@ const IMS = () => {
             txn.vendor_name
               ?.toLowerCase()
               .includes(partyFilter.toLowerCase()) ||
-            txn.client_name
-              ?.toLowerCase()
-              .includes(partyFilter.toLowerCase()))
+            txn.client_name?.toLowerCase().includes(partyFilter.toLowerCase()))
         );
       });
     });
@@ -139,7 +126,7 @@ const IMS = () => {
     return data;
   }, [
     transactions,
-    searchTerm,
+
     filterType,
     productFilter,
     descriptionFilter,
@@ -156,13 +143,14 @@ const IMS = () => {
 
   const paginatedTransactions = filteredTransactions.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [
-    searchTerm,
+    
     filterType,
     productFilter,
     descriptionFilter,
@@ -419,180 +407,211 @@ const EmptyState = () => (
 );
 
 const TableView = ({ data, onView, onEdit, onDelete }) => {
-  const [expandedRow, setExpandedRow] = useState(null);
+  // Flatten transactions to individual item rows
+  const flatData = data.flatMap((txn) => {
+    if (!txn.items || txn.items.length === 0) {
+      return [
+        {
+          id: null,
+          isPlaceholder: true,
+          parentTxn: txn,
+        },
+      ];
+    }
+    return txn.items.map((item) => ({
+      ...item,
+      parentTxn: txn,
+    }));
+  });
+
   return (
     <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1200px] text-sm">
+        <table className="w-full min-w-[2200px] text-sm">
           <thead>
-            <tr className="uppercase text-[11px] text-left border-b border-border-main">
+            <tr className="uppercase text-[11px] text-left border-b border-border-main bg-bg-main/20">
               <th className="px-6 py-4">ID</th>
-              <th>User ID</th>
+              <th>Txn ID</th>
               <th>Type</th>
-              <th>Vendor</th>
-              <th>Client</th>
+              <th>Party (Vendor/Client)</th>
               <th>Job No</th>
               <th>Invoice</th>
+              <th>Product</th>
+              <th>Product Image</th>
+              <th>Description</th>
+              <th>MOC</th>
+              <th>Grade</th>
+              <th>Size1</th>
+              <th>Size2</th>
+              <th>Class</th>
+              <th>Sch2</th>
+              <th>Less Thk</th>
+              <th className="text-green-600">Qty In</th>
+              <th className="text-red-500">Qty Out</th>
+              <th>Unit</th>
+              <th>Location</th>
+              <th>Rack</th>
+              <th>Available</th>
               <th>Remarks</th>
-              <th>Transaction Date</th>
-              <th>Created At</th>
-              <th className="text-center">Actions</th>
+              <th>Date</th>
+              <th className="text-center sticky right-0 bg-bg-card shadow-[-4px_0_10px_rgba(0,0,0,0.1)]">
+                Actions
+              </th>
             </tr>
           </thead>
 
           <tbody>
-            {data.map((txn) => (
-              <React.Fragment key={txn.id}>
-                {/* MAIN ROW */}
-                <tr className="border-b bg-bg-main/40 border-border-main hover:bg-bg-main/20 transition">
-                  <td
-                    className="px-6 py-4 font-semibold cursor-pointer"
-                    onClick={() =>
-                      setExpandedRow(expandedRow === txn.id ? null : txn.id)
-                    }
+            {flatData.map((row, idx) => {
+              const { parentTxn } = row;
+
+              if (row.isPlaceholder) {
+                return (
+                  <tr
+                    key={`empty-${parentTxn.id}-${idx}`}
+                    className="border-b border-border-main hover:bg-bg-main/10 transition"
                   >
-                    #{txn.id}
+                    <td className="px-6 py-4 text-text-muted">-</td>
+                    <td className="font-semibold text-primary">
+                      #{parentTxn.id}
+                    </td>
+                    <td>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${parentTxn.transaction_type === "IN" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}
+                      >
+                        {parentTxn.transaction_type === "IN"
+                          ? "Stock In"
+                          : "Stock Out"}
+                      </span>
+                    </td>
+                    <td className="font-medium">
+                      {parentTxn.vendor_name || parentTxn.client_name || "-"}
+                    </td>
+                    <td>{parentTxn.job_no || "-"}</td>
+                    <td>{parentTxn.invoice_no || "-"}</td>
+                    <td
+                      colSpan="17"
+                      className="text-center text-text-muted italic"
+                    >
+                      No items in this transaction
+                    </td>
+                    <td className="text-center sticky right-0 bg-bg-card shadow-[-4px_0_10px_rgba(0,0,0,0.1)]">
+                      <div className="flex justify-center gap-3 px-2">
+                        <Eye
+                          size={16}
+                          className="cursor-pointer hover:text-primary transition"
+                          onClick={() => onView(parentTxn)}
+                        />
+                        <Pencil
+                          size={16}
+                          className="cursor-pointer text-amber-500 hover:opacity-70 transition"
+                          onClick={() => onEdit(parentTxn)}
+                        />
+                        <Trash
+                          size={16}
+                          className="cursor-pointer text-red-500 hover:opacity-70 transition"
+                          onClick={() => onDelete(parentTxn.id)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+
+              return (
+                <tr
+                  key={`${row.id}-${idx}`}
+                  className="border-b border-border-main hover:bg-bg-main/10 transition"
+                >
+                  <td className="px-6 py-4 font-medium">#{row.id}</td>
+                  <td className="font-semibold text-primary">
+                    #{parentTxn.id}
                   </td>
-
-                  <td>{txn.user_id ?? 0}</td>
-
                   <td>
                     <span
-                      className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold tracking-wide
-                        ${
-                          txn.transaction_type === "IN"
-                            ? "bg-green-500/10 text-green-600 border border-green-500/20"
-                            : "bg-red-500/10 text-red-600 border border-red-500/20"
-                        }`}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${parentTxn.transaction_type === "IN" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}
                     >
-                      {txn.transaction_type === "IN" ? "Stock In" : "Stock Out"}
+                      {parentTxn.transaction_type === "IN"
+                        ? "Stock In"
+                        : "Stock Out"}
                     </span>
                   </td>
+                  <td className="font-medium">
+                    {parentTxn.vendor_name || parentTxn.client_name || "-"}
+                  </td>
+                  <td>{parentTxn.job_no || "-"}</td>
+                  <td>{parentTxn.invoice_no || "-"}</td>
 
-                  <td>{txn.vendor_name || "-"}</td>
-                  <td>{txn.client_name || "-"}</td>
-                  <td>{txn.job_no || "-"}</td>
-                  <td>{txn.invoice_no || "-"}</td>
-                  <td>{txn.remarks || "-"}</td>
-
+                  <td className="font-bold">{row.product || "-"}</td>
                   <td>
-                    {txn.transaction_date
-                      ? new Date(txn.transaction_date).toLocaleString()
+                    {row.product_url ? (
+                      <button
+                        onClick={() => window.open(row.product_url, "_blank")}
+                        className="p-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition"
+                        title="View Image"
+                      >
+                        <Eye size={14} />
+                      </button>
+                    ) : (
+                      <span className="text-text-muted text-[10px]">N/A</span>
+                    )}
+                  </td>
+                  <td>{row.description || "-"}</td>
+                  <td>{row.moc || "-"}</td>
+                  <td>{row.grade || "-"}</td>
+                  <td>{row.size1 || "-"}</td>
+                  <td>{row.size2 || "-"}</td>
+                  <td>{row.class_sch || "-"}</td>
+                  <td>{row.sch2 || "-"}</td>
+                  <td>{row.less_thk || "-"}</td>
+
+                  <td className="text-green-600 font-bold">
+                    {row.qty_in ?? 0}
+                  </td>
+                  <td className="text-red-500 font-bold">{row.qty_out ?? 0}</td>
+
+                  <td>{row.unit || "-"}</td>
+                  <td>{row.location || "-"}</td>
+                  <td>{row.rack_no || "-"}</td>
+                  <td className="font-bold text-primary">
+                    {row.available_qty ?? 0}
+                  </td>
+
+                  <td
+                    className="max-w-[150px] truncate"
+                    title={parentTxn.remarks}
+                  >
+                    {parentTxn.remarks || "-"}
+                  </td>
+                  <td className="whitespace-nowrap">
+                    {parentTxn.transaction_date
+                      ? new Date(
+                          parentTxn.transaction_date,
+                        ).toLocaleDateString()
                       : "-"}
                   </td>
 
-                  <td>
-                    {txn.created_at
-                      ? new Date(txn.created_at).toLocaleString()
-                      : "-"}
-                  </td>
-
-                  <td>
-                    <div className="flex justify-center gap-4">
+                  <td className="text-center sticky right-0 bg-bg-card shadow-[-4px_0_10px_rgba(0,0,0,0.1)]">
+                    <div className="flex justify-center gap-3 px-2">
                       <Eye
                         size={16}
-                        className="cursor-pointer"
-                        onClick={() => onView(txn)}
+                        className="cursor-pointer hover:text-primary transition"
+                        onClick={() => onView(parentTxn)}
                       />
                       <Pencil
                         size={16}
-                        className="cursor-pointer text-amber-500"
-                        onClick={() => onEdit(txn)}
+                        className="cursor-pointer text-amber-500 hover:opacity-70 transition"
+                        onClick={() => onEdit(parentTxn)}
                       />
                       <Trash
                         size={16}
-                        className="cursor-pointer text-red-500"
-                        onClick={() => onDelete(txn.id)}
+                        className="cursor-pointer text-red-500 hover:opacity-70 transition"
+                        onClick={() => onDelete(parentTxn.id)}
                       />
                     </div>
                   </td>
                 </tr>
-
-                {/* EXPANDED TABLE */}
-                {expandedRow === txn.id && (
-                  <tr>
-                    <td colSpan="11" className="bg-bg-main p-4">
-                      <div className="overflow-x-auto border border-border-main rounded-xl">
-                        <table className="w-full min-w-[1300px] text-xs">
-                          <thead className="bg-bg-card border-b">
-                            <tr>
-                              <th>ID</th>
-                              <th>Transaction ID</th>
-                              <th>Product</th>
-                              <th>Description</th>
-                              <th>MOC</th>
-                              <th>Grade</th>
-                              <th>Size1</th>
-                              <th>Size2</th>
-                              <th>Class</th>
-                              <th>Sch2</th>
-                              <th>Less Thk</th>
-                              <th>Qty In</th>
-                              <th>Qty Out</th>
-                              <th>Unit</th>
-                              <th>Location</th>
-                              <th>Rack</th>
-                              <th>Available</th>
-                              <th>Item Created</th>
-                            </tr>
-                          </thead>
-
-                          <tbody>
-                            {txn.items && txn.items.length > 0 ? (
-                              txn?.items.map((item) => (
-                                <tr key={item?.id} className="border-b">
-                                  <td>{item?.id ?? 0}</td>
-                                  <td>{item?.transaction_id ?? 0}</td>
-                                  <td>{item?.product || "-"}</td>
-                                  <td>{item?.description || "-"}</td>
-                                  <td>{item?.moc || "-"}</td>
-                                  <td>{item?.grade || "-"}</td>
-                                  <td>{item?.size1 || "-"}</td>
-                                  <td>{item?.size2 || "-"}</td>
-                                  <td>{item?.class_sch || "-"}</td>
-                                  <td>{item?.sch2 || "-"}</td>
-                                  <td>{item?.less_thk || "-"}</td>
-
-                                  <td className="text-green-600 font-semibold">
-                                    {item?.qty_in ?? 0}
-                                  </td>
-
-                                  <td className="text-red-500 font-semibold">
-                                    {item?.qty_out ?? 0}
-                                  </td>
-
-                                  <td>{item?.unit || "-"}</td>
-                                  <td>{item?.location || "-"}</td>
-                                  <td>{item?.rack_no || "-"}</td>
-                                  <td>{item?.available_qty ?? 0}</td>
-
-                                  <td>
-                                    {item?.created_at
-                                      ? new Date(
-                                          item?.created_at,
-                                        ).toLocaleString()
-                                      : "-"}
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td
-                                  colSpan="18"
-                                  className="text-center py-4 text-gray-500"
-                                >
-                                  No Items Found
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
