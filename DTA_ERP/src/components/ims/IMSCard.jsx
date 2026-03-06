@@ -147,7 +147,7 @@ const IMSCard = ({ transaction, onEdit }) => {
 export default IMSCard;
 
 /* Reusable Block */
-const InfoBlock = ({ icon, label, value, color }) => {
+const InfoBlock = ({ icon, label, value }) => {
   return (
     <div className="bg-bg-main rounded-xl p-3 flex items-center gap-3 border border-border-main">
       <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">

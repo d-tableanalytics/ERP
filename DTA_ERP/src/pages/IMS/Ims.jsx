@@ -7,6 +7,7 @@ import CreateIMSModal from "../../components/ims/CreateIMSModal";
 import IMSCard from "../../components/ims/IMSCard";
 import Loader from "../../components/common/Loader";
 import ViewIMSModal from "../../components/ims/ViewIMSModal";
+import DeleteModal from "../../components/common/DeleteModal";
 
 import {
   fetchTransactions,
@@ -25,6 +26,8 @@ const IMS = () => {
   const [transactionToEdit, setTransactionToEdit] = useState(null);
   const [viewTransaction, setViewTransaction] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [txnToDeleteId, setTxnToDeleteId] = useState(null);
   const [productFilter, setProductFilter] = useState("");
   const [descriptionFilter, setDescriptionFilter] = useState("");
   const [mocFilter, setMocFilter] = useState("");
@@ -161,8 +164,14 @@ const IMS = () => {
   ]);
 
   const handleDelete = (id) => {
-    if (window.confirm("Delete this transaction?")) {
-      dispatch(deleteTransaction(id));
+    setTxnToDeleteId(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (txnToDeleteId) {
+      dispatch(deleteTransaction(txnToDeleteId));
+      setTxnToDeleteId(null);
     }
   };
 
@@ -378,6 +387,14 @@ const IMS = () => {
           onClose={() => setIsModalOpen(false)}
           transactionToEdit={transactionToEdit}
           onSuccess={() => dispatch(fetchTransactions())}
+        />
+
+        <DeleteModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={confirmDelete}
+          title="Delete Transaction"
+          message="Are you sure you want to permanently delete this transaction? All associated items and stock movements will be reversed."
         />
       </div>
     </MainLayout>
