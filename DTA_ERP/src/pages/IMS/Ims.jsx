@@ -81,8 +81,6 @@ const IMS = () => {
   const filteredTransactions = useMemo(() => {
     let data = [...transactions];
 
- 
-
     if (filterType !== "ALL") {
       data = data.filter((t) => t.transaction_type === filterType);
     }
@@ -150,7 +148,6 @@ const IMS = () => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [
-    
     filterType,
     productFilter,
     descriptionFilter,
@@ -427,32 +424,18 @@ const TableView = ({ data, onView, onEdit, onDelete }) => {
   return (
     <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[2200px] text-sm">
+        <table className="w-full min-w-[1000px] text-sm">
           <thead>
             <tr className="uppercase text-[11px] text-left border-b border-border-main bg-bg-main/20">
               <th className="px-6 py-4">ID</th>
-              <th>Txn ID</th>
-              <th>Type</th>
               <th>Party (Vendor/Client)</th>
-              <th>Job No</th>
-              <th>Invoice</th>
               <th>Product</th>
               <th>Product Image</th>
               <th>Description</th>
-              <th>MOC</th>
-              <th>Grade</th>
-              <th>Size1</th>
-              <th>Size2</th>
-              <th>Class</th>
-              <th>Sch2</th>
-              <th>Less Thk</th>
               <th className="text-green-600">Qty In</th>
               <th className="text-red-500">Qty Out</th>
-              <th>Unit</th>
               <th>Location</th>
-              <th>Rack</th>
               <th>Available</th>
-              <th>Remarks</th>
               <th>Date</th>
               <th className="text-center sticky right-0 bg-bg-card shadow-[-4px_0_10px_rgba(0,0,0,0.1)]">
                 Actions
@@ -471,25 +454,11 @@ const TableView = ({ data, onView, onEdit, onDelete }) => {
                     className="border-b border-border-main hover:bg-bg-main/10 transition"
                   >
                     <td className="px-6 py-4 text-text-muted">-</td>
-                    <td className="font-semibold text-primary">
-                      #{parentTxn.id}
-                    </td>
-                    <td>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${parentTxn.transaction_type === "IN" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}
-                      >
-                        {parentTxn.transaction_type === "IN"
-                          ? "Stock In"
-                          : "Stock Out"}
-                      </span>
-                    </td>
                     <td className="font-medium">
                       {parentTxn.vendor_name || parentTxn.client_name || "-"}
                     </td>
-                    <td>{parentTxn.job_no || "-"}</td>
-                    <td>{parentTxn.invoice_no || "-"}</td>
                     <td
-                      colSpan="17"
+                      colSpan="8"
                       className="text-center text-text-muted italic"
                     >
                       No items in this transaction
@@ -523,23 +492,9 @@ const TableView = ({ data, onView, onEdit, onDelete }) => {
                   className="border-b border-border-main hover:bg-bg-main/10 transition"
                 >
                   <td className="px-6 py-4 font-medium">#{row.id}</td>
-                  <td className="font-semibold text-primary">
-                    #{parentTxn.id}
-                  </td>
-                  <td>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${parentTxn.transaction_type === "IN" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}
-                    >
-                      {parentTxn.transaction_type === "IN"
-                        ? "Stock In"
-                        : "Stock Out"}
-                    </span>
-                  </td>
                   <td className="font-medium">
                     {parentTxn.vendor_name || parentTxn.client_name || "-"}
                   </td>
-                  <td>{parentTxn.job_no || "-"}</td>
-                  <td>{parentTxn.invoice_no || "-"}</td>
 
                   <td className="font-bold">{row.product || "-"}</td>
                   <td>
@@ -556,32 +511,17 @@ const TableView = ({ data, onView, onEdit, onDelete }) => {
                     )}
                   </td>
                   <td>{row.description || "-"}</td>
-                  <td>{row.moc || "-"}</td>
-                  <td>{row.grade || "-"}</td>
-                  <td>{row.size1 || "-"}</td>
-                  <td>{row.size2 || "-"}</td>
-                  <td>{row.class_sch || "-"}</td>
-                  <td>{row.sch2 || "-"}</td>
-                  <td>{row.less_thk || "-"}</td>
 
                   <td className="text-green-600 font-bold">
                     {row.qty_in ?? 0}
                   </td>
                   <td className="text-red-500 font-bold">{row.qty_out ?? 0}</td>
 
-                  <td>{row.unit || "-"}</td>
                   <td>{row.location || "-"}</td>
-                  <td>{row.rack_no || "-"}</td>
                   <td className="font-bold text-primary">
                     {row.available_qty ?? 0}
                   </td>
 
-                  <td
-                    className="max-w-[150px] truncate"
-                    title={parentTxn.remarks}
-                  >
-                    {parentTxn.remarks || "-"}
-                  </td>
                   <td className="whitespace-nowrap">
                     {parentTxn.transaction_date
                       ? new Date(
