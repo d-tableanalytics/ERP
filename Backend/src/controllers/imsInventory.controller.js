@@ -186,11 +186,11 @@ exports.editTransaction = async (req, res) => {
         [oldItem.product],
       );
 
-      let stockQty = Number(stock.rows[0].total_qty);
+      let stockQty = Number(stock.rows[0]?.total_qty || 0);
 
       // reverse logic
-      stockQty += oldItem.qty_out;
-      stockQty -= oldItem.qty_in;
+      stockQty += Number(oldItem.qty_out || 0);
+      stockQty -= Number(oldItem.qty_in || 0);
 
       await client.query(
         "UPDATE stock_master SET total_qty=$1 WHERE product=$2",
@@ -260,8 +260,6 @@ exports.editTransaction = async (req, res) => {
           ? currentQty + Number(item.qty)
           : currentQty - Number(item.qty);
 
-      if (newQty < 0) throw new Error("Insufficient Stock");
-
       await client.query(
         `
         INSERT INTO inventory_transaction_items
@@ -302,6 +300,17 @@ exports.editTransaction = async (req, res) => {
       );
     }
 
+    /* ================= 6️⃣ VERIFY STOCK AFTER EDIT ================= */
+    const negativeStockCheck = await client.query(
+      "SELECT product, total_qty FROM stock_master WHERE total_qty < 0 FOR UPDATE",
+    );
+    if (negativeStockCheck.rows.length > 0) {
+      const negativeProduct = negativeStockCheck.rows[0].product;
+      throw new Error(
+        `Insufficient Stock: Editing this transaction causes the stock of ${negativeProduct} to drop below zero.`,
+      );
+    }
+
     await client.query("COMMIT");
 
     const updatedTransaction = await pool.query(
@@ -336,7 +345,9 @@ exports.getAllTransactions = async (req, res) => {
 
     // Check if user is authenticated
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: User not authenticated" });
     }
 
     let query;
@@ -392,10 +403,12 @@ exports.deleteTransaction = async (req, res) => {
         [item.product],
       );
 
-      let stockQty = Number(stock.rows[0].total_qty);
+      let stockQty = Number(stock.rows[0]?.total_qty || 0);
 
-      stockQty += item.qty_out;
-      stockQty -= item.qty_in;
+      stockQty += Number(item.qty_out || 0);
+      stockQty -= Number(item.qty_in || 0);
+
+      if (stockQty < 0) throw new Error("Insufficient Stock (during reversal)");
 
       await client.query(
         "UPDATE stock_master SET total_qty=$1 WHERE product=$2",

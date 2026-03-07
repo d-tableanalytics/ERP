@@ -63,7 +63,7 @@ const emptyItem = {
   location: "",
   rack_no: "",
   additional_details: "",
-   imageFile: null,
+  imageFile: null,
 };
 
 const CreateTransactionModal = ({
@@ -104,6 +104,7 @@ const CreateTransactionModal = ({
 
   useEffect(() => {
     if (transactionToEdit && isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         transaction_type: transactionToEdit.transaction_type || "IN",
         vendor_name: transactionToEdit.vendor_name || "",
@@ -116,7 +117,15 @@ const CreateTransactionModal = ({
       });
 
       setItems(
-        transactionToEdit.items?.length ? transactionToEdit.items : [emptyItem],
+        transactionToEdit.items?.length
+          ? transactionToEdit.items.map((it) => ({
+              ...it,
+              qty:
+                transactionToEdit.transaction_type === "IN"
+                  ? it.qty_in
+                  : it.qty_out,
+            }))
+          : [emptyItem],
       );
     }
   }, [transactionToEdit, isOpen]);
@@ -136,60 +145,61 @@ const CreateTransactionModal = ({
     setShowPreview(true);
   };
 
- const handleFinalSubmit = async () => {
-  const formDataToSend = new FormData();
+  const handleFinalSubmit = async () => {
+    const formDataToSend = new FormData();
 
-  formDataToSend.append("user_id", user.id);
-  formDataToSend.append("transaction_type", formData.transaction_type);
-  formDataToSend.append("transaction_date", formData.transaction_date);
-  formDataToSend.append(
-    "vendor_name",
-    formData.transaction_type === "IN" ? formData.vendor_name : ""
-  );
-  formDataToSend.append(
-    "client_name",
-    formData.transaction_type === "OUT" ? formData.client_name : ""
-  );
-  formDataToSend.append("job_no", formData.job_no);
-  formDataToSend.append("invoice_no", formData.invoice_no);
-  formDataToSend.append("remarks", formData.remarks);
+    formDataToSend.append("user_id", user.id);
+    formDataToSend.append("transaction_type", formData.transaction_type);
+    formDataToSend.append("transaction_date", formData.transaction_date);
+    formDataToSend.append(
+      "vendor_name",
+      formData.transaction_type === "IN" ? formData.vendor_name : "",
+    );
+    formDataToSend.append(
+      "client_name",
+      formData.transaction_type === "OUT" ? formData.client_name : "",
+    );
+    formDataToSend.append("job_no", formData.job_no);
+    formDataToSend.append("invoice_no", formData.invoice_no);
+    formDataToSend.append("remarks", formData.remarks);
 
-  // Remove imageFile before sending items JSON
-  const cleanItems = items.map(({ imageFile, ...rest }) => ({
-    ...rest,
-    qty: Number(rest.qty),
-  }));
+    // Remove imageFile before sending items JSON
+    const cleanItems = items.map(({ ...rest }) => ({
+      ...rest,
+      qty: Number(rest.qty),
+    }));
 
-  formDataToSend.append("items", JSON.stringify(cleanItems));
+    formDataToSend.append("items", JSON.stringify(cleanItems));
 
-  // Append images separately
-  items.forEach((item, index) => {
-    if (item.imageFile) {
-      formDataToSend.append(`product_image_${index}`, item.imageFile);
+    // Append images separately
+    items.forEach((item, index) => {
+      if (item.imageFile) {
+        formDataToSend.append(`product_image_${index}`, item.imageFile);
+      }
+    });
+
+    try {
+      if (transactionToEdit) {
+        await dispatch(
+          editTransaction({
+            id: transactionToEdit.id,
+            updatedData: formDataToSend,
+          }),
+        ).unwrap();
+        toast.success("Transaction Updated");
+      } else {
+        await dispatch(createTransaction(formDataToSend)).unwrap();
+        toast.success("Transaction Created");
+      }
+
+      setShowPreview(false);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      console.log(err);
+      toast.error("Something went wrong");
     }
-  });
-
-  try {
-    if (transactionToEdit) {
-      await dispatch(
-        editTransaction({
-          id: transactionToEdit.id,
-          updatedData: formDataToSend,
-        })
-      ).unwrap();
-      toast.success("Transaction Updated");
-    } else {
-      await dispatch(createTransaction(formDataToSend)).unwrap();
-      toast.success("Transaction Created");
-    }
-
-    setShowPreview(false);
-    onSuccess();
-    onClose();
-  } catch (err) {
-    toast.error("Something went wrong");
-  }
-};
+  };
 
   if (!isOpen) return null;
 
@@ -215,6 +225,7 @@ const CreateTransactionModal = ({
               })
             }
             className="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-lg font-semibold"
+            disabled={!!transactionToEdit}
           >
             <option value="IN">IN (Purchase)</option>
             <option value="OUT">OUT (Dispatch)</option>
@@ -465,18 +476,18 @@ const CreateTransactionModal = ({
                   ))}
                 </Select>
                 <div className="mb-4">
-  <label className="flex items-center text-xs font-bold uppercase text-text-muted mb-1">
-    Product Image
-  </label>
-  <input
-    type="file"
-    accept="image/*"
-    onChange={(e) =>
-      handleItemChange(index, "imageFile", e.target.files[0])
-    }
-    className="w-full bg-bg-main border border-border-main text-text-main rounded-lg px-3 py-2 text-sm"
-  />
-</div>
+                  <label className="flex items-center text-xs font-bold uppercase text-text-muted mb-1">
+                    Product Image
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      handleItemChange(index, "imageFile", e.target.files[0])
+                    }
+                    className="w-full bg-bg-main border border-border-main text-text-main rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
               </div>
 
               <SectionTitle title="Additional Information" />
@@ -582,6 +593,7 @@ const CreateTransactionModal = ({
         onConfirm={handleFinalSubmit}
         formData={formData}
         items={items}
+        loading={isSubmitting}
       />
     </div>
   );
