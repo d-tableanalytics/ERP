@@ -80,12 +80,8 @@ app.use("/api/ims", imsInventory);
 app.use("/api/o2d", O2D);
 app.use("/api/score", scoreRoutes);
 app.use("/api/dashboard", dashboardRoutes);
-// const fs = require('fs');
-// if (fs.existsSync('uploads')) {
-//     app.use('/uploads', express.static('uploads'));
-// }
 
-// Initialize Database Tables
+// Initialize Database Tables and start server
 Promise.all([
   createEmployeeTable(),
   createDelegationTables(),
@@ -108,14 +104,15 @@ Promise.all([
 ])
   .then(() => {
     console.log("Database synchronization complete");
-    startChecklistCron(); // Start the daily task generation cron
-  })
-  .catch((err) => console.error("Database synchronization failed:", err));
+    startChecklistCron();
 
-if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Database synchronization failed:", err);
+    process.exit(1);
   });
-}
 
 module.exports = app;
