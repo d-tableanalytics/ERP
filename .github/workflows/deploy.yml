@@ -1,0 +1,51 @@
+name: Deploy ERP Frontend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build app
+        run: npm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create archive
+        run: tar -czf dist.tar.gz dist
+
+      - name: Upload archive to server
+        run: scp dist.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dist.tar.gz
+
+      - name: Deploy on server
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+            sudo mkdir -p /var/www/erp &&
+            sudo rm -rf /var/www/erp/* &&
+            sudo tar -xzf /tmp/dist.tar.gz -C /var/www/erp --strip-components=1 &&
+            rm -f /tmp/dist.tar.gz &&
+            sudo chown -R www-data:www-data /var/www/erp &&
+            sudo chmod -R 755 /var/www/erp &&
+            sudo nginx -t &&
+            sudo systemctl reload nginx
+          "
