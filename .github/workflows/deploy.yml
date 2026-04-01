@@ -11,11 +11,17 @@ jobs:
 
     defaults:
       run:
-        working-directory: frontend   # 🔥 CHANGE THIS (your folder name)
+        working-directory: DTA_ERP
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Debug repo structure
+        run: |
+          pwd
+          ls -la
+          find .. -maxdepth 3 -name package.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,20 +34,22 @@ jobs:
       - name: Build app
         run: npm run build
 
+      - name: Create archive
+        run: tar -czf dist.tar.gz dist
+
       - name: Setup SSH
+        working-directory: .
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Create archive
-        run: tar -czf dist.tar.gz dist
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Upload archive to server
         run: scp dist.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dist.tar.gz
 
       - name: Deploy on server
+        working-directory: .
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
             sudo mkdir -p /var/www/erp &&
