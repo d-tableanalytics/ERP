@@ -17,18 +17,13 @@ app.get("/", (req, res) => {
 
 // Import Models & Routes
 const { createEmployeeTable } = require("./src/models/employee.model");
-const { createDelegationTables } = require("./src/models/delegation.model");
 const { createDepartmentTable } = require("./src/models/department.model");
-const { createChecklistTables } = require("./src/models/checklist.model");
 const { createHelpTicketTables } = require("./src/models/helpTicket.model");
 const { createTodoTables } = require("./src/models/todo.model");
 const { createLocationTable } = require("./src/models/location.model");
 const {
   createHelpTicketConfigTable,
 } = require("./src/models/helpTicketConfig.model");
-const {
-  startChecklistCron,
-} = require("./src/controllers/checklist.controller");
 const { createAttendanceTable } = require("./src/models/attendance.model");
 const { createAdvanceTable } = require("./src/models/advance.model");
 const {
@@ -48,9 +43,7 @@ const { createScoreTable } = require("./src/models/score.model");
 
 const onboardingRoutes = require("./src/routes/onboarding.routes");
 const authRoutes = require("./src/routes/auth.routes");
-const delegationRoutes = require("./src/routes/delegation.routes");
 const employeeRoutes = require("./src/routes/employee.routes");
-const checklistRoutes = require("./src/routes/checklist.routes");
 const helpTicketRoutes = require("./src/routes/helpTicket.routes");
 const todoRoutes = require("./src/routes/todo.routes");
 const helpTicketConfigRoutes = require("./src/routes/helpTicketConfig.routes");
@@ -65,9 +58,7 @@ const dashboardRoutes = require("./src/routes/dashboard.routes");
 
 // Routes registration
 app.use("/api/auth", authRoutes);
-app.use("/api/delegations", delegationRoutes);
 app.use("/api/master", employeeRoutes);
-app.use("/api/checklist", checklistRoutes);
 app.use("/api/help-tickets", helpTicketRoutes);
 app.use("/api/todos", todoRoutes);
 app.use("/api/attendance", attendanceRoutes);
@@ -84,9 +75,7 @@ app.use("/api/dashboard", dashboardRoutes);
 // Initialize Database Tables and start server
 Promise.all([
   createEmployeeTable(),
-  createDelegationTables(),
   createDepartmentTable(),
-  createChecklistTables(),
   createHelpTicketTables(),
   createTodoTables(),
   createHelpTicketConfigTable(),
@@ -104,7 +93,6 @@ Promise.all([
 ])
   .then(() => {
     console.log("Database synchronization complete");
-    startChecklistCron();
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server is running on port ${PORT}`);

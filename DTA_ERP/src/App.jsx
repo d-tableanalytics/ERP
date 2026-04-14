@@ -8,7 +8,6 @@ import {
 import { useSelector } from "react-redux";
 import LoginPage from "./pages/Login/LoginPage";
 import Dashboard from "./pages/Dashboard";
-import Delegation from "./pages/Delegation/Delegation";
 import "./index.css";
 import Loader from "./components/common/Loader";
 import { Toaster } from "react-hot-toast";
@@ -17,10 +16,6 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import { checkAutoLogout } from "./utils/autoLogout";
 
-const DelegationDetail = lazy(
-  () => import("./pages/Delegation/DelegationDetail"),
-);
-const Checklist = lazy(() => import("./pages/Checklist/Checklist"));
 const HelpTicket = lazy(() => import("./pages/HelpTicket/HelpTicket"));
 const DemoModule = lazy(() => import("./pages/DemoModule")); // Reusable Demo Page
 const PublicPage = lazy(() => import("./pages/PublicPage")); // Reusable Public Page
@@ -120,34 +115,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/delegation"
-            element={
-              <ProtectedRoute>
-                <Delegation />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/delegation/:id"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
-                  <DelegationDetail />
-                </Suspense>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/checklist"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
-                  <Checklist />
-                </Suspense>
               </ProtectedRoute>
             }
           />
