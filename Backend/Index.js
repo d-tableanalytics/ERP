@@ -45,6 +45,7 @@ const {
 } = require("./src/models/createIMSInventoryTables.model");
 const { createO2DTables } = require("./src/models/o2d.model");
 const { createScoreTable } = require("./src/models/score.model");
+const { createChatbotConversationsTable } = require("./src/models/chatbot.model");
 
 const onboardingRoutes = require("./src/routes/onboarding.routes");
 const authRoutes = require("./src/routes/auth.routes");
@@ -63,6 +64,9 @@ const O2D = require("./src/routes/o2d.routes");
 const scoreRoutes = require("./src/routes/score.routes");
 const dashboardRoutes = require("./src/routes/dashboard.routes");
 
+// Chatbot Routes
+const chatbotRoutes = require("./src/modules/chatbot/chatbot.routes");
+
 // Routes registration
 app.use("/api/auth", authRoutes);
 app.use("/api/delegations", delegationRoutes);
@@ -80,6 +84,7 @@ app.use("/api/ims", imsInventory);
 app.use("/api/o2d", O2D);
 app.use("/api/score", scoreRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/chatbot", chatbotRoutes);
 
 // Initialize Database Tables and start server
 Promise.all([
@@ -101,6 +106,7 @@ Promise.all([
   createInventoryTables(),
   createO2DTables(),
   createScoreTable(),
+  createChatbotConversationsTable(),
 ])
   .then(() => {
     console.log("Database synchronization complete");

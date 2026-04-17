@@ -4,15 +4,23 @@ const db = require('../config/db.config');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key_erp';
 
+const normalizeEmail = (value) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : '';
+
 // Register Employee
 exports.register = async (req, res) => {
     const {
         First_Name, Last_Name, Work_Email, Password, Role, Designation, Department, Joining_Date
     } = req.body;
+    const normalizedEmail = normalizeEmail(Work_Email || req.body.email);
 
     try {
+        if (!normalizedEmail || !Password) {
+            return res.status(400).json({ message: 'Work email and password are required' });
+        }
+
         // Check if user exists
-        const userExists = await db.query('SELECT * FROM employees WHERE Work_Email = $1', [Work_Email]);
+        const userExists = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1', [normalizedEmail]);
         if (userExists.rows.length > 0) {
             return res.status(400).json({ message: 'Employee with this email already exists' });
         }
@@ -26,7 +34,7 @@ exports.register = async (req, res) => {
             `INSERT INTO employees (First_Name, Last_Name, Work_Email, Password, Role, Designation, Department, Joining_Date) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
             [
-                First_Name, Last_Name, Work_Email, hashedPassword,
+                First_Name, Last_Name, normalizedEmail, hashedPassword,
                 Role || 'Employee', Designation, Department,
                 Joining_Date || new Date()
             ]
@@ -49,11 +57,16 @@ exports.register = async (req, res) => {
 
 // Login Employee
 exports.login = async (req, res) => {
-    const { Work_Email, Password } = req.body;
+    const email = normalizeEmail(req.body.Work_Email || req.body.email);
+    const password = req.body.Password || req.body.password;
 
     try {
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Work email and password are required' });
+        }
+
         // Find employee
-        const result = await db.query('SELECT * FROM employees WHERE Work_Email = $1', [Work_Email]);
+        const result = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1', [email]);
         if (result.rows.length === 0) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
@@ -61,7 +74,7 @@ exports.login = async (req, res) => {
         const employee = result.rows[0];
 
         // Check password
-        const isMatch = await bcrypt.compare(Password, employee.password);
+        const isMatch = await bcrypt.compare(password, employee.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
