@@ -1,10 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Bot, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 /**
  * ChatMessage Component - Displays individual chat messages with refined UI,
- * circular avatars, and theme-aware premium cards.
+ * circular avatars, theme-aware premium cards, and full Markdown support.
  */
 const ChatMessage = ({ message }) => {
   const isBot = message.sender === 'bot';
@@ -31,27 +33,33 @@ const ChatMessage = ({ message }) => {
       
       {/* Message Bubble & Content */}
       <div
-        className={`flex flex-col max-w-[78%] ${
+        className={`flex flex-col max-w-[85%] ${
           isBot ? 'items-start' : 'items-end'
         }`}
       >
         <div
           style={{ background: isBot ? 'var(--cb-bot-msg)' : 'var(--cb-user-grad)' }}
-          className={`p-3.5 px-4 rounded-2xl shadow-sm transition-all duration-300 min-w-[100px] ${
+          className={`p-3.5 px-4 rounded-2xl shadow-sm transition-all duration-300 min-w-[100px] overflow-hidden ${
             isBot
               ? 'border border-[var(--cb-bot-border)] rounded-tl-none backdrop-blur-sm'
               : 'bg-blue-600 rounded-tr-none shadow-blue-500/20'
           }`}
         >
-          <p 
-            className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${
+          <div 
+            className={`text-sm leading-relaxed break-words markdown-body ${
               isBot 
-                ? 'text-[var(--cb-text)] !opacity-100' 
-                : '!text-white !opacity-100 font-semibold'
+                ? 'text-[var(--cb-text)] !opacity-100 prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0' 
+                : '!text-white !opacity-100 font-semibold text-right'
             }`}
           >
-            {message.text}
-          </p>
+            {isBot ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.text}
+              </ReactMarkdown>
+            ) : (
+              message.text
+            )}
+          </div>
         </div>
         
         {/* Timestamp */}

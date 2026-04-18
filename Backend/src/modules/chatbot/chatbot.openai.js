@@ -2,37 +2,26 @@ const OpenAI = require('openai');
 
 /**
  * OpenAI Integration for Chatbot
- * Handles OpenAI API calls with proper error handling and validation
  */
 class ChatbotOpenAI {
   constructor() {
     this.client = null;
     this.model = process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
-    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS) || 150;
+    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS) || 500;
     this.temperature = parseFloat(process.env.OPENAI_TEMPERATURE) || 0.7;
-    this.timeout = 10000; // 10 seconds
 
     this.initializeClient();
   }
 
-  /**
-   * Initialize OpenAI client if API key is available
-   */
   initializeClient() {
     const apiKey = process.env.OPENAI_API_KEY;
     if (apiKey) {
-      this.client = new OpenAI({
-        apiKey: apiKey
-      });
+      this.client = new OpenAI({ apiKey: apiKey });
     } else {
       console.warn('OpenAI API key not found. OpenAI features will be disabled.');
     }
   }
 
-  /**
-   * Check if OpenAI is available
-   * @returns {boolean} True if client is initialized
-   */
   isAvailable() {
     return this.client !== null;
   }
@@ -40,47 +29,39 @@ class ChatbotOpenAI {
   /**
    * Generate response using OpenAI
    * @param {string} userMessage - User's message
-   * @param {string} systemPrompt - System instructions
-   * @param {string} userRole - User's role
-   * @returns {Object} Response object with message and metadata
+   * @param {string} systemPrompt - System instructions including Context
+   * @param {number} overrideTemp - Override temperature to enforce strict output
    */
-  async generateResponse(userMessage, systemPrompt, userRole) {
+  async generateResponse(userMessage, systemPrompt, overrideTemp = null) {
     if (!this.isAvailable()) {
       throw new Error('OpenAI client not available');
     }
 
     try {
       const messages = [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: `User (${userRole}): ${userMessage}`
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
       ];
 
       const completion = await this.client.chat.completions.create({
         model: this.model,
         messages: messages,
         max_tokens: this.maxTokens,
-        temperature: this.temperature
+        temperature: overrideTemp !== null ? overrideTemp : this.temperature
       });
 
-      const response = completion.choices[0]?.message?.content?.trim();
+      let responseText = completion.choices[0]?.message?.content?.trim();
 
-      if (!response) {
+      if (!responseText) {
         throw new Error('Empty response from OpenAI');
       }
 
       return {
         success: true,
-        message: response,
+        message: responseText,
         model: this.model,
         tokens: completion.usage?.total_tokens || 0
       };
-
     } catch (error) {
       console.error('OpenAI API error:', error.message);
       throw new Error(`OpenAI request failed: ${error.message}`);
@@ -88,50 +69,12 @@ class ChatbotOpenAI {
   }
 
   /**
-   * Validate OpenAI response for safety and relevance
-   * @param {string} response - OpenAI response
-   * @returns {boolean} True if response is safe
+   * Validate response for safety
    */
   validateResponse(response) {
-    if (!response || typeof response !== 'string') {
-      return false;
-    }
-
-    // Check for sensitive information patterns
-    const sensitivePatterns = [
-      /password/i,
-      /secret/i,
-      /token/i,
-      /key/i,
-      /salary/i,
-      /personal/i,
-      /confidential/i,
-      /admin/i,
-      /database/i,
-      /server/i
-    ];
-
-    if (sensitivePatterns.some(pattern => pattern.test(response))) {
-      return false;
-    }
-
-    // Check response length
-    if (response.length > 1000) {
-      return false;
-    }
-
-    // Check for professional tone (basic check)
-    const unprofessionalPatterns = [
-      /fuck/i,
-      /shit/i,
-      /damn/i,
-      /hell/i
-    ];
-
-    if (unprofessionalPatterns.some(pattern => pattern.test(response))) {
-      return false;
-    }
-
+    if (!response || typeof response !== 'string') return false;
+    const sensitivePatterns = [/password/i, /secret/i, /token/i, /key/i, /salary/i];
+    if (sensitivePatterns.some(p => p.test(response))) return false;
     return true;
   }
 }
