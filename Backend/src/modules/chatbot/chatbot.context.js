@@ -65,10 +65,10 @@ If you cannot answer a question safely or it's outside your scope, respond with:
   // Intent keywords mapping
   intents: {
     greeting: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening'],
-    help_ticket: ['ticket', 'issue', 'problem', 'complaint', 'support ticket', 'help ticket', 'raise ticket', 'create ticket', 'submit ticket', 'helpdesk', 'log issue', 'report issue'],
-    delegation: ['delegation', 'task', 'assign', 'delegate', 'workflow', 'delegation module', 'create delegation', 'task assignment', 'assign work', 'delegate job'],
-    attendance: ['attendance', 'punch', 'time', 'clock in', 'clock out', 'leave', 'attendance module'],
-    checklist: ['checklist', 'daily', 'tasks', 'todo', 'list', 'checklist module', 'what is checklist used for', 'purpose of checklist'],
+    help_ticket: ['ticket', 'issue', 'problem', 'complaint', 'support ticket', 'help ticket', 'raise ticket', 'create ticket', 'submit ticket', 'helpdesk', 'log issue', 'report issue', 'tict'],
+    delegation: ['delegation', 'task', 'assign', 'delegate', 'workflow', 'delegation module', 'create delegation', 'task assignment', 'assign work', 'delegate job', 'delegat'],
+    attendance: ['attendance', 'punch', 'time', 'clock in', 'clock out', 'leave', 'attendance module', 'mark attendance'],
+    checklist: ['checklist', 'daily', 'tasks', 'todo', 'list', 'checklist module', 'chcklst'],
     dashboard: ['dashboard', 'summary', 'overview', 'stats', 'report', 'dashboard module'],
     help: ['help', 'assist', 'support', 'guide']
   },
