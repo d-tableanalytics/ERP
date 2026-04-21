@@ -116,3 +116,26 @@ exports.updateTheme = async (req, res) => {
         res.status(500).json({ message: 'Server error while updating theme' });
     }
 };
+
+// Get All Users
+exports.getUsers = async (req, res) => {
+    try {
+        const result = await db.query('SELECT user_id, first_name, last_name, work_email, role, designation, department FROM employees');
+        // Normalize names for frontend
+        const users = result.rows.map(u => ({
+            ...u,
+            id: u.user_id,
+            name: `${u.first_name} ${u.last_name}`,
+            firstName: u.first_name,
+            lastName: u.last_name,
+            email: u.work_email,
+            role: u.role,
+            designation: u.designation,
+            department: u.department
+        }));
+        res.json(users);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching users' });
+    }
+};

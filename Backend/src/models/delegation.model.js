@@ -11,8 +11,11 @@ const createDelegationTables = async () => {
         doer_id INTEGER,
         doer_name VARCHAR(255),
         department VARCHAR(100),
-        priority VARCHAR(50) CHECK (priority IN ('low', 'medium', 'high')),
-        status VARCHAR(50) CHECK (status IN ('NEED CLARITY', 'APPROVAL WAITING', 'COMPLETED', 'NEED REVISION', 'HOLD')) DEFAULT 'NEED CLARITY',
+        priority VARCHAR(50) CHECK (priority IN ('Low', 'Medium', 'High', 'Urgent', 'low', 'medium', 'high', 'urgent')),
+        category VARCHAR(100),
+        tags JSONB DEFAULT '[]',
+        checklist JSONB DEFAULT '[]',
+        status VARCHAR(50) CHECK (status IN ('Pending', 'NEED CLARITY', 'APPROVAL WAITING', 'COMPLETED', 'NEED REVISION', 'HOLD', 'Pending', 'In Progress', 'Overdue', 'Hold')) DEFAULT 'Pending',
         due_date TIMESTAMPTZ NOT NULL,
         voice_note_url TEXT,
         reference_docs TEXT[],
@@ -21,7 +24,13 @@ const createDelegationTables = async () => {
         completed_at TIMESTAMPTZ,
         remarks TEXT[] DEFAULT '{}',
         revision_history JSONB[] DEFAULT '{}',
-        revision_count INTEGER DEFAULT 0
+        revision_count INTEGER DEFAULT 0,
+        deleted_at TIMESTAMPTZ,
+        deleted_by VARCHAR(255),
+        subscribed_by INTEGER[] DEFAULT '{}',
+        in_loop_ids INTEGER[] DEFAULT '{}',
+        group_id INTEGER,
+        parent_id INTEGER REFERENCES delegation(id) ON DELETE CASCADE
     );
     `;
 
@@ -58,6 +67,29 @@ const createDelegationTables = async () => {
         // Ensure new columns exist for existing tables
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS revision_count INTEGER DEFAULT 0`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(255)`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS subscribed_by INTEGER[] DEFAULT '{}'`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS category VARCHAR(100)`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]'`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS repeat_settings JSONB DEFAULT '{}'`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS in_loop_ids INTEGER[] DEFAULT '{}'`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS group_id INTEGER`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS parent_id INTEGER`);
+        
+        // Update CHECK constraints for existing tables
+        try {
+            // Drop old constraints if they exist
+            await pool.query(`ALTER TABLE delegation DROP CONSTRAINT IF EXISTS delegation_priority_check`);
+            await pool.query(`ALTER TABLE delegation DROP CONSTRAINT IF EXISTS delegation_status_check`);
+            
+            // Re-add updated constraints
+            await pool.query(`ALTER TABLE delegation ADD CONSTRAINT delegation_priority_check CHECK (priority IN ('Low', 'Medium', 'High', 'Urgent', 'low', 'medium', 'high', 'urgent'))`);
+            await pool.query(`ALTER TABLE delegation ADD CONSTRAINT delegation_status_check CHECK (status IN ('Pending', 'NEED CLARITY', 'APPROVAL WAITING', 'COMPLETED', 'NEED REVISION', 'HOLD', 'In Progress', 'Overdue', 'Hold'))`);
+        } catch (e) {
+            console.log('Constraints already updated or could not be updated:', e.message);
+        }
         
         console.log('Delegation tables ensured in database');
     } catch (err) {

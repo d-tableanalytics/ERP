@@ -1,5 +1,4 @@
-import { fetchJSON } from '../../../services/api';
-import { API_BASE_URL } from '../../../config';
+import api from '../../../services/api';
 
 /**
  * Chatbot API - Handles API communication with backend chatbot service
@@ -12,26 +11,13 @@ class ChatbotApi {
    */
   async sendMessage(message) {
     try {
-      const token = localStorage.getItem('token');
+      const response = await api.post('/chatbot/message', { message });
 
-      if (!token) {
-        throw new Error('Authentication token not found');
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.message || 'Failed to get response');
       }
 
-      const response = await fetchJSON(`${API_BASE_URL}/api/chatbot/message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ message })
-      });
-
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to get response');
-      }
-
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Chatbot API error:', error);
       throw error;
@@ -44,20 +30,8 @@ class ChatbotApi {
    */
   async getHistory() {
     try {
-      const token = localStorage.getItem('token');
-
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-
-      const response = await fetchJSON(`${API_BASE_URL}/api/chatbot/history`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      return response;
+      const response = await api.get('/chatbot/history');
+      return response.data;
     } catch (error) {
       console.error('Chatbot history error:', error);
       throw error;

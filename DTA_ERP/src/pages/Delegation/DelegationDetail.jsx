@@ -1,737 +1,300 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { API_BASE_URL } from "../../config";
 import MainLayout from "../../components/layout/MainLayout";
 import Loader from "../../components/common/Loader";
-import {
-  fetchDelegationById,
-  updateDelegationStatus,
-  addDelegationRemark,
-} from "../../store/slices/delegationSlice";
+import { fetchDelegationById, updateDelegationStatus, addDelegationRemark } from "../../store/slices/delegationSlice";
 import toast from "react-hot-toast";
-import useHolidayCheck from "../../hooks/useHolidayCheck";
+
 const DelegationDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+  const { user } = useSelector((s) => s.auth);
   const isAdmin = user?.role === "Admin" || user?.role === "SuperAdmin";
-  const { isInvalidDate } = useHolidayCheck();
-
-  // Try to get delegation from Redux cache first
-  const cachedDelegation = useSelector(
-    (state) => state.delegation.delegationsById[id],
-  );
-  const isFetching = useSelector((state) => state.delegation.isFetching);
-
-  const [delegation, setDelegation] = useState(cachedDelegation || null);
-  const [loading, setLoading] = useState(!cachedDelegation);
-
-  useEffect(() => {
-    // If we have cached data, use it immediately
-    if (cachedDelegation) {
-      setDelegation(cachedDelegation);
-
-      // Critical Fix: If the cached delegation comes from the LIST view, it lacks remarks_detail/revision_history
-      // So we MUST fetch if these missing, even if we are showing the cached data.
-      if (
-        !cachedDelegation.remarks_detail ||
-        !cachedDelegation.revision_history_detail
-      ) {
-        // Background fetch - keeps UI responsive but updates with full info
-        dispatch(fetchDelegationById(id));
-      }
-
-      setLoading(false);
-    } else {
-      // Nothing in cache, show loader and fetch
-      setLoading(true);
-      dispatch(fetchDelegationById(id))
-        .unwrap()
-        .then((data) => {
-          setDelegation(data);
-          setLoading(false);
-        })
-        .catch((error) => {
-          console.error("Error fetching delegation details:", error);
-          setLoading(false);
-        });
-    }
-  }, [id, cachedDelegation, dispatch]);
-
-  // Status Update State
+  
+  const cached = useSelector((s) => s.delegation.delegationsById[id]);
+  const [delegation, setDelegation] = useState(cached || null);
+  const [loading, setLoading] = useState(!cached);
+  
+  // Status Logic
   const [selectedStatus, setSelectedStatus] = useState("");
   const [remark, setRemark] = useState("");
   const [evidenceFiles, setEvidenceFiles] = useState([]);
   const [revisedDueDate, setRevisedDueDate] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isAddingRemark, setIsAddingRemark] = useState(false);
-  const fileInputRef = React.useRef(null);
+  const fileInputRef = useRef(null);
 
-  const handleStatusSelect = (status) => {
-    setSelectedStatus(status);
-    // Reset specific fields when switching status
-    if (status !== "APPROVAL WAITING") setEvidenceFiles([]);
-    if (status !== "NEED REVISION" && status !== "HOLD") setRevisedDueDate("");
-  };
+  useEffect(() => {
+    setLoading(true);
+    dispatch(fetchDelegationById(id)).unwrap()
+      .then(d => { setDelegation(d); setLoading(false); })
+      .catch(() => { toast.error("Failed to load details"); setLoading(false); });
+  }, [id, dispatch]);
 
-  const handleFileChange = (event) => {
-    const files = Array.from(event.target.files);
-    setEvidenceFiles((prev) => [...prev, ...files]);
-  };
+  if (loading) return (
+    <MainLayout title="Task Intel">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+        <Loader className="w-24 h-24" />
+        <p className="mt-4 text-[11px] font-black uppercase tracking-[0.3em] text-[#137fec] animate-pulse">Synchronizing Data...</p>
+      </div>
+    </MainLayout>
+  );
 
-  const removeFile = (index) => {
-    setEvidenceFiles((prev) => prev.filter((_, i) => i !== index));
-  };
+  if (!delegation) return (
+    <MainLayout title="Error">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+        <span className="material-symbols-outlined text-6xl text-slate-300">error</span>
+        <h2 className="text-xl font-black text-slate-400 uppercase mt-4">Mission Data Not Found</h2>
+        <button onClick={() => navigate("/tasks/my-tasks")} className="mt-6 px-8 py-3 bg-[#137fec] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest">Back to Hub</button>
+      </div>
+    </MainLayout>
+  );
 
-  const handleUpdateStatus = async () => {
-    if (!selectedStatus) {
-      toast.error("Please select a status");
+  const handleUpdate = async () => {
+    if (!selectedStatus && !remark.trim()) {
+      toast.error("Please select a status or add a remark");
       return;
     }
-
-    // Validation: Ensure evidence is uploaded if required and status is APPROVAL WAITING
-    if (selectedStatus === "APPROVAL WAITING" && delegation.evidence_required) {
-      if (evidenceFiles.length === 0) {
-        toast.error("Evidence is required for approval");
-        return;
-      }
-    }
-
     setIsUpdating(true);
     try {
-      const payload = {
-        id,
-        status: selectedStatus,
-        remark: remark, // Send remark if present
-      };
-
-      // Validation: Ensure revised due date is provided for REVISION/HOLD
-      // Validation: Ensure revised due date is provided for REVISION/HOLD
-      if (selectedStatus === "NEED REVISION" || selectedStatus === "HOLD") {
-        if (!revisedDueDate) {
-          toast.error("Please provide a revised due date");
-          setIsUpdating(false);
-          return;
-        }
-
-        if (isInvalidDate(revisedDueDate)) {
-          toast.error(
-            "Selected date is not available. Please choose another date.",
-          );
-          setIsUpdating(false);
-          return;
-        }
-
-        payload.due_date = revisedDueDate;
+      if (selectedStatus) {
+        await dispatch(updateDelegationStatus({ id, status: selectedStatus, remark, due_date: revisedDueDate })).unwrap();
+        toast.success("Status updated");
+      } else {
+        await dispatch(addDelegationRemark({ id, remark })).unwrap();
+        toast.success("Remark added");
       }
-
-      await dispatch(updateDelegationStatus(payload)).unwrap();
-      toast.success("Status updated successfully");
-      // Reset fields
       setRemark("");
+      setSelectedStatus("");
       setRevisedDueDate("");
-    } catch (error) {
-      console.error("Failed to update status:", error);
-      toast.error("Failed to update status: " + error);
-    } finally {
-      setIsUpdating(false);
-    }
+      // Refresh
+      const d = await dispatch(fetchDelegationById(id)).unwrap();
+      setDelegation(d);
+    } catch { toast.error("Update failed"); }
+    finally { setIsUpdating(false); }
   };
 
-  const handleAddRemarkOnly = async () => {
-    if (!remark.trim()) {
-      toast.error("Please enter a remark");
-      return;
-    }
-
-    setIsAddingRemark(true);
-    try {
-      await dispatch(addDelegationRemark({ id, remark })).unwrap();
-      setRemark("");
-      toast.success("Remark added successfully");
-    } catch (error) {
-      console.error("Failed to add remark:", error);
-      toast.error("Failed to add remark: " + error);
-    } finally {
-      setIsAddingRemark(false);
-    }
+  const statusMap = {
+    'NEED CLARITY': { bg: 'bg-amber-100', text: 'text-amber-600', dot: 'bg-amber-500' },
+    'APPROVAL WAITING': { bg: 'bg-blue-100', text: 'text-blue-600', dot: 'bg-blue-500' },
+    'COMPLETED': { bg: 'bg-emerald-100', text: 'text-emerald-600', dot: 'bg-emerald-500' },
+    'NEED REVISION': { bg: 'bg-orange-100', text: 'text-orange-600', dot: 'bg-orange-500' },
+    'HOLD': { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-500' },
   };
-
-  if (loading) {
-    return (
-      <MainLayout title="Delegation Details">
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">
-          <Loader className="w-48 h-48" />
-          <p className="mt-2 text-text-muted font-bold animate-pulse">
-            Loading details...
-          </p>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  if (!delegation) {
-    return (
-      <MainLayout title="Delegation Details">
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">
-          <span className="material-symbols-outlined text-6xl text-text-muted opacity-20 mb-4">
-            error_outline
-          </span>
-          <h2 className="text-xl font-bold text-text-main">
-            Delegation Not Found
-          </h2>
-          <button
-            onClick={() => navigate("/delegation")}
-            className="mt-4 px-4 py-2 bg-primary text-white rounded-lg font-bold"
-          >
-            Go Back
-          </button>
-        </div>
-      </MainLayout>
-    );
-  }
+  const ss = statusMap[delegation.status] || statusMap.HOLD;
 
   return (
-    <MainLayout title={`Delegation #${delegation.id}`}>
-      <div className="max-w-full mx-auto p-2 md:p-3 space-y-3">
+    <MainLayout title={`Intel #${delegation.id}`}>
+      <div className="min-h-screen bg-slate-50 p-4 md:p-8 lg:p-12 animate-in fade-in duration-700">
+        
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-text-muted text-xs font-bold uppercase tracking-wider mb-1">
-              <button
-                onClick={() => navigate("/delegation")}
-                className="hover:text-primary transition-colors flex items-center gap-1"
-              >
-                <span className="material-symbols-outlined text-sm">
-                  arrow_back
-                </span>
-                Delegations
-              </button>
-              <span>/</span>
-              <span>Details</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black text-text-main leading-tight">
-              {delegation.delegation_name}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span
-              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                delegation.status === "COMPLETED"
-                  ? "bg-emerald-100 text-emerald-700"
-                  : delegation.status === "NEED CLARITY"
-                    ? "bg-amber-100 text-amber-700"
-                    : delegation.status === "APPROVAL WAITING"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-slate-100 text-slate-700"
-              }`}
-            >
-              {delegation.status}
-            </span>
-            <button className="size-10 rounded-xl bg-bg-card border border-border-main flex items-center justify-center hover:bg-bg-main transition-colors text-text-main">
-              <span className="material-symbols-outlined">more_vert</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          {/* Left Column - Details */}
-          <div className="lg:col-span-2 space-y-3">
-            {/* Core Information Card */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-4 shadow-sm">
-              <h2 className="text-xs font-black text-text-muted uppercase tracking-widest mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">
-                  info
-                </span>
-                Core Information
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-0.5">
-                  <label className="text-[9px] font-bold text-text-muted uppercase">
-                    Department
-                  </label>
-                  <p className="text-xs font-bold text-text-main flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-base text-primary">
-                      corporate_fare
+        <div className="max-w-7xl mx-auto space-y-8">
+           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+              <div className="space-y-4 max-w-3xl">
+                 <Link to="/tasks/my-tasks" className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#137fec] bg-white px-4 py-2 rounded-full w-fit shadow-sm border border-white hover:shadow-md transition-all">
+                    <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                    Back to Command Hub
+                 </Link>
+                 <div className="flex items-center gap-3">
+                    <span className="text-sm font-black text-slate-400 tracking-tighter shadow-sm bg-white px-3 py-1 rounded-lg">#{delegation.id}</span>
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border border-white ${ss.bg} ${ss.text}`}>
+                       {delegation.status}
                     </span>
-                    {delegation.department}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <label className="text-[9px] font-bold text-text-muted uppercase">
-                    Priority
-                  </label>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`size-2.5 rounded-full ${delegation.priority === "high" ? "bg-red-500" : delegation.priority === "medium" ? "bg-blue-500" : "bg-slate-500"}`}
-                    ></span>
-                    <p className="text-xs font-bold text-text-main capitalize">
-                      {delegation.priority}
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-0.5">
-                  <label className="text-[9px] font-bold text-text-muted uppercase">
-                    Deadline
-                  </label>
-                  <p className="text-xs font-bold text-text-main flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-base text-orange-500">
-                      event
-                    </span>
-                    {new Date(delegation.due_date).toLocaleString("en-IN", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <label className="text-[9px] font-bold text-text-muted uppercase">
-                    Evidence Required
-                  </label>
-                  <p className="text-xs font-bold text-text-main flex items-center gap-1.5">
-                    {delegation.evidence_required ? (
-                      <>
-                        <span className="material-symbols-outlined text-base text-emerald-500">
-                          check_circle
-                        </span>
-                        Yes
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-base text-slate-400">
-                          cancel
-                        </span>
-                        No
-                      </>
-                    )}
-                  </p>
-                </div>
+                 </div>
+                 <h1 className="text-4xl md:text-6xl font-black text-[#1A2D2B] tracking-tighter leading-[0.9] italic animate-in slide-in-from-left-4 duration-500 uppercase">{delegation.delegation_name}</h1>
               </div>
-            </div>
-
-            {/* Description Card */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-4 shadow-sm">
-              <h2 className="text-xs font-black text-text-muted uppercase tracking-widest mb-2 flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">
-                  description
-                </span>
-                Execution Instructions
-              </h2>
-              <p className="text-xs text-text-main leading-relaxed whitespace-pre-wrap">
-                {delegation.description}
-              </p>
-            </div>
-
-            {/* Attachments Card */}
-            {(delegation.voice_note_url ||
-              (delegation.reference_docs &&
-                delegation.reference_docs.length > 0)) && (
-              <div className="bg-bg-card border border-border-main rounded-2xl p-4 shadow-sm">
-                <h2 className="text-xs font-black text-text-muted uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base">
-                    attach_file
-                  </span>
-                  Attachments
-                </h2>
-
-                <div className="space-y-4">
-                  {delegation.voice_note_url && (
-                    <div className="bg-bg-main/50 rounded-2xl p-4 border border-border-main flex items-center gap-4">
-                      <div className="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined">mic</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-text-main mb-1">
-                          Voice Briefing
-                        </p>
-                        <audio
-                          controls
-                          src={(() => {
-                            const url = delegation.voice_note_url;
-                            if (
-                              url &&
-                              (url.includes("drive.google.com") ||
-                                url.includes("docs.google.com"))
-                            ) {
-                              const match =
-                                url.match(/\/d\/([a-zA-Z0-9_-]+)/) ||
-                                url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-                              if (match && match[1]) {
-                                return `${API_BASE_URL}/api/delegations/audio/${match[1]}`;
-                              }
-                            }
-                            return url;
-                          })()}
-                          className="w-full h-8"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {delegation.reference_docs &&
-                    delegation.reference_docs.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {delegation.reference_docs.map((doc, idx) => (
-                          <a
-                            key={idx}
-                            href={doc}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 p-3 rounded-xl bg-bg-main/50 border border-border-main hover:border-primary/50 hover:bg-bg-main transition-all group"
-                          >
-                            <div className="size-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
-                              <span className="material-symbols-outlined text-lg">
-                                description
-                              </span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-text-main truncate group-hover:text-primary transition-colors">
-                                Document {idx + 1}
-                              </p>
-                              <p className="text-[10px] text-text-muted">
-                                Click to view
-                              </p>
-                            </div>
-                            <span className="material-symbols-outlined text-text-muted ml-auto text-sm">
-                              open_in_new
-                            </span>
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                </div>
-              </div>
-            )}
-
-            {/* Status Update Section */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-4 shadow-sm space-y-4">
-              <h2 className="text-xs font-black text-text-white uppercase tracking-widest flex items-center gap-2">
-                Update Status
-              </h2>
-
-              <div className="space-y-4">
-                <label className="text-[10px] font-bold text-text-muted uppercase">
-                  Select Status
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {user?.id === delegation?.doer_id && (
-                    <button
-                      onClick={() => handleStatusSelect("NEED CLARITY")}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === "NEED CLARITY" ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" : "bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main"}`}
-                    >
-                      <span className="material-symbols-outlined text-base">
-                        help
-                      </span>
-                      Need Clarity
-                    </button>
-                  )}
-                  {user?.id === delegation?.doer_id && (
-                    <button
-                      onClick={() => handleStatusSelect("APPROVAL WAITING")}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === "APPROVAL WAITING" ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20" : "bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main"}`}
-                    >
-                      <span className="material-symbols-outlined text-base">
-                        hourglass_top
-                      </span>
-                      Approval Waiting
-                    </button>
-                  )}
-                  {isAdmin && (
-                    <button
-                      onClick={() => handleStatusSelect("COMPLETED")}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === "COMPLETED" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main"}`}
-                    >
-                      <span className="material-symbols-outlined text-base">
-                        check
-                      </span>
-                      Completed
-                    </button>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {isAdmin && (
-                    <button
-                      onClick={() => handleStatusSelect("NEED REVISION")}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === "NEED REVISION" ? "bg-orange-600 text-white shadow-lg shadow-orange-600/20" : "bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main"}`}
-                    >
-                      <span className="material-symbols-outlined text-base">
-                        sync
-                      </span>
-                      Need Revision
-                    </button>
-                  )}
-                  {isAdmin && (
-                    <button
-                      onClick={() => handleStatusSelect("HOLD")}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${selectedStatus === "HOLD" ? "bg-slate-600 text-white shadow-lg shadow-slate-600/20" : "bg-bg-main text-text-muted hover:bg-bg-main/80 border border-border-main"}`}
-                    >
-                      <span className="material-symbols-outlined text-base">
-                        pause
-                      </span>
-                      Hold
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Conditional Fields */}
-              {(selectedStatus === "NEED REVISION" ||
-                selectedStatus === "HOLD") && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-text-muted uppercase">
-                    Revised Due Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={revisedDueDate}
-                    onChange={(e) => setRevisedDueDate(e.target.value)}
-                    className="w-full bg-bg-main border border-border-main rounded-xl px-4 py-3 text-sm text-text-main focus:outline-none focus:border-primary/50 transition-colors"
-                  />
-                </div>
-              )}
-
-              {/* Remark Field (Always Visible) */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-text-muted uppercase">
-                  Add Remark
-                </label>
-                <textarea
-                  value={remark}
-                  onChange={(e) => setRemark(e.target.value)}
-                  placeholder="Enter your remark..."
-                  className="w-full bg-bg-main border border-border-main rounded-xl px-4 py-3 text-sm text-text-main focus:outline-none focus:border-primary/50 transition-colors h-24 resize-none"
-                />
-              </div>
-
-              {/* Evidence Upload (Only for Approval Waiting) */}
-              {selectedStatus === "APPROVAL WAITING" && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                  <label className="text-[10px] font-bold text-text-muted uppercase">
-                    Attach Evidence{" "}
-                    {delegation.evidence_required && (
-                      <span className="text-red-500">*</span>
-                    )}
-                  </label>
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-border-main rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-bg-main/50 hover:border-primary/30 transition-all group"
-                  >
-                    <input
-                      type="file"
-                      multiple
-                      className="hidden"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                    />
-                    <span className="material-symbols-outlined text-3xl text-text-muted group-hover:text-primary transition-colors mb-2">
-                      add
-                    </span>
-                    <p className="text-sm font-bold text-text-muted group-hover:text-text-main transition-colors">
-                      Click to select evidence files
-                    </p>
-                    <p className="text-[10px] text-text-muted opacity-60 mt-1">
-                      Accepted: PDF, DOC, JPG, PNG, MP4
-                    </p>
-                  </div>
-                  {evidenceFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {evidenceFiles.map((file, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-bg-main border border-border-main rounded-lg px-3 py-1.5 flex items-center gap-2 max-w-xs"
-                        >
-                          <span className="text-xs text-text-main truncate max-w-[150px]">
-                            {file.name}
-                          </span>
-                          <button
-                            onClick={() => removeFile(idx)}
-                            className="text-text-muted hover:text-red-500"
-                          >
-                            <span className="material-symbols-outlined text-base">
-                              close
-                            </span>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={handleUpdateStatus}
-                  disabled={isUpdating || isAddingRemark}
-                  className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 rounded-xl transition-colors shadow-lg shadow-yellow-400/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isUpdating && (
-                    <div className="size-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
-                  )}
-                  <span>{isUpdating ? "Updating..." : "Update Status"}</span>
-                </button>
-                <button
-                  onClick={handleAddRemarkOnly}
-                  disabled={isUpdating || isAddingRemark}
-                  className="px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isAddingRemark && (
-                    <div className="size-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                  )}
-                  <span>
-                    {isAddingRemark ? "Adding..." : "Add Remark Only"}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* History Sections */}
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-bold text-text-main mb-4">
-                  Remark History
-                </h3>
-                {delegation.remarks_detail &&
-                delegation.remarks_detail.length > 0 ? (
-                  <div className="space-y-4">
-                    {delegation.remarks_detail.map((rem) => (
-                      <div
-                        key={rem.id}
-                        className="bg-bg-card border border-border-main p-3 rounded-xl"
-                      >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs font-bold text-text-main">
-                            {rem.username}
-                          </span>
-                          <span className="text-[10px] text-text-muted">
-                            {new Date(rem.created_at).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="text-xs text-text-muted">{rem.remark}</p>
+              <div className="flex items-center gap-2">
+                 <div className="flex -space-x-3">
+                    {[delegation.delegator_name, delegation.doer_name].map((name, i) => (
+                      <div key={i} className={`size-12 rounded-2xl border-4 border-slate-50 flex items-center justify-center font-black text-white text-lg shadow-lg ${i === 0 ? 'bg-[#137fec] rotate-3' : 'bg-purple-500 -rotate-3 hover:rotate-0 transition-all'}`}>
+                        {name?.charAt(0)}
                       </div>
                     ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-text-muted text-sm border-t border-border-main">
-                    No remarks yet
-                  </div>
-                )}
+                 </div>
+                 <div className="ml-2">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">STAKEHOLDERS</p>
+                   <p className="text-xs font-bold text-[#1A2D2B] uppercase">{delegation.delegator_name?.split(' ')[0]} & {delegation.doer_name?.split(' ')[0]}</p>
+                 </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-text-main mb-4">
-                  Revision History
-                </h3>
-                {delegation.revision_history_detail &&
-                delegation.revision_history_detail.length > 0 ? (
-                  <div className="space-y-4">
-                    {delegation.revision_history_detail.map((rev) => (
-                      <div
-                        key={rev.id}
-                        className="bg-bg-card border border-border-main p-3 rounded-xl"
-                      >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs font-bold text-text-main">
-                            {rev.changed_by}
-                          </span>
-                          <span className="text-[10px] text-text-muted">
-                            {new Date(rev.created_at).toLocaleString()}
-                          </span>
+           </div>
+
+           {/* Content Grid */}
+           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+              
+              {/* Left Column: Brief & Instructions */}
+              <div className="lg:col-span-3 space-y-8">
+                 
+                 {/* Execution Canvas */}
+                 <div className="bg-white rounded-[40px] p-8 md:p-12 shadow-2xl shadow-[#137fec]/10 border border-white relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                       <span className="material-symbols-outlined text-[120px] -rotate-12">description</span>
+                    </div>
+                    <div className="relative z-10 space-y-8">
+                       <div className="flex items-center gap-4 text-[#137fec]">
+                          <span className="material-symbols-outlined text-4xl">subject</span>
+                          <h2 className="text-2xl font-black uppercase tracking-tighter italic">Mission Brief</h2>
+                       </div>
+                       <p className="text-xl md:text-2xl font-medium text-slate-500 leading-relaxed max-w-5xl">
+                          {delegation.description || "No expanded intelligence provided for this mission."}
+                       </p>
+
+                       {/* Meta Bar */}
+                       <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-8 border-t border-slate-50">
+                          <div>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">PRIORITY</p>
+                             <div className="flex items-center gap-2">
+                                <div className={`size-2.5 rounded-full ${delegation.priority === 'high' ? 'bg-red-500 animate-pulse' : delegation.priority === 'medium' ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                                <span className="text-xs font-black uppercase text-[#1A2D2B]">{delegation.priority}</span>
+                             </div>
+                          </div>
+                          <div>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">DEPARTMENT</p>
+                             <span className="text-xs font-black uppercase text-[#1A2D2B]">{delegation.department}</span>
+                          </div>
+                          <div>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">DEADLINE</p>
+                             <span className="text-xs font-black uppercase text-red-500">{new Date(delegation.due_date).toLocaleDateString('en-GB')}</span>
+                          </div>
+                          <div>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">EVIDENCE</p>
+                             <span className="text-xs font-black uppercase text-[#137fec]">{delegation.evidence_required ? 'STRICT REQ.' : 'NOT REQ.'}</span>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Assets Section */}
+                 {(delegation.voice_note_url || (delegation.reference_docs?.length > 0)) && (
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {delegation.voice_note_url && (
+                        <div className="bg-white rounded-[32px] p-6 shadow-xl border border-white space-y-4">
+                           <div className="flex items-center gap-3 text-[#137fec]">
+                              <span className="material-symbols-outlined">mic</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest">Voice Protocol</span>
+                           </div>
+                           <audio controls src={delegation.voice_note_url} className="w-full h-10 filter hue-rotate-[150deg] brightness-125" />
                         </div>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <span className="px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold">
-                            Old: {new Date(rev.old_due_date).toLocaleString()}
-                          </span>
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold">
-                            New: {new Date(rev.new_due_date).toLocaleString()}
-                          </span>
-                        </div>
-                        {rev.reason && (
-                          <p className="text-xs text-text-muted mt-1 italic">
-                            Reason: {rev.reason}
-                          </p>
-                        )}
+                      )}
+                      <div className="bg-white rounded-[32px] p-6 shadow-xl border border-white space-y-4">
+                         <div className="flex items-center gap-3 text-[#137fec]">
+                            <span className="material-symbols-outlined">description</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Document Cache</span>
+                         </div>
+                         <div className="flex flex-wrap gap-2">
+                            {delegation.reference_docs?.map((doc, i) => (
+                              <a key={i} href={doc} target="_blank" className="size-10 bg-slate-50 rounded-xl flex items-center justify-center text-[#137fec] hover:bg-[#137fec] hover:text-white transition-all shadow-sm">
+                                <span className="material-symbols-outlined text-lg">file_open</span>
+                              </a>
+                            ))}
+                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-text-muted text-sm border-t border-border-main">
-                    No revision history yet
-                  </div>
-                )}
+                   </div>
+                 )}
+
+                 {/* Update Control Center */}
+                 <div className="bg-white rounded-[40px] p-8 md:p-12 shadow-2xl shadow-[#137fec]/5 border border-white space-y-8">
+                    <div className="flex items-center gap-4 text-[#137fec]">
+                       <span className="material-symbols-outlined text-4xl">terminal</span>
+                       <h2 className="text-2xl font-black uppercase tracking-tighter italic">Status Response</h2>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <div className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Transition State</label>
+                          <div className="flex flex-wrap gap-2">
+                             {['NEED CLARITY', 'APPROVAL WAITING', 'NEED REVISION', 'HOLD', 'COMPLETED'].map(st => {
+                               if (st === 'COMPLETED' && !isAdmin) return null;
+                               return (
+                                <button key={st} onClick={() => setSelectedStatus(st)}
+                                  className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedStatus === st ? 'bg-[#137fec] text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                >{st}</button>
+                               )
+                             })}
+                          </div>
+                       </div>
+                       { (selectedStatus === 'NEED REVISION' || selectedStatus === 'HOLD') && (
+                        <div className="space-y-4 animate-in slide-in-from-top-4">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Adjusted Deadline</label>
+                            <input type="datetime-local" value={revisedDueDate} onChange={e => setRevisedDueDate(e.target.value)} 
+                                className="w-full bg-slate-50 border-none rounded-[24px] p-4 text-xs font-black outline-none focus:ring-4 focus:ring-[#137fec]/10" />
+                        </div>
+                       )}
+                    </div>
+
+                    <div className="space-y-4">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Intel Log / Remark</label>
+                       <textarea placeholder="Enter discussion or status context..." value={remark} onChange={e => setRemark(e.target.value)}
+                         className="w-full bg-slate-50 border-none rounded-[32px] p-8 text-lg font-bold text-slate-600 outline-none focus:ring-8 focus:ring-[#137fec]/5 min-h-[160px] resize-none h-40" />
+                    </div>
+
+                    <div className="flex justify-end gap-3">
+                       <button onClick={handleUpdate} disabled={isUpdating} 
+                         className="bg-[#137fec] hover:bg-[#106bc7] text-white px-12 py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] transition-all shadow-2xl shadow-[#137fec]/30 active:scale-95 flex items-center gap-3">
+                          {isUpdating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <span className="material-symbols-outlined text-lg">rocket_launch</span>}
+                          Submit Intel
+                       </button>
+                    </div>
+                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Right Column - People & Meta */}
-          <div className="space-y-3">
-            {/* People Card */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-4 shadow-sm">
-              <h2 className="text-xs font-black text-text-muted uppercase tracking-widest mb-4">
-                Involved Parties
-              </h2>
+              {/* Right Column: Activity Stream */}
+              <div className="space-y-8">
+                 <div className="bg-white rounded-[40px] p-8 shadow-xl border border-white sticky top-24">
+                    <div className="flex items-center gap-3 text-[#137fec] mb-8">
+                       <span className="material-symbols-outlined">forum</span>
+                       <h3 className="text-xl font-black uppercase tracking-tighter italic">Comms Log</h3>
+                    </div>
 
-              <div className="space-y-6">
-                <div className="flex items-start gap-3">
-                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-lg uppercase shrink-0">
-                    {delegation.delegator_name?.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-text-muted uppercase mb-0.5">
-                      Assigned By
-                    </p>
-                    <p className="text-sm font-bold text-text-main">
-                      {delegation.delegator_name}
-                    </p>
-                    <button className="text-[10px] font-bold text-primary hover:underline mt-1">
-                      View Profile
-                    </button>
-                  </div>
-                </div>
+                    <div className="space-y-6 max-h-[1000px] overflow-y-auto pr-4 custom-scrollbar">
+                       {/* Remarks Section */}
+                       <div className="space-y-6">
+                          {delegation.remarks_detail?.slice().reverse().map((rem, i) => (
+                            <div key={i} className="flex gap-4 group">
+                               <div className="size-8 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-[#137fec] group-hover:text-white transition-all shrink-0">
+                                  {rem.username?.charAt(0)}
+                               </div>
+                               <div className="flex-1 space-y-1">
+                                  <div className="flex justify-between items-center">
+                                     <span className="text-[9px] font-black text-[#1A2D2B] uppercase">{rem.username}</span>
+                                     <span className="text-[8px] font-bold text-slate-300 uppercase">{new Date(rem.created_at).toLocaleDateString()}</span>
+                                  </div>
+                                  <p className="text-[12px] font-bold text-slate-500 leading-tight">{rem.remark}</p>
+                               </div>
+                            </div>
+                          ))}
+                          {(!delegation.remarks_detail || delegation.remarks_detail.length === 0) && (
+                            <div className="text-center py-12">
+                               <span className="material-symbols-outlined text-slate-100 text-6xl">chat_bubble</span>
+                               <p className="text-[10px] font-black text-slate-200 uppercase tracking-widest mt-2">Zero Comms Registered</p>
+                            </div>
+                          )}
+                       </div>
 
-                <div className="w-full h-px bg-border-main"></div>
+                       <div className="h-px bg-slate-50" />
 
-                <div className="flex items-start gap-3">
-                  <div className="size-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-lg uppercase shrink-0">
-                    {delegation.doer_name?.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-text-muted uppercase mb-0.5">
-                      Assigned To
-                    </p>
-                    <p className="text-sm font-bold text-text-main">
-                      {delegation.doer_name}
-                    </p>
-                    <button className="text-[10px] font-bold text-primary hover:underline mt-1">
-                      View Profile
-                    </button>
-                  </div>
-                </div>
+                       {/* History Section */}
+                       <div className="space-y-6 opacity-60">
+                          <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Protocol Changes</h4>
+                          {delegation.revision_history_detail?.map((rev, i) => (
+                            <div key={i} className="flex gap-4 border-l-2 border-slate-100 pl-4">
+                               <div className="flex-1 space-y-1">
+                                  <p className="text-[9px] font-black text-[#1A2D2B] uppercase">Deadline Revision</p>
+                                  <div className="flex items-center gap-2">
+                                     <span className="text-[10px] font-bold text-red-300 line-through">{new Date(rev.old_due_date).toLocaleDateString()}</span>
+                                     <span className="text-lg font-black text-[#137fec]">→</span>
+                                     <span className="text-[10px] font-black text-[#137fec]">{new Date(rev.new_due_date).toLocaleDateString()}</span>
+                                  </div>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
               </div>
-            </div>
 
-            {/* Metadata Card */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-4 shadow-sm">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-text-muted font-bold">Created On</span>
-                  <span className="text-text-main font-bold">
-                    {new Date(delegation.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-text-muted font-bold">
-                    Delegation ID
-                  </span>
-                  <span className="text-text-main font-mono bg-bg-main px-2 py-0.5 rounded">
-                    #{delegation.id}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+           </div>
         </div>
       </div>
     </MainLayout>

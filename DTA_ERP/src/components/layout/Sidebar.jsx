@@ -17,6 +17,17 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
     () => [
       { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
       { icon: "assignment_ind", label: "Delegation", path: "/delegation" },
+      {
+        icon: "task_alt",
+        label: "Tasks",
+        children: [
+          { icon: "task_alt",               label: "My Tasks",         path: "/tasks/my-tasks"         },
+          { icon: "send",                   label: "Delegated Tasks",  path: "/tasks/delegated-tasks"  },
+          { icon: "notifications_active",   label: "Subscribed Tasks", path: "/tasks/subscribed-tasks" },
+          { icon: "layers",                 label: "All Tasks",        path: "/tasks/all-tasks"        },
+          { icon: "delete_sweep",           label: "Deleted Tasks",    path: "/tasks/deleted-tasks"    },
+        ],
+      },
       { icon: "check_box", label: "Checklist", path: "/checklist" },
       { icon: "checklist", label: "TODO", path: "/todo" },
       {
@@ -36,7 +47,6 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
         label: "FMS",
         children: [
           { icon: "orders", label: "O2D FMS", path: "/o2d-fms" },
-          // { icon: 'orders', label: 'O2D', path: '/o2d' },
           { icon: "support_agent", label: "Help Ticket", path: "/help" },
         ],
       },
@@ -46,6 +56,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
     ],
     [],
   );
+
 
   /* ================= AUTO OPEN PARENT IF CHILD ACTIVE ================= */
 

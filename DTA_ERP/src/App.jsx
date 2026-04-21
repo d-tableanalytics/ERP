@@ -30,6 +30,14 @@ const FMS = lazy(() => import("./pages/MainFMS/FMSPage"));
 const O2D = lazy(() => import("./pages/O2D/O2D"));
 const Score = lazy(() => import("./pages/Score/Score"));
 const CombinedMIS = lazy(() => import("./pages/Score/CombinedMIS"));
+
+// ── Task Management Pages ──────────────────────────────────────────────────────
+const MyTasks         = lazy(() => import("./pages/Tasks/MyTasks"));
+const DelegatedTasks  = lazy(() => import("./pages/Tasks/DelegatedTasks"));
+const SubscribedTasks = lazy(() => import("./pages/Tasks/SubscribedTasks"));
+const AllTasks        = lazy(() => import("./pages/Tasks/AllTasks"));
+const DeletedTasks    = lazy(() => import("./pages/Tasks/DeletedTasks"));
+
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
   return token ? children : <Navigate to="/login" replace />;
@@ -202,7 +210,16 @@ function App() {
             }
           />
 
+
+          {/* ── Task Management Routes ── */}
+          <Route path="/tasks/my-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><MyTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/delegated-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DelegatedTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/subscribed-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><SubscribedTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/all-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><AllTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/deleted-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DeletedTasks /></Suspense></ProtectedRoute>} />
+
           {/* Demo Module Routes */}
+
           <Route
             path="/attendance"
             element={

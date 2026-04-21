@@ -23,6 +23,7 @@ const { createChecklistTables } = require("./src/models/checklist.model");
 const { createHelpTicketTables } = require("./src/models/helpTicket.model");
 const { createTodoTables } = require("./src/models/todo.model");
 const { createLocationTable } = require("./src/models/location.model");
+const { createDelegationExtrasTables } = require("./src/models/delegationExtras.model");
 const {
   createHelpTicketConfigTable,
 } = require("./src/models/helpTicketConfig.model");
@@ -63,13 +64,22 @@ const imsInventory = require("./src/routes/imsInventory.routes");
 const O2D = require("./src/routes/o2d.routes");
 const scoreRoutes = require("./src/routes/score.routes");
 const dashboardRoutes = require("./src/routes/dashboard.routes");
+const categoryRoutes = require("./src/routes/category.routes");
+const tagRoutes = require("./src/routes/tag.routes");
+const holidayRoutes = require("./src/routes/holiday.routes");
+const notificationRoutes = require("./src/routes/notification.routes");
+const notificationPrefRoutes = require("./src/routes/notificationPreference.routes");
 
 // Chatbot Routes
 const chatbotRoutes = require("./src/modules/chatbot/chatbot.routes");
 
+// New Task Routes
+const taskRoutes = require("./src/routes/task.routes");
+
 // Routes registration
 app.use("/api/auth", authRoutes);
 app.use("/api/delegations", delegationRoutes);
+app.use("/api/tasks", taskRoutes);
 app.use("/api/master", employeeRoutes);
 app.use("/api/checklist", checklistRoutes);
 app.use("/api/help-tickets", helpTicketRoutes);
@@ -84,6 +94,11 @@ app.use("/api/ims", imsInventory);
 app.use("/api/o2d", O2D);
 app.use("/api/score", scoreRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/tags", tagRoutes);
+app.use("/api/holidays", holidayRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/notification-settings", notificationPrefRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 
 // Initialize Database Tables and start server
@@ -107,6 +122,7 @@ Promise.all([
   createO2DTables(),
   createScoreTable(),
   createChatbotConversationsTable(),
+  createDelegationExtrasTables(),
 ])
   .then(() => {
     console.log("Database synchronization complete");
