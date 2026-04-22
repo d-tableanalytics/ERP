@@ -19,7 +19,7 @@ export const fetchTransactions = createAsyncThunk(
       });
 
       return {
-        transactions: res.data,
+        transactions: res.data.data,
         userRole: user?.role,
       };
     } catch (error) {
@@ -51,7 +51,7 @@ export const createTransaction = createAsyncThunk(
         }
       );
 
-      return res.data;
+      return res.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.error ||
@@ -80,7 +80,7 @@ export const editTransaction = createAsyncThunk(
         }
       );
 
-      return res.data;
+      return res.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to edit transaction"
@@ -126,7 +126,7 @@ export const fetchMasters = createAsyncThunk(
         headers: { Authorization: `Bearer ${token}` },
       }
       );
-      return res.data;
+      return res.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch masters"

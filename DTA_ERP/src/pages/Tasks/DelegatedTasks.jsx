@@ -108,7 +108,7 @@ const DelegatedTasks = () => {
                 teamService.getUsers(),
                 delegationService.getCategories(),
             ]);
-            const allTasks = taskRes.data || [];
+            const allTasks = taskRes || [];
             setTasks(allTasks);
             setUsers(Array.isArray(usersRes) ? usersRes : (usersRes.data || []));
             setCategories(catRes.data || catRes || []);

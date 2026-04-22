@@ -19,7 +19,7 @@ fetchDelegations = createAsyncThunk(
             const response = await axios.get(API_URL, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch delegations');
         }
@@ -35,7 +35,7 @@ export const fetchDelegationById = createAsyncThunk(
             const response = await axios.get(`${API_URL}/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch delegation');
         }
@@ -54,7 +54,7 @@ export const createDelegation = createAsyncThunk(
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to create delegation');
         }
@@ -70,7 +70,7 @@ export const updateDelegationStatus = createAsyncThunk(
             const response = await axios.put(`${API_URL}/${id}`, updates, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update status');
         }
@@ -86,7 +86,7 @@ export const addDelegationRemark = createAsyncThunk(
             const response = await axios.post(`${API_URL}/${id}/remarks`, { remark }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to add remark');
         }
@@ -105,7 +105,7 @@ export const updateDelegation = createAsyncThunk(
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update delegation');
         }

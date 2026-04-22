@@ -105,15 +105,18 @@ exports.getDashboardSummary = async (req, res) => {
     };
 
     res.json({
-      delegation: delegationStats,
-      checklist: checklistStats,
-      o2d: o2dStats,
-      helpTicket: ticketStats,
-      ims: imsStats,
-      performance,
+      success: true,
+      data: {
+        delegation: delegationStats,
+        checklist: checklistStats,
+        o2d: o2dStats,
+        helpTicket: ticketStats,
+        ims: imsStats,
+        performance,
+      }
     });
   } catch (err) {
     console.error("Error in getDashboardSummary:", err);
-    res.status(500).json({ message: "Error fetching dashboard stats" });
+    res.status(500).json({ success: false, message: "Error fetching dashboard stats" });
   }
 };

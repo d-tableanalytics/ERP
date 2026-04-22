@@ -95,7 +95,7 @@ exports.createO2DOrder = async (req, res) => {
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);
-    res.status(500).json({ message: "Error creating order" });
+    res.status(500).json({ success: false, message: "Error creating order" });
   } finally {
     client.release();
   }
@@ -137,7 +137,7 @@ exports.getAllO2DOrders = async (req, res) => {
     res.json({ success: true, data: result });
 
   } catch (err) {
-    res.status(500).json({ message: "Error fetching orders" });
+    res.status(500).json({ success: false, message: "Error fetching orders" });
   }
 };
 
@@ -165,10 +165,11 @@ exports.assignO2DStep = async (req, res) => {
     );
 
     if (!result.rows.length) {
-      return res.status(404).json({
+      return res.status(400).json({
+        success: false,
         message: "Step not found or already completed"
       });
-    }
+    } 
 
     res.json({
       success: true,
@@ -177,7 +178,7 @@ exports.assignO2DStep = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: "Error assigning step" });
+    res.status(500).json({ success: false, message: "Error assigning step" });
   }
 };
 
@@ -206,9 +207,10 @@ exports.completeO2DStep = async (req, res) => {
 
     if (!stepCheck.rows.length) {
       await client.query("ROLLBACK");
-      return res.status(403).json({
+      return res.status(400).json({
+        success: false,
         message: "Not authorized or step not active"
-      });
+      }); 
     }
 
     /* Complete Step */
@@ -256,13 +258,14 @@ exports.completeO2DStep = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Step completed successfully"
+      message: "Step completed successfully",
+      data: stepUpdate.rows[0]
     });
 
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);
-    res.status(500).json({ message: "Error completing step" });
+    res.status(500).json({ success: false, message: "Error completing step" });
   } finally {
     client.release();
   }

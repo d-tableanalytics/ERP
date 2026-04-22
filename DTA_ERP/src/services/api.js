@@ -62,7 +62,8 @@ export const fetchJSON = async (url, options = {}) => {
     if (!response.ok) {
         throw new Error(data.message || 'Network response was not ok');
     }
-    return data;
+    // Automatically unwrap standardized responses
+    return data.success && data.data !== undefined ? data.data : data;
 };
 
 export default api;

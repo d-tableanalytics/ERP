@@ -133,7 +133,7 @@ const DeletedTasks = () => {
                 teamService.getUsers(),
                 delegationService.getCategories(),
             ]);
-            const fetched = deletedRes.data || [];
+            const fetched = deletedRes || [];
             setTasks(fetched);
             setUsers(Array.isArray(usersRes) ? usersRes : (usersRes.data || []));
             setCategories(catRes.data || catRes || []);

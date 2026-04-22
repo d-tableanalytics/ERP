@@ -4,7 +4,7 @@ const holidayService = {
     createHoliday: async (holidayData) => {
         try {
             const response = await api.post('/holidays', holidayData);
-            return response.data;
+            return response.data.data;
         } catch (error) {
             throw error;
         }
@@ -13,7 +13,7 @@ const holidayService = {
     getHolidays: async () => {
         try {
             const response = await api.get('/holidays');
-            return response.data;
+            return response.data.data;
         } catch (error) {
             throw error;
         }
@@ -22,7 +22,7 @@ const holidayService = {
     deleteHoliday: async (id) => {
         try {
             const response = await api.delete(`/holidays/${id}`);
-            return response.data;
+            return response.data.data;
         } catch (error) {
             throw error;
         }

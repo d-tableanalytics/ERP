@@ -13,7 +13,7 @@ export const fetchEmployees = createAsyncThunk(
       const response = await axios.get(`${API_URL}/employees`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch employees",
@@ -30,7 +30,7 @@ export const fetchDepartments = createAsyncThunk(
       const response = await axios.get(`${API_URL}/departments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch departments",
@@ -48,7 +48,7 @@ export const fetchLocations = createAsyncThunk(
       const response = await axios.get(`${API_URL}/locations`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch locations",
@@ -65,7 +65,7 @@ export const fetchPCAccountables = createAsyncThunk(
       const response = await axios.get(`${API_URL}/pc-accountables`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch PC accountables",
@@ -82,7 +82,7 @@ export const fetchProblemSolvers = createAsyncThunk(
       const response = await axios.get(`${API_URL}/problem-solvers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch problem solvers",
@@ -105,7 +105,7 @@ export const getHelpTicketHistoryById = createAsyncThunk(
         }
       );
 
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch help ticket history"

@@ -13,7 +13,7 @@ export const fetchChecklists = createAsyncThunk(
             const response = await axios.get(API_URL, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch checklists');
         }
@@ -38,7 +38,7 @@ export const createChecklist = createAsyncThunk(
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to create checklist');
         }
@@ -70,7 +70,7 @@ export const updateChecklistTask = createAsyncThunk(
             const response = await axios.put(`${API_URL}/task/${id}`, data, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update checklist task');
         }
@@ -92,7 +92,8 @@ export const updateChecklistStatus = createAsyncThunk(
             };
 
             const response = await axios.patch(`${API_URL}/task/${id}`, data, config);
-            return response.data;
+            const result = response.data;
+            return result.data || result; // Handle both direct data or wrapped data if needed
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update status');
         }

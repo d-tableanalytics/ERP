@@ -20,12 +20,14 @@ const CombinedMIS = () => {
         const res = await axios.get(`${API_BASE_URL}/api/master/employees`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setUsers(res.data);
+        
+        const employeeData = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        setUsers(employeeData);
 
         const isAdmin = user?.role === "Admin" || user?.role === "SuperAdmin";
 
         // Mocking some data for the report (Randomized for demo for Admins only)
-        const mockData = res.data.map((u) => {
+        const mockData = employeeData.map((u) => {
           const name = `${u.First_Name} ${u.Last_Name}`;
           // Regular employees see 0, Admins see dummy data
           const planned = isAdmin ? Math.floor(Math.random() * 40) + 10 : 0;

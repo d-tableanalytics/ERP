@@ -3,7 +3,7 @@ import api from './api';
 const teamService = {
     getUsers: async () => {
         const response = await api.get('/auth/users');
-        return response.data;
+        return response.data.data;
     },
     createTeam: async (teamData) => {
         const response = await api.post('/teams', teamData);

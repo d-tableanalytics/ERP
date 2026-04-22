@@ -50,9 +50,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                 delegationService.getDelegationById(taskId),
                 teamService.getUsers()
             ]);
-            setTask(taskRes.data);
+            setTask(taskRes);
             setUsers(usersRes);
-            setStatus(taskRes.data.status);
+            setStatus(taskRes.status);
         } catch (err) {
             console.error('Failed to fetch initial data:', err);
             setError('Failed to load data');
@@ -64,8 +64,8 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
     const fetchTaskDetails = async () => {
         try {
             const response = await delegationService.getDelegationById(taskId);
-            setTask(response.data);
-            setStatus(response.data.status);
+            setTask(response);
+            setStatus(response.status);
         } catch (err) {
             console.error('Failed to fetch task details:', err);
         }

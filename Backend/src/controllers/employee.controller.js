@@ -5,10 +5,10 @@ exports.getAllEmployees = async (req, res) => {
     try {
         const query = 'SELECT user_id as id, first_name as "First_Name", last_name as "Last_Name", work_email as email, department as "Department", role FROM employees ORDER BY first_name ASC';
         const result = await pool.query(query);
-        res.json(result.rows);
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching employees' });
+        res.status(500).json({ success: false, message: 'Error fetching employees' });
     }
 };
 
@@ -17,10 +17,10 @@ exports.getDepartments = async (req, res) => {
     try {
         const query = 'SELECT * FROM departments ORDER BY name ASC';
         const result = await pool.query(query);
-        res.json(result.rows);
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching departments' });
+        res.status(500).json({ success: false, message: 'Error fetching departments' });
     }
 };
 
@@ -33,10 +33,10 @@ exports.getPCAccountables = async (req, res) => {
             WHERE designation IN ('PC', 'EA') 
             ORDER BY first_name ASC`;
         const result = await pool.query(query);
-        res.json(result.rows);
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching PC accountables' });
+        res.status(500).json({ success: false, message: 'Error fetching PC accountables' });
     }
 };
 
@@ -50,10 +50,10 @@ exports.getProblemSolvers = async (req, res) => {
             WHERE user_id != $1 
             ORDER BY first_name ASC`;
         const result = await pool.query(query, [loggedInUserId]);
-        res.json(result.rows);
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching problem solvers' });
+        res.status(500).json({ success: false, message: 'Error fetching problem solvers' });
     }
 };
 
@@ -62,10 +62,10 @@ exports.getLocations = async (req, res) => {
     try {
         const query = 'SELECT id, name FROM locations ORDER BY name ASC';
         const result = await pool.query(query);
-        res.json(result.rows);
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching locations' });
+        res.status(500).json({ success: false, message: 'Error fetching locations' });
     }
 };
 

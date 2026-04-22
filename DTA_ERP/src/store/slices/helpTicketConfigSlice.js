@@ -15,7 +15,7 @@ export const fetchHelpTicketConfig = createAsyncThunk(
       const res = await axios.get(API_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(
         err.response?.data?.message || 'Failed to fetch help ticket config'
@@ -35,7 +35,7 @@ export const updateHelpTicketConfig = createAsyncThunk(
       const res = await axios.put(API_URL, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(
         err.response?.data?.message || 'Failed to update configuration'
@@ -57,7 +57,7 @@ export const addHoliday = createAsyncThunk(
         holidayData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(
         err.response?.data?.message || 'Failed to add holiday'

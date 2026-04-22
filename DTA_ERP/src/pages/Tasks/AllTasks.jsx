@@ -144,7 +144,7 @@ const AllTasks = () => {
                 teamService.getUsers(),
                 delegationService.getCategories(),
             ]);
-            let allTasks = taskRes.data || [];
+            let allTasks = taskRes || [];
 
             setTasks(allTasks);
             setUsers(Array.isArray(usersRes) ? usersRes : (usersRes.data || []));

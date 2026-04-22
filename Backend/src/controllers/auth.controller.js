@@ -16,13 +16,13 @@ exports.register = async (req, res) => {
 
     try {
         if (!normalizedEmail || !Password) {
-            return res.status(400).json({ message: 'Work email and password are required' });
+            return res.status(400).json({ success: false, message: 'Work email and password are required' });
         }
 
         // Check if user exists
         const userExists = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1', [normalizedEmail]);
         if (userExists.rows.length > 0) {
-            return res.status(400).json({ message: 'Employee with this email already exists' });
+            return res.status(400).json({ success: false, message: 'Employee with this email already exists' });
         }
 
         // Hash password
@@ -41,17 +41,20 @@ exports.register = async (req, res) => {
         );
 
         res.status(201).json({
+            success: true,
             message: 'Employee registered successfully',
-            user: {
-                id: newEmployee.rows[0].user_id,
-                email: newEmployee.rows[0].work_email,
-                role: newEmployee.rows[0].role
+            data: {
+                user: {
+                    id: newEmployee.rows[0].user_id,
+                    email: newEmployee.rows[0].work_email,
+                    role: newEmployee.rows[0].role
+                }
             }
         });
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error during registration' });
+        res.status(500).json({ success: false, message: 'Server error during registration' });
     }
 };
 
@@ -62,13 +65,13 @@ exports.login = async (req, res) => {
 
     try {
         if (!email || !password) {
-            return res.status(400).json({ message: 'Work email and password are required' });
+            return res.status(400).json({ success: false, message: 'Work email and password are required' });
         }
 
         // Find employee
         const result = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1', [email]);
         if (result.rows.length === 0) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            return res.status(400).json({ success: false, message: 'Invalid credentials' });
         }
 
         const employee = result.rows[0];
@@ -76,7 +79,7 @@ exports.login = async (req, res) => {
         // Check password
         const isMatch = await bcrypt.compare(password, employee.password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            return res.status(400).json({ success: false, message: 'Invalid credentials' });
         }
 
         // Generate JWT
@@ -87,19 +90,22 @@ exports.login = async (req, res) => {
         );
 
         res.json({
-            token,
-            user: {
-                id: employee.user_id,
-                email: employee.work_email,
-                role: employee.role,
-                name: `${employee.first_name} ${employee.last_name}`,
-                theme: employee.theme || 'light'
+            success: true,
+            data: {
+                token,
+                user: {
+                    id: employee.user_id,
+                    email: employee.work_email,
+                    role: employee.role,
+                    name: `${employee.first_name} ${employee.last_name}`,
+                    theme: employee.theme || 'light'
+                }
             }
         });
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error during login' });
+        res.status(500).json({ success: false, message: 'Server error during login' });
     }
 };
 
@@ -110,10 +116,10 @@ exports.updateTheme = async (req, res) => {
 
     try {
         await db.query('UPDATE employees SET theme = $1 WHERE user_id = $2', [theme, userId]);
-        res.json({ message: 'Theme updated successfully' });
+        res.json({ success: true, message: 'Theme updated successfully' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error while updating theme' });
+        res.status(500).json({ success: false, message: 'Server error while updating theme' });
     }
 };
 
@@ -133,9 +139,9 @@ exports.getUsers = async (req, res) => {
             designation: u.designation,
             department: u.department
         }));
-        res.json(users);
+        res.json({ success: true, data: users });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching users' });
+        res.status(500).json({ success: false, message: 'Error fetching users' });
     }
 };

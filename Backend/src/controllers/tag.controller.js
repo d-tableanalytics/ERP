@@ -6,20 +6,20 @@ exports.createTag = async (req, res) => {
     try {
         const query = 'INSERT INTO tags (name, color, created_by) VALUES ($1, $2, $3) RETURNING *';
         const result = await db.query(query, [name, color, userId]);
-        res.status(201).json(result.rows[0]);
+        res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error creating tag' });
+        res.status(500).json({ success: false, message: 'Error creating tag' });
     }
 };
 
 exports.getTags = async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM tags ORDER BY name ASC');
-        res.json(result.rows);
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching tags' });
+        res.status(500).json({ success: false, message: 'Error fetching tags' });
     }
 };
 
@@ -27,9 +27,9 @@ exports.deleteTag = async (req, res) => {
     const { id } = req.params;
     try {
         await db.query('DELETE FROM tags WHERE id = $1', [id]);
-        res.json({ message: 'Tag deleted' });
+        res.json({ success: true, message: 'Tag deleted' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error deleting tag' });
+        res.status(500).json({ success: false, message: 'Error deleting tag' });
     }
 };

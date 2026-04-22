@@ -14,7 +14,7 @@ export const fetchMyTasks = createAsyncThunk(
     try {
       const { token } = getState().auth;
       const res = await axios.get(`${BASE}/my-tasks`, authHeader(token));
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to fetch my tasks');
     }
@@ -27,7 +27,7 @@ export const fetchDelegatedTasks = createAsyncThunk(
     try {
       const { token } = getState().auth;
       const res = await axios.get(`${BASE}/delegated-tasks`, authHeader(token));
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to fetch delegated tasks');
     }
@@ -40,7 +40,7 @@ export const fetchSubscribedTasks = createAsyncThunk(
     try {
       const { token } = getState().auth;
       const res = await axios.get(`${BASE}/subscribed-tasks`, authHeader(token));
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to fetch subscribed tasks');
     }
@@ -53,7 +53,7 @@ export const fetchAllTasks = createAsyncThunk(
     try {
       const { token } = getState().auth;
       const res = await axios.get(`${BASE}/all-tasks`, authHeader(token));
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to fetch all tasks');
     }
@@ -66,7 +66,7 @@ export const fetchDeletedTasks = createAsyncThunk(
     try {
       const { token } = getState().auth;
       const res = await axios.get(`${BASE}/deleted-tasks`, authHeader(token));
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to fetch deleted tasks');
     }
@@ -79,7 +79,7 @@ export const softDeleteTask = createAsyncThunk(
     try {
       const { token } = getState().auth;
       const res = await axios.patch(`${BASE}/${id}/trash`, {}, authHeader(token));
-      return { id, delegation: res.data.delegation };
+      return { id, delegation: res.data.data };
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to delete task');
     }
@@ -92,7 +92,7 @@ export const restoreTask = createAsyncThunk(
     try {
       const { token } = getState().auth;
       const res = await axios.patch(`${BASE}/${id}/restore`, {}, authHeader(token));
-      return { id, delegation: res.data.delegation };
+      return { id, delegation: res.data.data };
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to restore task');
     }
@@ -105,7 +105,7 @@ export const subscribeToTask = createAsyncThunk(
     try {
       const { token } = getState().auth;
       const res = await axios.patch(`${BASE}/${id}/subscribe`, {}, authHeader(token));
-      return res.data.delegation;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to subscribe');
     }
@@ -123,7 +123,7 @@ export const createDelegation = createAsyncThunk(
           'Content-Type': 'multipart/form-data'
         }
       });
-      return res.data;
+      return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to create delegation');
     }

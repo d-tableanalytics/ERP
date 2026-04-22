@@ -3,11 +3,11 @@ import api from './api';
 const delegationService = {
     createDelegation: async (delegationData) => {
         const response = await api.post('/delegations', delegationData);
-        return response.data;
+        return response.data.data;
     },
     createDelegationTemplate: async (templateData) => {
         const response = await api.post('/delegations/templates', templateData);
-        return response.data;
+        return response.data.data;
     },
     getDelegations: async (filters = {}) => {
         // Clean up undefined or null filters
@@ -16,19 +16,19 @@ const delegationService = {
         );
         const query = new URLSearchParams(cleanFilters).toString();
         const response = await api.get(`/delegations?${query}`);
-        return response.data;
+        return response.data.data;
     },
     getDelegationById: async (id) => {
         const response = await api.get(`/delegations/${id}`);
-        return response.data;
+        return response.data.data;
     },
     updateDelegation: async (id, updates) => {
         const response = await api.patch(`/delegations/${id}`, updates);
-        return response.data;
+        return response.data.data;
     },
     deleteDelegation: async (id, payload = {}) => {
         const response = await api.delete(`/delegations/${id}`, { data: payload });
-        return response.data;
+        return response.data.data;
     },
     getDeletedDelegations: async (filters = {}) => {
         const cleanFilters = Object.fromEntries(
@@ -36,15 +36,15 @@ const delegationService = {
         );
         const query = new URLSearchParams(cleanFilters).toString();
         const response = await api.get(`/delegations/deleted?${query}`);
-        return response.data;
+        return response.data.data;
     },
     restoreDelegation: async (id) => {
         const response = await api.patch(`/delegations/${id}/restore`);
-        return response.data;
+        return response.data.data;
     },
     addRemark: async (id, remarkData) => {
         const response = await api.post(`/delegations/${id}/remarks`, remarkData);
-        return response.data;
+        return response.data.data;
     },
     uploadFile: async (file, folder = 'general') => {
         const formData = new FormData();
@@ -54,51 +54,51 @@ const delegationService = {
                 'Content-Type': 'multipart/form-data'
             }
         });
-        return response.data;
+        return response.data.data;
     },
     getCategories: async () => {
         const response = await api.get('/categories/list');
-        return response.data;
+        return response.data.data;
     },
     createCategory: async (categoryData) => {
         const response = await api.post('/categories/create', categoryData);
-        return response.data;
+        return response.data.data;
     },
     deleteCategory: async (id) => {
         const response = await api.delete(`/categories/${id}`);
-        return response.data;
+        return response.data.data;
     },
     createGroup: async (groupData) => {
         const response = await api.post('/groups/create', groupData);
-        return response.data;
+        return response.data.data;
     },
     getGroups: async () => {
         const response = await api.get('/groups/list');
-        return response.data;
+        return response.data.data;
     },
     getGroupMembers: async (groupId) => {
         const response = await api.get(`/groups/${groupId}/members`);
-        return response.data;
+        return response.data.data;
     },
     getGroupById: async (groupId) => {
         const response = await api.get(`/groups/${groupId}`);
-        return response.data;
+        return response.data.data;
     },
     updateGroup: async (groupId, groupData) => {
         const response = await api.patch(`/groups/${groupId}/update`, groupData);
-        return response.data;
+        return response.data.data;
     },
     getTagsList: async () => {
         const response = await api.get('/tags/list');
-        return response.data;
+        return response.data.data;
     },
     createTag: async (tagData) => {
         const response = await api.post('/tags/create', tagData);
-        return response.data;
+        return response.data.data;
     },
     deleteTag: async (id) => {
         const response = await api.delete(`/tags/${id}`);
-        return response.data;
+        return response.data.data;
     }
 };
 
