@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 @theme {
   --color-primary: #137fec;
 
@@ -18,31 +20,37 @@
 
 @layer base {
   :root {
-    --main-bg: #f8fafc; /* Slightly cooler Slate 50 */
+    /* Premium Light Mode Palette */
+    --main-bg: #f8fafc;        /* Slate 50 - clean and soft */
     --card-bg: #ffffff;
-    --main-text: #0f172a; /* Slate 900 */
-    --muted-text: #64748b;
-    --main-border: #f1f5f9; /* Slate 100 */
+    --main-text: #1e293b;      /* Slate 800 - better readability than black */
+    --muted-text: #64748b;     /* Slate 500 */
+    --main-border: #f1f5f9;    /* Slate 100 */
     
-    /* Priority Colors (Light Mode) */
-    --priority-high: #ef4444;       /* Red 500 */
-    --priority-medium: #3b82f6;     /* Blue 500 (Brighter for light theme) */
-    --priority-low: #64748b;        /* Slate 500 */
+    /* Branding & Accent */
+    --color-primary: #137fec;
+    --color-primary-soft: rgba(19, 127, 236, 0.08);
+    
+    /* Priority Colors (Premium Light) */
+    --priority-high: #ef4444;       
+    --priority-medium: #137fec;     
+    --priority-low: #94a3b8;        
     
     color-scheme: light;
   }
 
   :root.dark {
-    --main-bg: #101922;
-    --card-bg: #1a222c;
-    --main-text: #f6f7f8;
-    --muted-text: #94a3b8;
-    --main-border: #1e293b;
+    /* Premium Dark Mode Palette */
+    --main-bg: #0f172a;        /* Deep Slate 900 */
+    --card-bg: #1e293b;        /* Slate 800 */
+    --main-text: #f8fafc;      /* Slate 50 */
+    --muted-text: #94a3b8;     /* Slate 400 */
+    --main-border: #334155;    /* Slate 700 */
     
-    /* Priority Colors (Dark Mode) */
-    --priority-high: #b91c1c;       /* Red 700 - Darker/Richer */
-    --priority-medium: #1d4ed8;     /* Blue 700 */
-    --priority-low: #334155;        /* Slate 700 */
+    /* Priority Colors (Premium Dark) */
+    --priority-high: #f87171;       
+    --priority-medium: #60a5fa;     
+    --priority-low: #475569;        
     
     color-scheme: dark;
   }
@@ -51,31 +59,38 @@
     background-color: var(--main-bg);
     color: var(--main-text);
     font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     @apply transition-colors duration-300;
   }
 }
 
 @layer components {
-  .glass-panel {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+  .premium-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--main-border);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+    @apply rounded-2xl transition-all duration-300;
+  }
+
+  .premium-card-hover:hover {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+    transform: translateY(-2px);
   }
 
   .glass-panel-light {
     background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
   }
 
   .premium-shadow {
-    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
   }
 
-  .premium-shadow-hover:hover {
-    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.03);
-    transform: translateY(-1px);
+  .premium-gradient {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #0c63bc 100%);
   }
 
   @keyframes progress {

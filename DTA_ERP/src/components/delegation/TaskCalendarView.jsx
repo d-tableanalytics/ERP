@@ -94,15 +94,15 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
     const displayDays = viewType === 'Day' ? [currentDate] : weekDays;
 
     return (
-        <div className="flex flex-col gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 animate-in fade-in duration-500 overflow-hidden">
+        <div className="flex flex-col gap-4 bg-bg-card rounded-2xl border border-border-main p-4 animate-in fade-in duration-500 overflow-hidden">
             {/* Top Bar */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center bg-slate-50 dark:bg-slate-950/50 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div className="flex items-center bg-slate-50 dark:bg-slate-950/50 p-1 rounded-xl border border-border-main">
                     {['Day', 'Week', 'Month'].map(type => (
                         <button
                             key={type}
                             onClick={() => setViewType(type)}
-                            className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${viewType === type ? 'bg-white dark:bg-slate-800 text-[#137fec] shadow-sm border border-slate-200 dark:border-slate-700' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                            className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${viewType === type ? 'bg-bg-card text-[#137fec] shadow-sm border border-slate-200 dark:border-slate-700' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                         >
                             {type}
                         </button>
@@ -110,7 +110,7 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                 </div>
                 <button 
                     onClick={() => setCurrentDate(new Date())}
-                    className="px-6 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
+                    className="px-6 py-2 bg-bg-main border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
                 >
                     Today
                 </button>
@@ -118,17 +118,17 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
 
             {/* Navigation Bar */}
             <div className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800/50">
-                <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-colors active:scale-95">
+                <button onClick={() => navigate(-1)} className="p-2 hover:bg-bg-main rounded-full text-slate-400 transition-colors active:scale-95">
                     <ChevronLeft size={20} strokeWidth={3} />
                 </button>
                 <h2 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">{formatDateRange()}</h2>
-                <button onClick={() => navigate(1)} className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-colors active:scale-95">
+                <button onClick={() => navigate(1)} className="p-2 hover:bg-bg-main rounded-full text-slate-400 transition-colors active:scale-95">
                     <ChevronRight size={20} strokeWidth={3} />
                 </button>
             </div>
 
             {viewType === 'Month' ? (
-                <div className="grid grid-cols-7 gap-px bg-slate-100 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
+                <div className="grid grid-cols-7 gap-px bg-bg-main border border-border-main rounded-xl overflow-hidden">
                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
                         <div key={d} className="bg-slate-50 dark:bg-slate-900 py-3 text-center text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{d}</div>
                     ))}
@@ -146,7 +146,7 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                         });
 
                         return (
-                            <div key={i} className={`min-h-[100px] p-2 bg-white dark:bg-slate-900 ${!isCurrentMonth ? 'opacity-30' : ''} hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all relative`}>
+                            <div key={i} className={`min-h-[100px] p-2 bg-bg-card ${!isCurrentMonth ? 'opacity-30' : ''} hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all relative`}>
                                 <span className={`text-xs font-black ${isToday(day) ? 'bg-[#137fec] text-white w-6 h-6 flex items-center justify-center rounded-full shadow-lg shadow-blue-500/20' : 'text-slate-400 dark:text-slate-500'}`}>
                                     {day.getDate()}
                                 </span>
@@ -170,10 +170,10 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                     })}
                 </div>
             ) : (
-                <div className="flex flex-col flex-1 overflow-hidden border border-slate-100 dark:border-slate-800 rounded-xl">
+                <div className="flex flex-col flex-1 overflow-hidden border border-border-main rounded-xl">
                     {/* Header */}
-                    <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                        <div className="w-20 shrink-0 border-r border-slate-100 dark:border-slate-800 flex items-center justify-center">
+                    <div className="flex border-b border-border-main bg-slate-50 dark:bg-slate-900/50">
+                        <div className="w-20 shrink-0 border-r border-border-main flex items-center justify-center">
                             <Clock size={14} className="text-slate-400" />
                         </div>
                         <div className={`flex-1 grid ${viewType === 'Week' ? 'grid-cols-7' : 'grid-cols-1'} divide-x divide-slate-100 dark:divide-slate-800`}>
@@ -182,7 +182,7 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                                     <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                                         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][viewType === 'Week' ? i : day.getDay() === 0 ? 6 : day.getDay() - 1]}
                                     </span>
-                                    <span className={`text-sm font-black ${isToday(day) ? 'text-[#137fec]' : 'text-slate-600 dark:text-slate-400'}`}>
+                                    <span className={`text-sm font-black ${isToday(day) ? 'text-[#137fec]' : 'text-text-muted'}`}>
                                         {day.getDate()}
                                     </span>
                                 </div>
@@ -191,8 +191,8 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                     </div>
 
                     {/* All Day Section */}
-                    <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/20">
-                        <div className="w-20 shrink-0 border-r border-slate-100 dark:border-slate-800 py-2 px-3 text-right">
+                    <div className="flex border-b border-border-main bg-slate-50/30 dark:bg-slate-900/20">
+                        <div className="w-20 shrink-0 border-r border-border-main py-2 px-3 text-right">
                             <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter">All Day</span>
                         </div>
                         <div className={`flex-1 grid ${viewType === 'Week' ? 'grid-cols-7' : 'grid-cols-1'} divide-x divide-slate-100 dark:divide-slate-800`}>
@@ -220,7 +220,7 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                         {hours.map(hour => (
                             <div key={hour} className="flex min-h-[60px] border-b border-slate-50 dark:border-slate-800/30">
-                                <div className="w-20 shrink-0 border-r border-slate-100 dark:border-slate-800 py-2 pr-3 text-right">
+                                <div className="w-20 shrink-0 border-r border-border-main py-2 pr-3 text-right">
                                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
                                         {formatHour(hour)}
                                     </span>
@@ -232,9 +232,9 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                                                 <div 
                                                     key={task.id || idx} 
                                                     onClick={() => onTaskClick?.(task)}
-                                                    className="absolute inset-1 bg-white dark:bg-slate-800 border-l-4 border-l-[#137fec] shadow-sm hover:shadow-md cursor-pointer rounded p-1.5 z-10 overflow-hidden transition-all"
+                                                    className="absolute inset-1 bg-bg-card border-l-4 border-l-[#137fec] shadow-sm hover:shadow-md cursor-pointer rounded p-1.5 z-10 overflow-hidden transition-all"
                                                 >
-                                                    <p className="text-[10px] font-bold text-slate-800 dark:text-slate-100 truncate">{task.taskTitle}</p>
+                                                    <p className="text-[10px] font-bold text-text-main truncate">{task.taskTitle}</p>
                                                     <div className="flex items-center justify-between mt-0.5">
                                                         <div className="flex items-center gap-1 text-[8px] text-slate-400 dark:text-slate-500 font-bold uppercase">
                                                             <Clock size={8} /> {formatHour(hour)}
@@ -259,3 +259,6 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
 };
 
 export default TaskCalendarView;
+
+
+

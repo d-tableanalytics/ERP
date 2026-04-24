@@ -50,7 +50,7 @@ const createDelegationExtrasTables = async () => {
     `;
 
     const taskRemindersQuery = `
-    CREATE TABLE IF NOT EXISTS task_reminders (
+    CREATE TABLE IF NOT EXISTS delegation_reminders (
         id SERIAL PRIMARY KEY,
         delegation_id INTEGER REFERENCES delegation(id) ON DELETE CASCADE,
         type VARCHAR(50) NOT NULL,

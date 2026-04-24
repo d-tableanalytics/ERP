@@ -36,7 +36,7 @@ const createDelegationTables = async () => {
     `;
 
     const remarkQuery = `
-    CREATE TABLE IF NOT EXISTS remark (
+    CREATE TABLE IF NOT EXISTS delegation_remarks (
         id SERIAL PRIMARY KEY,
         delegation_id INTEGER REFERENCES delegation(id) ON DELETE CASCADE,
         user_id INTEGER,
@@ -47,7 +47,7 @@ const createDelegationTables = async () => {
     `;
 
     const revisionHistoryQuery = `
-    CREATE TABLE IF NOT EXISTS revision_history (
+    CREATE TABLE IF NOT EXISTS delegation_revision_history (
         id SERIAL PRIMARY KEY,
         delegation_id INTEGER REFERENCES delegation(id) ON DELETE CASCADE,
         old_due_date TIMESTAMPTZ,
@@ -79,7 +79,7 @@ const createDelegationTables = async () => {
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS in_loop_ids INTEGER[] DEFAULT '{}'`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS group_id INTEGER`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS parent_id INTEGER`);
-        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS record_source VARCHAR(50) DEFAULT 'delegation'`);
+        // record_source column is now legacy and has been removed via migration
         
         // Update CHECK constraints for existing tables
         try {

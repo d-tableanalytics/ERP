@@ -447,7 +447,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
         <div className="flex flex-col items-center justify-center p-6 text-center select-none">
             <div className="relative mb-6">
                 <div className="w-[72px] h-[88px] bg-slate-100 rounded-xl shadow-inner absolute -left-5 -rotate-6"></div>
-                <div className="w-[72px] h-[88px] bg-white rounded-xl shadow-lg border border-slate-200 p-2.5 flex flex-col gap-2 z-10 relative">
+                <div className="w-[72px] h-[88px] bg-bg-card rounded-xl shadow-lg border border-border-main p-2.5 flex flex-col gap-2 z-10 relative">
                     <div className="w-full h-1.5 bg-slate-200 rounded-full"></div>
                     <div className="w-3/4 h-1.5 bg-slate-200 rounded-full"></div>
                     <div className="w-1/2 h-1.5 bg-slate-200 rounded-full"></div>
@@ -463,7 +463,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     <X size={8} strokeWidth={4} />
                 </div>
             </div>
-            <div className="text-slate-400 font-bold text-[15px] mt-2">No User found</div>
+            <div className="text-text-muted font-bold text-[15px] mt-2">No User found</div>
         </div>
     );
 
@@ -624,22 +624,22 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
     return (
         <div className="fixed inset-0 z-[70] flex p-0 sm:p-4 lg:p-8 pt-0 sm:pt-[5vh] justify-center items-start animate-in fade-in duration-300 overflow-hidden">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
-            <div className="relative w-full max-w-[680px] sm:mt-0 h-full sm:h-auto max-h-screen sm:max-h-[92vh] bg-white sm:rounded-2xl shadow-[0_20px_70px_rgba(0,0,0,0.15)]  border border-slate-200/60 animate-in zoom-in-95 duration-300 flex flex-col overflow-visible">
+            <div className="relative w-full max-w-[680px] sm:mt-0 h-full sm:h-auto max-h-screen sm:max-h-[92vh] bg-bg-card sm:rounded-2xl shadow-[0_20px_70px_rgba(0,0,0,0.15)]  border border-border-main animate-in zoom-in-95 duration-300 flex flex-col overflow-visible">
 
                 {/* Brand Accent Line */}
                 {/* <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-500 via-emerald-400 to-[#f97316] z-20" /> */}
 
-                <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100 bg-[#e6f9f1] relative sm:rounded-t-2xl">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border-main bg-[#e6f9f1] relative sm:rounded-t-2xl">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00d094] to-[#00b882] flex items-center justify-center shadow-lg shadow-emerald-500/20">
                             <Plus size={16} className="text-white" strokeWidth={3} />
                         </div>
                         <div>
-                            <h2 className="text-xs font-bold text-slate-800 leading-tight">{initialData?.id ? 'Update Task' : (isMyTask ? 'Add New Task' : 'Assign New Task')}</h2>
+                            <h2 className="text-xs font-bold text-text-main leading-tight">{initialData?.id ? 'Update Task' : (isMyTask ? 'Add New Task' : 'Assign New Task')}</h2>
                             <p className="text-[8px] text-emerald-600 font-bold uppercase tracking-widest opacity-80">{initialData?.id ? (isMyTask ? 'Update Task' : 'Update Delegation') : (isMyTask ? 'PERSONAL TASK' : 'NEW DELEGATION')}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all">
+                    <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                         <X size={16} strokeWidth={2.5} />
                     </button>
                 </div>
@@ -653,7 +653,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col min-h-0 bg-white">
+                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col min-h-0 bg-bg-card">
                     <div className="border-b border-slate-50 p-3 bg-emerald-50/10">
                         <input
                             type="text"
@@ -661,7 +661,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             value={formData.taskTitle}
                             onChange={handleChange}
                             placeholder="Add Task Title *..."
-                            className="w-full bg-transparent text-sm font-bold text-slate-800 placeholder:text-slate-300 outline-none transition-all focus:placeholder:text-slate-400"
+                            className="w-full bg-transparent text-sm font-bold text-text-main placeholder:text-slate-300 outline-none transition-all focus:placeholder:text-text-muted"
                             autoFocus
                         />
                     </div>
@@ -671,12 +671,12 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             value={formData.description}
                             onChange={handleChange}
                             placeholder="Write task details, instructions or goals here *..."
-                            className="w-full h-full min-h-[70px] bg-transparent text-[11px] font-medium text-slate-600 placeholder:text-slate-300 outline-none resize-none leading-relaxed"
+                            className="w-full h-full min-h-[70px] bg-transparent text-[11px] font-medium text-text-muted placeholder:text-slate-300 outline-none resize-none leading-relaxed"
                         />
                     </div>
 
                     {/* Checklist Section */}
-                    <div className="border-b border-slate-50 transition-all bg-slate-50/30">
+                    <div className="border-b border-slate-50 transition-all bg-bg-main/30">
                         <div
                             className="p-2.5 text-emerald-600 font-bold text-[10px] cursor-pointer hover:text-emerald-700 transition-colors flex items-center justify-between uppercase tracking-widest"
                             onClick={() => {
@@ -688,7 +688,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                 <Plus size={14} strokeWidth={3} />
                                 Add Checklist
                             </span>
-                            <ChevronDown size={12} className={`text-slate-400 transition-transform ${checklistExpanded ? 'rotate-180' : ''}`} />
+                            <ChevronDown size={12} className={`text-text-muted transition-transform ${checklistExpanded ? 'rotate-180' : ''}`} />
                         </div>
 
                         {checklistExpanded && (
@@ -698,11 +698,11 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                         <div key={item.id} className="flex items-center gap-2.5 group">
                                             <button
                                                 onClick={() => toggleChecklistItem(item.id)}
-                                                className={`shrink-0 w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all ${item.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white hover:border-emerald-500'}`}
+                                                className={`shrink-0 w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all ${item.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-bg-card hover:border-emerald-500'}`}
                                             >
                                                 {item.completed && <Check size={10} strokeWidth={4} />}
                                             </button>
-                                            <span className={`text-[11px] font-bold leading-snug flex-1 ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                                            <span className={`text-[11px] font-bold leading-snug flex-1 ${item.completed ? 'text-text-muted line-through' : 'text-text-main'}`}>
                                                 {item.text}
                                             </span>
                                             <button onClick={() => removeChecklistItem(item.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0 p-1">
@@ -711,7 +711,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                         </div>
                                     ))}
                                 </div>
-                                <div className="bg-white rounded-xl border border-slate-100 p-2 flex items-center gap-2.5 focus-within:border-emerald-500/30 transition-all shadow-sm">
+                                <div className="bg-bg-card rounded-xl border border-border-main p-2 flex items-center gap-2.5 focus-within:border-emerald-500/30 transition-all shadow-sm">
                                     <input
                                         id="checklist-input"
                                         type="text"
@@ -719,7 +719,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                         value={newChecklistText}
                                         onChange={e => setNewChecklistText(e.target.value)}
                                         onKeyDown={handleAddChecklistItem}
-                                        className="bg-transparent text-[11px] font-bold text-slate-800 placeholder:text-slate-300 outline-none w-full px-2"
+                                        className="bg-transparent text-[11px] font-bold text-text-main placeholder:text-slate-300 outline-none w-full px-2"
                                     />
                                     <button
                                         onClick={() => handleAddChecklistItem({ key: 'Enter' })}
@@ -738,7 +738,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             <button 
                                 type="button"
                                 onClick={() => toggleModal('users')} 
-                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.doerId.length > 0 ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30'}`}
+                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.doerId.length > 0 ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-border-main bg-bg-card text-text-muted hover:border-emerald-500/30'}`}
                             >
                                 <Users size={14} className={formData.doerId.length > 0 ? "text-emerald-500" : "text-slate-300"} />
                                 {isLoadingUsers ? 'Loading...' : formData.doerId.length > 0 ? `${formData.doerId.length} Selected` : 'Assignee *'}
@@ -750,7 +750,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             <button 
                                 type="button"
                                 onClick={() => toggleModal('date')} 
-                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.dueDate ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30'}`}
+                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.dueDate ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-border-main bg-bg-card text-text-muted hover:border-emerald-500/30'}`}
                             >
                                 <CalendarIcon size={14} className={formData.dueDate ? "text-emerald-500" : "text-slate-300"} />
                                 {formData.dueDate ? new Date(formData.dueDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Set Deadline'}
@@ -762,7 +762,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             <button
                                 type="button"
                                 onClick={() => toggleModal('department')}
-                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.department ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30'}`}
+                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.department ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-border-main bg-bg-card text-text-muted hover:border-emerald-500/30'}`}
                             >
                                 <Building2 size={14} className={formData.department ? "text-emerald-500" : "text-slate-300"} />
                                 {formData.department || 'Department'}
@@ -776,9 +776,9 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                 {formData.priority} *
                             </button>
                             {activeDropdown === 'priority' && (
-                                <div className="absolute top-[calc(100%+8px)] left-0 w-[150px] bg-white border border-slate-100 rounded-2xl shadow-xl z-[100] flex flex-col p-2 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+                                <div className="absolute top-[calc(100%+8px)] left-0 w-[150px] bg-bg-card border border-border-main rounded-2xl shadow-xl z-[100] flex flex-col p-2 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
                                     {['High', 'Medium', 'Low'].map(p => (
-                                        <button key={p} onClick={() => { setFormData(prev => ({ ...prev, priority: p })); setActiveDropdown(null); }} className={`text-left px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all ${formData.priority === p ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'}`}>
+                                        <button key={p} onClick={() => { setFormData(prev => ({ ...prev, priority: p })); setActiveDropdown(null); }} className={`text-left px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all ${formData.priority === p ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'text-text-muted hover:bg-emerald-50 hover:text-emerald-600'}`}>
                                             {p}
                                         </button>
                                     ))}
@@ -791,7 +791,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             <button 
                                 type="button"
                                 onClick={() => toggleModal('category')} 
-                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.category ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30'}`}
+                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.category ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-border-main bg-bg-card text-text-muted hover:border-emerald-500/30'}`}
                             >
                                 <CheckSquare size={14} className={formData.category ? "text-emerald-500" : "text-slate-300"} />
                                 {formData.category || 'Category *'}
@@ -806,7 +806,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                     e.stopPropagation(); 
                                     toggleModal('inLoop'); 
                                 }} 
-                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.inLoopIds.length > 0 ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30'}`}
+                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.inLoopIds.length > 0 ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-border-main bg-bg-card text-text-muted hover:border-emerald-500/30'}`}
                             >
                                 <Users size={14} className={formData.inLoopIds.length > 0 ? "text-emerald-500" : "text-slate-300"} />
                                 {formData.inLoopIds.length > 0 ? `${formData.inLoopIds.length} in Loop` : 'In Loop'}
@@ -814,7 +814,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         </div>
 
                         {/* 7. Evidence Required */}
-                        <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg border-2 border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30 transition-all shadow-sm">
+                        <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg border-2 border-border-main bg-bg-card text-text-muted hover:border-emerald-500/30 transition-all shadow-sm">
                             <label className="flex items-center gap-1.5 cursor-pointer group">
                                 <div className="relative flex items-center">
                                     <input
@@ -822,41 +822,41 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                         name="evidenceRequired"
                                         checked={formData.evidenceRequired}
                                         onChange={handleChange}
-                                        className="peer h-3.5 w-3.5 bg-white border-2 border-slate-200 rounded-md checked:bg-emerald-500 checked:border-emerald-500 transition-all cursor-pointer opacity-0 absolute inset-0 z-10"
+                                        className="peer h-3.5 w-3.5 bg-bg-card border-2 border-border-main rounded-md checked:bg-emerald-500 checked:border-emerald-500 transition-all cursor-pointer opacity-0 absolute inset-0 z-10"
                                     />
-                                    <div className="h-3.5 w-3.5 bg-white border-2 border-slate-200 rounded-md peer-checked:bg-emerald-500 peer-checked:border-emerald-500 flex items-center justify-center transition-all">
+                                    <div className="h-3.5 w-3.5 bg-bg-card border-2 border-border-main rounded-md peer-checked:bg-emerald-500 peer-checked:border-emerald-500 flex items-center justify-center transition-all">
                                         {formData.evidenceRequired && <Check size={8} className="text-white" strokeWidth={4} />}
                                     </div>
                                 </div>
-                                <span className={`text-[8px] font-bold uppercase tracking-wide transition-colors ${formData.evidenceRequired ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'}`}>Evidence</span>
+                                <span className={`text-[8px] font-bold uppercase tracking-wide transition-colors ${formData.evidenceRequired ? 'text-emerald-600' : 'text-text-muted group-hover:text-text-muted'}`}>Evidence</span>
                             </label>
                         </div>
                     </div>
 
                     {/* Repeat Task Section - Moved into scroll area */}
-                    <div className="flex flex-col gap-2.5 p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100 mx-4 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex flex-col gap-2.5 p-3.5 bg-bg-main rounded-2xl border border-border-main mx-4 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
                         {/* Repeat Mode Selection & Dates */}
                         <div className="flex flex-wrap items-center gap-3">
                             <label className="flex items-center gap-2 cursor-pointer group">
                                 <div className="relative flex items-center">
-                                    <input type="checkbox" checked={isRepeat} onChange={(e) => setIsRepeat(e.target.checked)} className="peer h-3.5 w-3.5 bg-white border-2 border-slate-200 rounded-md checked:bg-emerald-500 checked:border-emerald-500 transition-all cursor-pointer opacity-0 absolute inset-0 z-10" />
-                                    <div className="h-3.5 w-3.5 bg-white border-2 border-slate-200 rounded-md peer-checked:bg-emerald-500 peer-checked:border-emerald-500 flex items-center justify-center transition-all">
+                                    <input type="checkbox" checked={isRepeat} onChange={(e) => setIsRepeat(e.target.checked)} className="peer h-3.5 w-3.5 bg-bg-card border-2 border-border-main rounded-md checked:bg-emerald-500 checked:border-emerald-500 transition-all cursor-pointer opacity-0 absolute inset-0 z-10" />
+                                    <div className="h-3.5 w-3.5 bg-bg-card border-2 border-border-main rounded-md peer-checked:bg-emerald-500 peer-checked:border-emerald-500 flex items-center justify-center transition-all">
                                         {isRepeat && <Check size={8} className="text-white" strokeWidth={4} />}
                                     </div>
                                 </div>
-                                <span className={`text-[10px] font-black uppercase tracking-wide transition-colors ${isRepeat ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'}`}>Repeat</span>
+                                <span className={`text-[10px] font-black uppercase tracking-wide transition-colors ${isRepeat ? 'text-emerald-600' : 'text-text-muted group-hover:text-text-muted'}`}>Repeat</span>
                             </label>
 
                             {isRepeat && (
                                 <>
                                     <div className="relative">
-                                        <button onClick={() => toggleDropdown('repeatMode')} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border-2 border-slate-100 bg-white text-[9px] font-black text-slate-700 hover:border-emerald-500/30 transition-all shadow-sm uppercase tracking-wide">
+                                        <button onClick={() => toggleDropdown('repeatMode')} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border-2 border-border-main bg-bg-card text-[9px] font-black text-text-main hover:border-emerald-500/30 transition-all shadow-sm uppercase tracking-wide">
                                             {repeatMode} <ChevronDown size={10} className="text-slate-300" />
                                         </button>
                                         {activeDropdown === 'repeatMode' && (
-                                            <div className="absolute top-[calc(100%+8px)] left-0 w-36 bg-white border border-slate-100 rounded-2xl shadow-xl z-[100] flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <div className="absolute top-[calc(100%+8px)] left-0 w-36 bg-bg-card border border-border-main rounded-2xl shadow-xl z-[100] flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
                                                 {['Daily', 'Weekly', 'Monthly', 'Yearly', 'Periodically', 'Custom'].map(mode => (
-                                                    <button key={mode} onClick={() => { setRepeatMode(mode); setActiveDropdown(null); }} className={`text-left px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all ${repeatMode === mode ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'}`}>
+                                                    <button key={mode} onClick={() => { setRepeatMode(mode); setActiveDropdown(null); }} className={`text-left px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all ${repeatMode === mode ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'text-text-muted hover:bg-emerald-50 hover:text-emerald-600'}`}>
                                                         {mode}
                                                     </button>
                                                 ))}
@@ -866,17 +866,17 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
 
                                     <div className="flex items-center gap-1.5 relative">
                                         <div className="relative">
-                                            <button onClick={() => toggleModal('date', 'repeatStartDate')} className="flex items-center bg-white border-2 border-slate-100 rounded-lg px-2.5 py-1 hover:border-emerald-500/30 transition-all shadow-sm group">
+                                            <button onClick={() => toggleModal('date', 'repeatStartDate')} className="flex items-center bg-bg-card border-2 border-border-main rounded-lg px-2.5 py-1 hover:border-emerald-500/30 transition-all shadow-sm group">
                                                 <CalendarIcon size={12} className="text-slate-300 group-hover:text-emerald-500 mr-1.5 shrink-0 transition-colors" />
-                                                <span className="text-[9px] font-black text-slate-700 uppercase tracking-tighter w-[60px] text-left">
+                                                <span className="text-[9px] font-black text-text-main uppercase tracking-tighter w-[60px] text-left">
                                                     {repeatStartDate ? new Date(repeatStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Start Date'}
                                                 </span>
                                             </button>
                                         </div>
                                         <div className="relative">
-                                            <button onClick={() => toggleModal('date', 'repeatEndDate')} className="flex items-center bg-white border-2 border-slate-100 rounded-lg px-2.5 py-1 hover:border-emerald-500/30 transition-all shadow-sm group">
+                                            <button onClick={() => toggleModal('date', 'repeatEndDate')} className="flex items-center bg-bg-card border-2 border-border-main rounded-lg px-2.5 py-1 hover:border-emerald-500/30 transition-all shadow-sm group">
                                                 <CalendarIcon size={12} className="text-slate-300 group-hover:text-emerald-500 mr-1.5 shrink-0 transition-colors" />
-                                                <span className="text-[9px] font-black text-slate-700 uppercase tracking-tighter w-[60px] text-left">
+                                                <span className="text-[9px] font-black text-text-main uppercase tracking-tighter w-[60px] text-left">
                                                     {repeatEndDate ? new Date(repeatEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'End Date'}
                                                 </span>
                                             </button>
@@ -888,13 +888,13 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
 
                         {/* Mode-Specific Options */}
                         {isRepeat && (
-                            <div className="border-t border-slate-100 pt-5 flex flex-col gap-5">
+                            <div className="border-t border-border-main pt-5 flex flex-col gap-5">
                                 {repeatMode === 'Weekly' && (
                                     <div className="flex flex-wrap gap-2">
                                         {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
                                             const isSelected = weeklyDays.includes(day);
                                             return (
-                                                <button key={day} onClick={() => setWeeklyDays(prev => isSelected ? prev.filter(d => d !== day) : [...prev, day])} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:border-emerald-500/30'}`}>
+                                                <button key={day} onClick={() => setWeeklyDays(prev => isSelected ? prev.filter(d => d !== day) : [...prev, day])} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-bg-card border-border-main text-text-muted hover:border-emerald-500/30'}`}>
                                                     {day.substring(0, 3)}
                                                 </button>
                                             )
@@ -908,12 +908,12 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                             const d = (i + 1).toString().padStart(2, '0');
                                             const isSelected = selectedDates.includes(d);
                                             return (
-                                                <button key={d} onClick={() => setSelectedDates(prev => isSelected ? prev.filter(dt => dt !== d) : [...prev, d])} className={`w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-black transition-all border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:border-emerald-500/30'}`}>
+                                                <button key={d} onClick={() => setSelectedDates(prev => isSelected ? prev.filter(dt => dt !== d) : [...prev, d])} className={`w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-black transition-all border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-bg-card border-border-main text-text-muted hover:border-emerald-500/30'}`}>
                                                     {i + 1}
                                                 </button>
                                             )
                                         })}
-                                        <button onClick={() => setSelectedDates(prev => prev.includes('Last Day') ? prev.filter(d => d !== 'Last Day') : [...prev, 'Last Day'])} className={`col-span-2 px-2 h-8 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all border-2 ${selectedDates.includes('Last Day') ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:border-emerald-500/30'}`}>
+                                        <button onClick={() => setSelectedDates(prev => prev.includes('Last Day') ? prev.filter(d => d !== 'Last Day') : [...prev, 'Last Day'])} className={`col-span-2 px-2 h-8 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all border-2 ${selectedDates.includes('Last Day') ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-bg-card border-border-main text-text-muted hover:border-emerald-500/30'}`}>
                                             Last Day
                                         </button>
                                     </div>
@@ -921,27 +921,27 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
 
                                 {repeatMode === 'Periodically' && (
                                     <div className="flex items-center gap-3">
-                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Repeat every</span>
-                                        <div className="flex items-center bg-white border-2 border-slate-100 rounded-xl px-3 py-1.5 focus-within:border-emerald-500/30 transition-all w-28 shadow-sm">
-                                            <input type="number" min="1" value={repeatIntervalDays} onChange={(e) => setRepeatIntervalDays(e.target.value)} className="bg-transparent text-[12px] text-slate-800 font-black outline-none w-full" />
+                                        <span className="text-[11px] font-black text-text-muted uppercase tracking-widest">Repeat every</span>
+                                        <div className="flex items-center bg-bg-card border-2 border-border-main rounded-xl px-3 py-1.5 focus-within:border-emerald-500/30 transition-all w-28 shadow-sm">
+                                            <input type="number" min="1" value={repeatIntervalDays} onChange={(e) => setRepeatIntervalDays(e.target.value)} className="bg-transparent text-[12px] text-text-main font-black outline-none w-full" />
                                             <span className="text-[9px] text-emerald-600 font-black uppercase ml-1.5">Days</span>
                                         </div>
                                     </div>
                                 )}
 
                                 {repeatMode === 'Custom' && (
-                                    <div className="flex flex-col gap-5 p-5 bg-white border-2 border-slate-100 rounded-[24px] shadow-sm">
+                                    <div className="flex flex-col gap-5 p-5 bg-bg-card border-2 border-border-main rounded-[24px] shadow-sm">
                                         <div className="flex items-center gap-4 flex-wrap">
-                                            <span className="text-[13px] font-black text-slate-400 uppercase tracking-widest">Occur every</span>
+                                            <span className="text-[13px] font-black text-text-muted uppercase tracking-widest">Occur every</span>
                                             <div className="flex items-center gap-3">
                                                 <div className="relative">
-                                                    <button onClick={() => toggleDropdown('customOccurValue')} className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl border-2 border-slate-100 bg-slate-50 text-[13px] font-black text-slate-700">
+                                                    <button onClick={() => toggleDropdown('customOccurValue')} className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl border-2 border-border-main bg-bg-main text-[13px] font-black text-text-main">
                                                         {customOccurValue} <ChevronDown size={14} className="text-slate-300" />
                                                     </button>
                                                     {activeDropdown === 'customOccurValue' && (
-                                                        <div className="absolute top-[calc(100%+8px)] left-0 w-24 max-h-48 overflow-y-auto bg-white border border-slate-100 rounded-2xl shadow-xl z-[110] flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                                                        <div className="absolute top-[calc(100%+8px)] left-0 w-24 max-h-48 overflow-y-auto bg-bg-card border border-border-main rounded-2xl shadow-xl z-[110] flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
                                                             {[...Array(occurEveryMode === 'Week' ? 52 : 12)].map((_, i) => (
-                                                                <button key={i} onClick={() => { setCustomOccurValue((i + 1).toString()); setActiveDropdown(null); }} className={`text-left px-3 py-2 rounded-lg text-[13px] font-black transition-all ${customOccurValue === (i + 1).toString() ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:bg-emerald-50'}`}>
+                                                                <button key={i} onClick={() => { setCustomOccurValue((i + 1).toString()); setActiveDropdown(null); }} className={`text-left px-3 py-2 rounded-lg text-[13px] font-black transition-all ${customOccurValue === (i + 1).toString() ? 'bg-emerald-500 text-white shadow-sm' : 'text-text-muted hover:bg-emerald-50'}`}>
                                                                     {i + 1}
                                                                 </button>
                                                             ))}
@@ -949,13 +949,13 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                     )}
                                                 </div>
                                                 <div className="relative">
-                                                    <button onClick={() => toggleDropdown('occurEveryMode')} className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl border-2 border-slate-100 bg-slate-50 text-[13px] font-black text-slate-700">
+                                                    <button onClick={() => toggleDropdown('occurEveryMode')} className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl border-2 border-border-main bg-bg-main text-[13px] font-black text-text-main">
                                                         {occurEveryMode}{parseInt(customOccurValue) > 1 ? 's' : ''} <ChevronDown size={14} className="text-slate-300" />
                                                     </button>
                                                     {activeDropdown === 'occurEveryMode' && (
-                                                        <div className="absolute top-[calc(100%+8px)] left-0 w-36 bg-white border border-slate-100 rounded-2xl shadow-xl z-[110] flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                                                        <div className="absolute top-[calc(100%+8px)] left-0 w-36 bg-bg-card border border-border-main rounded-2xl shadow-xl z-[110] flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
                                                             {['Week', 'Month'].map(m => (
-                                                                <button key={m} onClick={() => { setOccurEveryMode(m); setActiveDropdown(null); }} className={`text-left px-4 py-2.5 rounded-xl text-[13px] font-black transition-all ${occurEveryMode === m ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:bg-emerald-50'}`}>
+                                                                <button key={m} onClick={() => { setOccurEveryMode(m); setActiveDropdown(null); }} className={`text-left px-4 py-2.5 rounded-xl text-[13px] font-black transition-all ${occurEveryMode === m ? 'bg-emerald-500 text-white shadow-sm' : 'text-text-muted hover:bg-emerald-50'}`}>
                                                                     {m}{parseInt(customOccurValue) > 1 ? 's' : ''}
                                                                 </button>
                                                             ))}
@@ -966,13 +966,13 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                         </div>
 
                                         <div className="flex flex-col gap-4">
-                                            <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Select {occurEveryMode === 'Week' ? 'Days' : 'Dates'} :</span>
+                                            <span className="text-[12px] font-black text-text-muted uppercase tracking-widest">Select {occurEveryMode === 'Week' ? 'Days' : 'Dates'} :</span>
                                             {occurEveryMode === 'Week' ? (
                                                 <div className="flex flex-wrap gap-2">
                                                     {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
                                                         const isSelected = customOccurDays.includes(day);
                                                         return (
-                                                            <button key={day} onClick={() => setCustomOccurDays(prev => isSelected ? prev.filter(d => d !== day) : [...prev, day])} className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:border-emerald-500/30'}`}>
+                                                            <button key={day} onClick={() => setCustomOccurDays(prev => isSelected ? prev.filter(d => d !== day) : [...prev, day])} className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-bg-card border-border-main text-text-muted hover:border-emerald-500/30'}`}>
                                                                 {day.substring(0, 3)}
                                                             </button>
                                                         )
@@ -984,7 +984,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                         const d = (i + 1).toString();
                                                         const isSelected = customOccurDates.includes(d);
                                                         return (
-                                                            <button key={d} onClick={() => setCustomOccurDates(prev => isSelected ? prev.filter(dt => dt !== d) : [...prev, d])} className={`w-8.5 h-8.5 flex items-center justify-center rounded-xl text-[11px] font-black transition-all border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-100 text-slate-400 hover:border-emerald-500/30'}`}>
+                                                            <button key={d} onClick={() => setCustomOccurDates(prev => isSelected ? prev.filter(dt => dt !== d) : [...prev, d])} className={`w-8.5 h-8.5 flex items-center justify-center rounded-xl text-[11px] font-black transition-all border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-bg-card border-border-main text-text-muted hover:border-emerald-500/30'}`}>
                                                                 {i + 1}
                                                             </button>
                                                         )
@@ -1013,7 +1013,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         {attachments.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                                 {attachments.map((file, i) => (
-                                    <div key={i} className="flex items-center gap-2.5 bg-slate-50 border-2 border-slate-100 px-3.5 py-1.5 rounded-xl text-[12px] font-black text-slate-700 shadow-sm max-w-[220px]">
+                                    <div key={i} className="flex items-center gap-2.5 bg-bg-main border-2 border-border-main px-3.5 py-1.5 rounded-xl text-[12px] font-black text-text-main shadow-sm max-w-[220px]">
                                         {file.type?.startsWith('image/') ? <ImageIcon size={14} className="text-emerald-500 shrink-0" strokeWidth={3} /> : <Paperclip size={14} className="text-emerald-500 shrink-0" strokeWidth={3} />}
                                         <span className="truncate flex-1 tracking-tight">{file.name}</span>
                                         <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-red-500 transition-colors ml-1 shrink-0"><X size={14} strokeWidth={4} /></button>
@@ -1025,13 +1025,13 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                 </div>
 
                 {/* Fixed Footer */}
-                <div className="p-3 flex items-center justify-between border-t border-slate-100 bg-white sm:rounded-b-2xl relative shrink-0 z-10">
-                    <div className="flex items-center gap-1 text-slate-400">
+                <div className="p-3 flex items-center justify-between border-t border-border-main bg-bg-card sm:rounded-b-2xl relative shrink-0 z-10">
+                    <div className="flex items-center gap-1 text-text-muted">
                         {/* Attachment Icon */}
                         <div className="relative">
                             <button
                                 onClick={(e) => { e.stopPropagation(); openModal('attachment'); }}
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${attachments.length > 0 ? 'text-emerald-600 bg-emerald-50 shadow-sm' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50/50'}`}
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${attachments.length > 0 ? 'text-emerald-600 bg-emerald-50 shadow-sm' : 'text-text-muted hover:text-emerald-500 hover:bg-emerald-50/50'}`}
                                 title="Attach Files"
                             >
                                 <Paperclip size={16} strokeWidth={2.5} />
@@ -1047,7 +1047,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         <div className="relative">
                             <button
                                 onClick={(e) => { e.stopPropagation(); openModal('reminder'); }}
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${reminders.length > 0 ? 'text-emerald-600 bg-emerald-50 shadow-sm' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50/50'}`}
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${reminders.length > 0 ? 'text-emerald-600 bg-emerald-50 shadow-sm' : 'text-text-muted hover:text-emerald-500 hover:bg-emerald-50/50'}`}
                                 title="Add Reminder"
                             >
                                 <Clock size={16} strokeWidth={2.5} />
@@ -1061,7 +1061,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         <div className="relative">
                             <button
                                 onClick={(e) => { e.stopPropagation(); openModal('voice'); }}
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${voiceState === 'recorded' ? 'text-emerald-600 bg-emerald-50 shadow-sm' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50/50'}`}
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${voiceState === 'recorded' ? 'text-emerald-600 bg-emerald-50 shadow-sm' : 'text-text-muted hover:text-emerald-500 hover:bg-emerald-50/50'}`}
                                 title="Add Voice Note"
                             >
                                 <Mic size={16} strokeWidth={2.5} />
@@ -1072,24 +1072,24 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         </div>
 
                         {/* More Options */}
-                        <div className="relative ml-1 pl-2.5 border-l border-slate-100 h-6 flex items-center">
+                        <div className="relative ml-1 pl-2.5 border-l border-border-main h-6 flex items-center">
                             <button
                                 onClick={(e) => { e.stopPropagation(); toggleDropdown('moreOptions'); }}
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${activeDropdown === 'moreOptions' ? 'text-slate-800 bg-slate-100' : 'text-slate-400 hover:text-slate-800 hover:bg-slate-50'}`}
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${activeDropdown === 'moreOptions' ? 'text-text-main bg-slate-100' : 'text-text-muted hover:text-text-main hover:bg-bg-main'}`}
                             >
                                 <div className="flex items-center justify-center -translate-y-1"><span className="text-xl font-black">...</span></div>
                             </button>
 
                             {activeDropdown === 'moreOptions' && (
-                                <div className="absolute bottom-[calc(100%+12px)] left-0 w-52 bg-white border border-slate-100 rounded-2xl shadow-[0_15px_60px_rgba(0,0,0,0.1)] z-[100] flex flex-col py-1.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
-                                    <div className="px-3.5 py-1 text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 opacity-60">Extra Options</div>
-                                    <button onClick={() => openModal('link')} className="flex items-center justify-between px-3.5 py-2 hover:bg-emerald-50/50 text-[11px] font-bold text-slate-700 hover:text-emerald-600 transition-all">
+                                <div className="absolute bottom-[calc(100%+12px)] left-0 w-52 bg-bg-card border border-border-main rounded-2xl shadow-[0_15px_60px_rgba(0,0,0,0.1)] z-[100] flex flex-col py-1.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
+                                    <div className="px-3.5 py-1 text-[8px] font-bold text-text-muted uppercase tracking-widest mb-1 opacity-60">Extra Options</div>
+                                    <button onClick={() => openModal('link')} className="flex items-center justify-between px-3.5 py-2 hover:bg-emerald-50/50 text-[11px] font-bold text-text-main hover:text-emerald-600 transition-all">
                                         <span className="flex items-center gap-2.5"><Globe size={14} className="text-slate-300" strokeWidth={2.5} /> Add Link {links.length > 0 && <span className="bg-emerald-500 text-white w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px]">{links.length}</span>}</span>
                                     </button>
-                                    <button onClick={() => { setActiveDropdown(null); fileInputRef.current?.click(); }} className="flex items-center justify-between px-3.5 py-2 hover:bg-emerald-50/50 text-[11px] font-bold text-slate-700 hover:text-emerald-600 transition-all">
+                                    <button onClick={() => { setActiveDropdown(null); fileInputRef.current?.click(); }} className="flex items-center justify-between px-3.5 py-2 hover:bg-emerald-50/50 text-[11px] font-bold text-text-main hover:text-emerald-600 transition-all">
                                         <span className="flex items-center gap-2.5"><Paperclip size={14} className="text-slate-300" strokeWidth={2.5} /> Add Attachment</span>
                                     </button>
-                                    <button onClick={() => { setActiveDropdown(null); imageInputRef.current?.click(); }} className="flex items-center justify-between px-3.5 py-2 hover:bg-emerald-50/50 text-[11px] font-bold text-slate-700 hover:text-emerald-600 transition-all">
+                                    <button onClick={() => { setActiveDropdown(null); imageInputRef.current?.click(); }} className="flex items-center justify-between px-3.5 py-2 hover:bg-emerald-50/50 text-[11px] font-bold text-text-main hover:text-emerald-600 transition-all">
                                         <span className="flex items-center gap-2.5"><ImageIcon size={14} className="text-slate-300" strokeWidth={2.5} /> Upload Image</span>
                                     </button>
                                 </div>
@@ -1102,11 +1102,11 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         disabled={isSubmitting}
                         className="group relative px-5 py-2 bg-gradient-to-br from-[#00d094] to-[#00b882] hover:shadow-emerald-500/30 active:scale-95 text-white font-bold rounded-xl text-[11px] transition-all flex items-center gap-2 overflow-hidden shadow-[0_10px_25px_-5px_rgba(0,208,148,0.3)] disabled:opacity-50 uppercase tracking-widest"
                     >
-                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute inset-0 bg-bg-card/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                         {isSubmitting ? (
                             <span className="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
                         ) : (
-                            <div className="bg-white/20 rounded-lg p-1 text-white group-hover:scale-110 group-hover:rotate-[360deg] transition-all duration-500">
+                            <div className="bg-bg-card/20 rounded-lg p-1 text-white group-hover:scale-110 group-hover:rotate-[360deg] transition-all duration-500">
                                 <Upload size={14} strokeWidth={3} />
                             </div>
                         )}
@@ -1150,13 +1150,13 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                 <div className="flex bg-slate-100 p-1.5 rounded-2xl self-center shadow-inner">
                                     <button
                                         onClick={() => setDatePickerView('date')}
-                                        className={`px-8 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${datePickerView === 'date' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        className={`px-8 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${datePickerView === 'date' ? 'bg-bg-card text-emerald-600 shadow-sm' : 'text-text-muted hover:text-text-muted'}`}
                                     >
                                         Date
                                     </button>
                                     <button
                                         onClick={() => setDatePickerView('time')}
-                                        className={`px-8 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${datePickerView === 'time' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                        className={`px-8 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${datePickerView === 'time' ? 'bg-bg-card text-emerald-600 shadow-sm' : 'text-text-muted hover:text-text-muted'}`}
                                     >
                                         Time
                                     </button>
@@ -1166,14 +1166,14 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             {datePickerView === 'date' ? (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                                     <div className="flex items-center justify-between mb-6 px-2">
-                                        <span className="text-[16px] font-black text-slate-800 uppercase tracking-widest bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100/50">
+                                        <span className="text-[16px] font-black text-text-main uppercase tracking-widest bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100/50">
                                             {currentCalMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                                         </span>
                                         <div className="flex gap-2">
-                                            <button onClick={() => setCurrentCalMonth(new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() - 1, 1))} className="w-10 h-10 rounded-xl bg-white border-2 border-slate-100 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:border-emerald-500/30 transition-all shadow-sm">
+                                            <button onClick={() => setCurrentCalMonth(new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() - 1, 1))} className="w-10 h-10 rounded-xl bg-bg-card border-2 border-border-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:border-emerald-500/30 transition-all shadow-sm">
                                                 <ChevronLeft size={20} strokeWidth={3} />
                                             </button>
-                                            <button onClick={() => setCurrentCalMonth(new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() + 1, 1))} className="w-10 h-10 rounded-xl bg-white border-2 border-slate-100 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:border-emerald-500/30 transition-all shadow-sm">
+                                            <button onClick={() => setCurrentCalMonth(new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() + 1, 1))} className="w-10 h-10 rounded-xl bg-bg-card border-2 border-border-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:border-emerald-500/30 transition-all shadow-sm">
                                                 <ChevronRight size={20} strokeWidth={3} />
                                             </button>
                                         </div>
@@ -1206,7 +1206,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                     className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-[13px] font-black transition-all relative group
                                                         ${isHoliday ? 'bg-red-50 text-red-300' :
                                                             isSelected ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-110' :
-                                                                'text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 hover:scale-105'}
+                                                                'text-text-muted hover:bg-emerald-50 hover:text-emerald-600 hover:scale-105'}
                                                         ${isToday && !isSelected ? 'border-2 border-emerald-500/20' : ''}
                                                     `}
                                                 >
@@ -1226,17 +1226,17 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                 let h = parseInt(tempSelectedTime.hours);
                                                 h = h >= 12 ? 1 : h + 1;
                                                 setTempSelectedTime(prev => ({ ...prev, hours: h.toString().padStart(2, '0') }));
-                                            }} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all">
+                                            }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                                                 <ChevronDown size={24} className="rotate-180" strokeWidth={3} />
                                             </button>
-                                            <div className="w-20 h-24 bg-white border-2 border-slate-100 rounded-[28px] flex items-center justify-center text-4xl font-black text-slate-800 shadow-sm leading-none">
+                                            <div className="w-20 h-24 bg-bg-card border-2 border-border-main rounded-[28px] flex items-center justify-center text-4xl font-black text-text-main shadow-sm leading-none">
                                                 {tempSelectedTime.hours}
                                             </div>
                                             <button type="button" onClick={() => {
                                                 let h = parseInt(tempSelectedTime.hours);
                                                 h = h <= 1 ? 12 : h - 1;
                                                 setTempSelectedTime(prev => ({ ...prev, hours: h.toString().padStart(2, '0') }));
-                                            }} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all">
+                                            }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                                                 <ChevronDown size={24} strokeWidth={3} />
                                             </button>
                                         </div>
@@ -1249,17 +1249,17 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                 let m = parseInt(tempSelectedTime.minutes);
                                                 m = m >= 59 ? 0 : m + 1;
                                                 setTempSelectedTime(prev => ({ ...prev, minutes: m.toString().padStart(2, '0') }));
-                                            }} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all">
+                                            }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                                                 <ChevronDown size={24} className="rotate-180" strokeWidth={3} />
                                             </button>
-                                            <div className="w-20 h-24 bg-white border-2 border-slate-100 rounded-[28px] flex items-center justify-center text-4xl font-black text-slate-800 shadow-sm leading-none">
+                                            <div className="w-20 h-24 bg-bg-card border-2 border-border-main rounded-[28px] flex items-center justify-center text-4xl font-black text-text-main shadow-sm leading-none">
                                                 {tempSelectedTime.minutes}
                                             </div>
                                             <button type="button" onClick={() => {
                                                 let m = parseInt(tempSelectedTime.minutes);
                                                 m = m <= 0 ? 59 : m - 1;
                                                 setTempSelectedTime(prev => ({ ...prev, minutes: m.toString().padStart(2, '0') }));
-                                            }} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all">
+                                            }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                                                 <ChevronDown size={24} strokeWidth={3} />
                                             </button>
                                         </div>
@@ -1271,7 +1271,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                     key={p}
                                                     type="button"
                                                     onClick={() => setTempSelectedTime(prev => ({ ...prev, ampm: p }))}
-                                                    className={`px-5 py-3 rounded-2xl text-[14px] font-black transition-all border-2 ${tempSelectedTime.ampm === p ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white border-slate-100 text-slate-400 hover:border-emerald-500 shadow-sm'}`}
+                                                    className={`px-5 py-3 rounded-2xl text-[14px] font-black transition-all border-2 ${tempSelectedTime.ampm === p ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-bg-card border-border-main text-text-muted hover:border-emerald-500 shadow-sm'}`}
                                                 >
                                                     {p}
                                                 </button>
@@ -1292,9 +1292,9 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     >
                         <div className="flex flex-col gap-4">
                             <div className="p-1 border-b border-slate-50">
-                                <div className="flex items-center gap-3 bg-white px-4 py-2.5 border-2 border-slate-100 focus-within:border-emerald-500/30 rounded-2xl transition-all shadow-sm">
+                                <div className="flex items-center gap-3 bg-bg-card px-4 py-2.5 border-2 border-border-main focus-within:border-emerald-500/30 rounded-2xl transition-all shadow-sm">
                                     <Search size={18} className="text-slate-300" />
-                                    <input type="text" placeholder="Search Users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="bg-transparent text-[14px] font-bold text-slate-700 placeholder:text-slate-300 outline-none w-full" autoFocus />
+                                    <input type="text" placeholder="Search Users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="bg-transparent text-[14px] font-bold text-text-main placeholder:text-slate-300 outline-none w-full" autoFocus />
                                 </div>
                             </div>
                             <div className="max-h-[50vh] overflow-y-auto px-1 py-1 flex flex-col gap-2 custom-scrollbar">
@@ -1320,8 +1320,8 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-[13px] font-black text-slate-800 truncate">{firstName} {lastName}</div>
-                                                <div className="text-[11px] text-slate-400 font-bold truncate tracking-tight">{email}</div>
+                                                <div className="text-[13px] font-black text-text-main truncate">{firstName} {lastName}</div>
+                                                <div className="text-[11px] text-text-muted font-bold truncate tracking-tight">{email}</div>
                                             </div>
                                         </div>
                                     );
@@ -1340,14 +1340,14 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         saveText="Apply Selection"
                     >
                         <div className="flex flex-col gap-6">
-                            <div className="flex items-center gap-4 bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 focus-within:border-emerald-500/30 transition-all shadow-inner-sm">
+                            <div className="flex items-center gap-4 bg-bg-main border-2 border-border-main rounded-2xl px-5 py-4 focus-within:border-emerald-500/30 transition-all shadow-inner-sm">
                                 <Search size={20} className="text-slate-300" />
                                 <input
                                     type="text"
                                     placeholder="Search team members..."
                                     value={loopSearch}
                                     onChange={e => setLoopSearch(e.target.value)}
-                                    className="bg-transparent text-[15px] font-black text-slate-700 placeholder:text-slate-300 outline-none w-full"
+                                    className="bg-transparent text-[15px] font-black text-text-main placeholder:text-slate-300 outline-none w-full"
                                     autoFocus
                                 />
                                 {formData.inLoopIds.length > 0 && (
@@ -1375,7 +1375,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                 <div
                                                     key={uid}
                                                     onClick={() => toggleUserSelect(uid, 'inLoopIds')}
-                                                    className={`p-4 rounded-[28px] cursor-pointer flex items-center gap-5 transition-all border-2 group ${isSelected ? 'bg-emerald-50/50 border-emerald-500 shadow-sm shadow-emerald-500/10' : 'bg-white border-slate-50 hover:border-emerald-500/30'}`}
+                                                    className={`p-4 rounded-[28px] cursor-pointer flex items-center gap-5 transition-all border-2 group ${isSelected ? 'bg-emerald-50/50 border-emerald-500 shadow-sm shadow-emerald-500/10' : 'bg-bg-card border-slate-50 hover:border-emerald-500/30'}`}
                                                 >
                                                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center text-sm font-black text-white shrink-0 relative shadow-lg">
                                                         {firstName?.charAt(0)}{lastName?.charAt(0)}
@@ -1386,11 +1386,11 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                         )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="text-[16px] font-black text-slate-800 truncate tracking-tight">{firstName} {lastName}</div>
-                                                        <div className="text-[12px] text-slate-400 font-bold truncate tracking-widest uppercase opacity-70">{email}</div>
+                                                        <div className="text-[16px] font-black text-text-main truncate tracking-tight">{firstName} {lastName}</div>
+                                                        <div className="text-[12px] text-text-muted font-bold truncate tracking-widest uppercase opacity-70">{email}</div>
                                                     </div>
                                                     {!isSelected && (
-                                                        <div className="w-6 h-6 rounded-full border-2 border-slate-100 group-hover:border-emerald-500/20 transition-all shrink-0" />
+                                                        <div className="w-6 h-6 rounded-full border-2 border-border-main group-hover:border-emerald-500/20 transition-all shrink-0" />
                                                     )}
                                                 </div>
                                             );
@@ -1411,18 +1411,18 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     >
                         <div className="flex flex-col gap-4">
                             <div className="p-1 border-b border-slate-50">
-                                <div className="flex items-center gap-3 bg-white px-4 py-2.5 border-2 border-slate-100 rounded-2xl focus-within:border-emerald-500/30 transition-all shadow-sm">
+                                <div className="flex items-center gap-3 bg-bg-card px-4 py-2.5 border-2 border-border-main rounded-2xl focus-within:border-emerald-500/30 transition-all shadow-sm">
                                     <Search size={18} className="text-slate-300" />
-                                    <input type="text" placeholder="Find department..." value={departmentSearch} onChange={e => setDepartmentSearch(e.target.value)} className="flex-1 bg-transparent px-1 text-[14px] font-bold text-slate-700 placeholder:text-slate-300 outline-none" autoFocus />
+                                    <input type="text" placeholder="Find department..." value={departmentSearch} onChange={e => setDepartmentSearch(e.target.value)} className="flex-1 bg-transparent px-1 text-[14px] font-bold text-text-main placeholder:text-slate-300 outline-none" autoFocus />
                                 </div>
                             </div>
                             <div className="max-h-[50vh] overflow-y-auto p-1 flex flex-col gap-2 custom-scrollbar">
                                 {isMasterLoading ? (
-                                    <div className="py-6 text-center text-[13px] font-bold text-slate-400">Loading departments...</div>
+                                    <div className="py-6 text-center text-[13px] font-bold text-text-muted">Loading departments...</div>
                                 ) : filteredDepartments.length === 0 ? (
-                                    <div className="py-6 text-center text-[13px] font-bold text-slate-400">No departments found</div>
+                                    <div className="py-6 text-center text-[13px] font-bold text-text-muted">No departments found</div>
                                 ) : filteredDepartments.map((dept) => (
-                                    <button key={dept.id} onClick={() => { setFormData(prev => ({ ...prev, department: dept.name })); setActiveModal(null); }} className={`text-left px-5 py-4 rounded-2xl text-[14px] font-black transition-all flex items-center gap-5 border-2 ${formData.department === dept.name ? 'text-emerald-700 bg-emerald-50 border-emerald-100 shadow-sm' : 'text-slate-600 hover:bg-emerald-50/50 border-transparent'}`}>
+                                    <button key={dept.id} onClick={() => { setFormData(prev => ({ ...prev, department: dept.name })); setActiveModal(null); }} className={`text-left px-5 py-4 rounded-2xl text-[14px] font-black transition-all flex items-center gap-5 border-2 ${formData.department === dept.name ? 'text-emerald-700 bg-emerald-50 border-emerald-100 shadow-sm' : 'text-text-muted hover:bg-emerald-50/50 border-transparent'}`}>
                                         <Building2 size={16} className={formData.department === dept.name ? 'text-emerald-500' : 'text-slate-300'} />
                                         {dept.name}
                                     </button>
@@ -1443,14 +1443,14 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     >
                         <div className="flex flex-col gap-4">
                             <div className="p-1 border-b border-slate-50">
-                                <div className="flex items-center gap-3 bg-white px-4 py-2.5 border-2 border-slate-100 rounded-2xl focus-within:border-emerald-500/30 transition-all shadow-sm">
+                                <div className="flex items-center gap-3 bg-bg-card px-4 py-2.5 border-2 border-border-main rounded-2xl focus-within:border-emerald-500/30 transition-all shadow-sm">
                                     <Search size={18} className="text-slate-300" />
-                                    <input type="text" placeholder="Find category..." value={categorySearch} onChange={e => setCategorySearch(e.target.value)} className="flex-1 bg-transparent px-1 text-[14px] font-bold text-slate-700 placeholder:text-slate-300 outline-none" autoFocus />
+                                    <input type="text" placeholder="Find category..." value={categorySearch} onChange={e => setCategorySearch(e.target.value)} className="flex-1 bg-transparent px-1 text-[14px] font-bold text-text-main placeholder:text-slate-300 outline-none" autoFocus />
                                 </div>
                             </div>
                             <div className="max-h-[50vh] overflow-y-auto p-1 flex flex-col gap-2 custom-scrollbar">
                                 {filteredCategories.map(c => (
-                                    <button key={c.id} onClick={() => { setFormData(prev => ({ ...prev, category: c.name })); setActiveModal(null); }} className={`text-left px-5 py-4 rounded-2xl text-[14px] font-black transition-all flex items-center gap-5 border-2 ${formData.category === c.name ? 'text-emerald-700 bg-emerald-50 border-emerald-100 shadow-sm' : 'text-slate-600 hover:bg-emerald-50/50 border-transparent'}`}>
+                                    <button key={c.id} onClick={() => { setFormData(prev => ({ ...prev, category: c.name })); setActiveModal(null); }} className={`text-left px-5 py-4 rounded-2xl text-[14px] font-black transition-all flex items-center gap-5 border-2 ${formData.category === c.name ? 'text-emerald-700 bg-emerald-50 border-emerald-100 shadow-sm' : 'text-text-muted hover:bg-emerald-50/50 border-transparent'}`}>
                                         <div className="w-4 h-4 rounded-full shadow-lg" style={{ backgroundColor: c.color }} />
                                         {c.name}
                                     </button>
@@ -1470,21 +1470,21 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     >
                         <div className="flex flex-col gap-4">
                             {attachments.length === 0 ? (
-                                <div className="text-center py-10 px-6 border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/50">
-                                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mx-auto mb-4 shadow-sm">
+                                <div className="text-center py-10 px-6 border-2 border-dashed border-border-main rounded-3xl bg-bg-main">
+                                    <div className="w-16 h-16 rounded-full bg-bg-card flex items-center justify-center mx-auto mb-4 shadow-sm">
                                         <Paperclip size={24} className="text-slate-300" />
                                     </div>
-                                    <div className="text-slate-400 text-[14px] font-black uppercase tracking-widest leading-relaxed">Click "Add More" to select files <br /> from your computer.</div>
+                                    <div className="text-text-muted text-[14px] font-black uppercase tracking-widest leading-relaxed">Click "Add More" to select files <br /> from your computer.</div>
                                 </div>
                             ) : (
                                 <div className="flex flex-col gap-3">
                                     {attachments.map((file, i) => (
                                         <div key={i} className="flex items-center justify-between bg-emerald-50/30 border-2 border-emerald-100/30 p-4 rounded-2xl group hover:border-emerald-500/20 transition-all">
                                             <div className="flex items-center gap-4 overflow-hidden">
-                                                <div className="w-9 h-9 rounded-xl bg-white border border-emerald-100 flex items-center justify-center shrink-0 shadow-sm">
+                                                <div className="w-9 h-9 rounded-xl bg-bg-card border border-emerald-100 flex items-center justify-center shrink-0 shadow-sm">
                                                     <Paperclip size={16} className="text-emerald-500" strokeWidth={3} />
                                                 </div>
-                                                <span className="text-[12px] font-black text-slate-700 truncate">{file.name}</span>
+                                                <span className="text-[12px] font-black text-text-main truncate">{file.name}</span>
                                             </div>
                                             <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))} className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all">
                                                 <X size={18} strokeWidth={3} />
@@ -1510,16 +1510,16 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     >
                         <div className="flex flex-col gap-8">
                             {reminders.map((reminder, idx) => (
-                                <div key={reminder.id} className="bg-white border-2 border-slate-100 rounded-2xl p-5 shadow-sm relative group animate-in slide-in-from-top-4 duration-300">
+                                <div key={reminder.id} className="bg-bg-card border-2 border-border-main rounded-2xl p-5 shadow-sm relative group animate-in slide-in-from-top-4 duration-300">
                                     <div className="flex flex-col gap-7">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2.5">
                                                 <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-black text-xs shadow-md shadow-emerald-500/20">{idx + 1}</div>
-                                                <span className="text-slate-800 font-black text-[13px] uppercase tracking-widest">Reminder {idx + 1}</span>
+                                                <span className="text-text-main font-black text-[13px] uppercase tracking-widest">Reminder {idx + 1}</span>
                                             </div>
-                                            <div className="flex items-center gap-1.5 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-100">
+                                            <div className="flex items-center gap-1.5 bg-bg-main p-1.5 rounded-2xl border border-border-main">
                                                 {['WhatsApp', 'Email', 'Both'].map(m => (
-                                                    <button key={m} onClick={() => updateReminder(reminder.id, 'medium', m)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all uppercase tracking-wide ${reminder.medium === m ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{m}</button>
+                                                    <button key={m} onClick={() => updateReminder(reminder.id, 'medium', m)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all uppercase tracking-wide ${reminder.medium === m ? 'bg-bg-card text-emerald-600 shadow-sm' : 'text-text-muted hover:text-text-muted'}`}>{m}</button>
                                                 ))}
                                             </div>
                                         </div>
@@ -1531,13 +1531,13 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                     min="1"
                                                     value={reminder.timeValue}
                                                     onChange={(e) => updateReminder(reminder.id, 'timeValue', e.target.value)}
-                                                    className="w-24 bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-slate-800 text-[15px] font-black outline-none focus:border-emerald-500/30 transition-all text-center"
+                                                    className="w-24 bg-bg-main border-2 border-border-main rounded-2xl px-4 py-3 text-text-main text-[15px] font-black outline-none focus:border-emerald-500/30 transition-all text-center"
                                                 />
                                                 <div className="relative flex-1">
                                                     <select
                                                         value={reminder.timeUnit}
                                                         onChange={(e) => updateReminder(reminder.id, 'timeUnit', e.target.value)}
-                                                        className="w-full appearance-none bg-slate-50 border-2 border-slate-100 rounded-2xl pl-5 pr-10 py-3 text-slate-600 text-[14px] font-black outline-none focus:border-emerald-500/30 cursor-pointer uppercase tracking-wider"
+                                                        className="w-full appearance-none bg-bg-main border-2 border-border-main rounded-2xl pl-5 pr-10 py-3 text-text-muted text-[14px] font-black outline-none focus:border-emerald-500/30 cursor-pointer uppercase tracking-wider"
                                                     >
                                                         <option value="minutes">mins</option>
                                                         <option value="hours">hrs</option>
@@ -1548,7 +1548,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-6 justify-center bg-slate-50/50 rounded-2xl p-2 border border-slate-100">
+                                            <div className="flex items-center gap-6 justify-center bg-bg-main rounded-2xl p-2 border border-border-main">
                                                 {['Before', 'After'].map(relation => (
                                                     <label key={relation} className="flex items-center gap-3 cursor-pointer group/opt">
                                                         <div className="relative flex items-center">
@@ -1558,18 +1558,18 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                                                 checked={reminder.triggerType === relation.toLowerCase()}
                                                                 onChange={() => updateReminder(reminder.id, 'triggerType', relation.toLowerCase())}
                                                             />
-                                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${reminder.triggerType === relation.toLowerCase() ? 'bg-emerald-500 border-emerald-500 shadow-md shadow-emerald-500/20' : 'bg-white border-slate-200 peer-hover:border-emerald-500/30'}`}>
-                                                                {reminder.triggerType === relation.toLowerCase() && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
+                                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${reminder.triggerType === relation.toLowerCase() ? 'bg-emerald-500 border-emerald-500 shadow-md shadow-emerald-500/20' : 'bg-bg-card border-border-main peer-hover:border-emerald-500/30'}`}>
+                                                                {reminder.triggerType === relation.toLowerCase() && <div className="w-2.5 h-2.5 bg-bg-card rounded-full"></div>}
                                                             </div>
                                                         </div>
-                                                        <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${reminder.triggerType === relation.toLowerCase() ? 'text-emerald-600' : 'text-slate-400 group-hover/opt:text-slate-600'}`}>{relation}</span>
+                                                        <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${reminder.triggerType === relation.toLowerCase() ? 'text-emerald-600' : 'text-text-muted group-hover/opt:text-text-muted'}`}>{relation}</span>
                                                     </label>
                                                 ))}
                                             </div>
                                         </div>
                                     </div>
                                     {reminders.length > 1 && (
-                                        <button onClick={() => removeReminder(reminder.id)} className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white border-2 border-slate-100 text-slate-300 flex items-center justify-center hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all shadow-sm">
+                                        <button onClick={() => removeReminder(reminder.id)} className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-bg-card border-2 border-border-main text-slate-300 flex items-center justify-center hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all shadow-sm">
                                             <Trash2 size={18} strokeWidth={2.5} />
                                         </button>
                                     )}
@@ -1593,7 +1593,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                     <div className="w-24 h-24 rounded-[32px] bg-emerald-50 flex items-center justify-center mb-8 shadow-sm">
                                         <Mic size={40} className="text-emerald-500" strokeWidth={2.5} />
                                     </div>
-                                    <div className="text-slate-400 text-[14px] font-black uppercase tracking-[0.15em] mb-10 text-center leading-relaxed">Click Record to start <br /> recording a voice memo</div>
+                                    <div className="text-text-muted text-[14px] font-black uppercase tracking-[0.15em] mb-10 text-center leading-relaxed">Click Record to start <br /> recording a voice memo</div>
                                     <button
                                         onClick={() => {
                                             setIsRecording(true);
@@ -1654,14 +1654,14 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                         }}
                                         className="px-10 py-4 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl text-[14px] flex items-center gap-3 shadow-xl shadow-red-500/20 transition-all uppercase tracking-widest"
                                     >
-                                        <div className="w-3.5 h-3.5 bg-white rounded-sm shadow-sm"></div> Stop Recording
+                                        <div className="w-3.5 h-3.5 bg-bg-card rounded-sm shadow-sm"></div> Stop Recording
                                     </button>
                                 </div>
                             )}
 
                             {voiceState === 'recorded' && (
                                 <div className="flex flex-col w-full px-2">
-                                    <div className="bg-slate-50 border-2 border-slate-100 rounded-[32px] p-8 mb-8 shadow-inner-sm border-dashed">
+                                    <div className="bg-bg-main border-2 border-border-main rounded-[32px] p-8 mb-8 shadow-inner-sm border-dashed">
                                         <div className="flex items-center justify-center mb-6">
                                             <div className="px-6 py-2 bg-emerald-100 rounded-full">
                                                 <span className="text-emerald-700 font-black text-[12px] uppercase tracking-[0.2em]">Recording Ready</span>
@@ -1673,7 +1673,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                             </div>
                                         ) : (
                                             <div className="flex flex-col gap-4">
-                                                <div className="text-slate-400 text-[13px] font-black text-center mb-2 uppercase tracking-wide">00:00 / {formatTime(recordingTime)}</div>
+                                                <div className="text-text-muted text-[13px] font-black text-center mb-2 uppercase tracking-wide">00:00 / {formatTime(recordingTime)}</div>
                                                 <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden shadow-inner">
                                                     <div className="w-1/3 h-full bg-emerald-500 rounded-full"></div>
                                                 </div>
@@ -1707,8 +1707,8 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         onSave={() => setActiveModal(null)}
                     >
                         <div className="flex flex-col gap-6">
-                            <div className="flex items-center gap-4 bg-slate-50 border-2 border-slate-100 rounded-2xl p-2.5 focus-within:border-emerald-500/30 transition-all shadow-inner-sm">
-                                <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shrink-0">
+                            <div className="flex items-center gap-4 bg-bg-main border-2 border-border-main rounded-2xl p-2.5 focus-within:border-emerald-500/30 transition-all shadow-inner-sm">
+                                <div className="w-10 h-10 rounded-xl bg-bg-card border border-border-main flex items-center justify-center shrink-0">
                                     <Globe size={18} className="text-emerald-500" strokeWidth={2.5} />
                                 </div>
                                 <input
@@ -1716,7 +1716,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                     placeholder="Paste URL here..."
                                     value={newLinkText}
                                     onChange={e => setNewLinkText(e.target.value)}
-                                    className="bg-transparent text-[14px] font-black text-slate-700 placeholder:text-slate-300 outline-none w-full px-2"
+                                    className="bg-transparent text-[14px] font-black text-text-main placeholder:text-slate-300 outline-none w-full px-2"
                                     onKeyDown={e => {
                                         if (e.key === 'Enter' && newLinkText.trim()) {
                                             setLinks([...links, newLinkText.trim()]);
@@ -1738,12 +1738,12 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             </div>
                             <div className="flex flex-col gap-3">
                                 {links.map((link, i) => (
-                                    <div key={i} className="flex items-center justify-between bg-white border-2 border-slate-100 p-4 rounded-2xl group hover:border-emerald-500/20 transition-all">
+                                    <div key={i} className="flex items-center justify-between bg-bg-card border-2 border-border-main p-4 rounded-2xl group hover:border-emerald-500/20 transition-all">
                                         <div className="flex items-center gap-4 overflow-hidden">
                                             <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                                                 <Globe size={18} className="text-emerald-500" strokeWidth={2.5} />
                                             </div>
-                                            <span className="text-[14px] font-black text-slate-700 truncate tracking-tight">{link}</span>
+                                            <span className="text-[14px] font-black text-text-main truncate tracking-tight">{link}</span>
                                         </div>
                                         <button onClick={() => setLinks(prev => prev.filter((_, idx) => idx !== i))} className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all">
                                             <X size={18} strokeWidth={3} />
@@ -1759,22 +1759,22 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                 {isAddCategoryModalOpen && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
                         <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setIsAddCategoryModalOpen(false)} />
-                        <div className="relative w-full max-w-[460px] bg-white rounded-[40px] shadow-[0_30px_100px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="relative w-full max-w-[460px] bg-bg-card rounded-[40px] shadow-[0_30px_100px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
                             <div className="flex items-center justify-between p-7 border-b border-slate-50 bg-emerald-50/20">
-                                <h3 className="text-[17px] font-black text-slate-800 uppercase tracking-widest">New Category</h3>
+                                <h3 className="text-[17px] font-black text-text-main uppercase tracking-widest">New Category</h3>
                                 <button onClick={() => setIsAddCategoryModalOpen(false)} className="w-10 h-10 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all">
                                     <X size={24} strokeWidth={2.5} />
                                 </button>
                             </div>
                             <div className="p-10 flex flex-col gap-10">
                                 <div className="relative">
-                                    <label className="absolute -top-2.5 left-5 px-3 bg-white text-[10px] font-black text-emerald-500 z-10 uppercase tracking-[0.2em] shadow-sm-bottom">Identifier</label>
+                                    <label className="absolute -top-2.5 left-5 px-3 bg-bg-card text-[10px] font-black text-emerald-500 z-10 uppercase tracking-[0.2em] shadow-sm-bottom">Identifier</label>
                                     <input
                                         type="text"
                                         value={newCategoryName}
                                         onChange={(e) => setNewCategoryName(e.target.value)}
                                         placeholder="Ex: Marketing Strategy"
-                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4.5 text-[15px] font-black text-slate-800 outline-none focus:border-emerald-500/30 transition-all placeholder:text-slate-300 uppercase tracking-wide"
+                                        className="w-full bg-bg-main border-2 border-border-main rounded-2xl px-6 py-4.5 text-[15px] font-black text-text-main outline-none focus:border-emerald-500/30 transition-all placeholder:text-slate-300 uppercase tracking-wide"
                                         autoFocus
                                         maxLength={50}
                                     />
@@ -1782,20 +1782,20 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                 </div>
 
                                 <div className="space-y-5">
-                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] text-center">Pick Category Tone</div>
+                                    <div className="text-[11px] font-black text-text-muted uppercase tracking-[0.25em] text-center">Pick Category Tone</div>
                                     <div className="grid grid-cols-10 gap-2.5 justify-center">
                                         {categoryColors.map(color => (
                                             <button
                                                 key={color}
                                                 onClick={() => setSelectedColor(color)}
-                                                className={`w-7 h-7 rounded-xl transition-all flex items-center justify-center hover:scale-110 active:scale-95 ${selectedColor === color ? 'bg-white shadow-[0_4px_15px_rgba(0,0,0,0.1)] ring-4 ring-offset-2' : 'hover:shadow-md'}`}
+                                                className={`w-7 h-7 rounded-xl transition-all flex items-center justify-center hover:scale-110 active:scale-95 ${selectedColor === color ? 'bg-bg-card shadow-[0_4px_15px_rgba(0,0,0,0.1)] ring-4 ring-offset-2' : 'hover:shadow-md'}`}
                                                 style={{
                                                     backgroundColor: color,
                                                     '--tw-ring-color': `${color}40`
                                                 }}
                                             >
                                                 {selectedColor === color && (
-                                                    <div className="w-1.5 h-1.5 bg-white rounded-full shadow-sm" />
+                                                    <div className="w-1.5 h-1.5 bg-bg-card rounded-full shadow-sm" />
                                                 )}
                                             </button>
                                         ))}
@@ -1823,23 +1823,23 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
 // Extracted ActionModal outside TaskCreationForm functional component to prevent input focus loss caused by inline component re-renders
 const ActionModal = ({ title, children, showFooter = true, onClose, onSave, saveText = "Apply Changes", showAdd = false, onAdd }) => (
     <div className="absolute inset-0 z-[150] flex items-center justify-center bg-slate-900/10 backdrop-blur-[2px] rounded-2xl animate-in fade-in duration-300 p-3">
-        <div className="w-full max-w-[480px] bg-white border border-slate-100 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="w-full max-w-[480px] bg-bg-card border border-border-main rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="flex items-center justify-between p-4 border-b border-slate-50 bg-emerald-50/20">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">{title}</h3>
-                <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all bg-transparent border-none">
+                <h3 className="text-sm font-bold text-text-main uppercase tracking-widest">{title}</h3>
+                <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all bg-transparent border-none">
                     <X size={20} strokeWidth={2.5} />
                 </button>
             </div>
-            <div className="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar bg-white">
+            <div className="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar bg-bg-card">
                 {children}
             </div>
             {showFooter && (
-                <div className="p-4 border-t border-slate-50 flex items-center justify-end gap-3 bg-slate-50/30">
-                    <button onClick={onClose} className="px-4 py-2 rounded-xl text-[11px] font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest">
+                <div className="p-4 border-t border-slate-50 flex items-center justify-end gap-3 bg-bg-main/30">
+                    <button onClick={onClose} className="px-4 py-2 rounded-xl text-[11px] font-bold text-text-muted hover:text-text-muted transition-all uppercase tracking-widest">
                         Cancel
                     </button>
                     {showAdd && (
-                        <button onClick={onAdd} className="px-4 py-2 rounded-xl border-2 border-emerald-500/30 bg-white hover:bg-emerald-50 text-emerald-600 font-bold text-[11px] flex items-center gap-2 transition-all uppercase tracking-widest shadow-sm">
+                        <button onClick={onAdd} className="px-4 py-2 rounded-xl border-2 border-emerald-500/30 bg-bg-card hover:bg-emerald-50 text-emerald-600 font-bold text-[11px] flex items-center gap-2 transition-all uppercase tracking-widest shadow-sm">
                             <Plus size={16} strokeWidth={3} /> Add More
                         </button>
                     )}
@@ -1853,5 +1853,8 @@ const ActionModal = ({ title, children, showFooter = true, onClose, onSave, save
 );
 
 export default TaskCreationForm;
+
+
+
 
 

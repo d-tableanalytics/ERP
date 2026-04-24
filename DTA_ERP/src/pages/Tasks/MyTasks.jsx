@@ -57,7 +57,7 @@ const getDateRangeFilter = (taskDate, range, customStart, customEnd) => {
 
 // ── Filter Chip ─────────────────────────────────────────────────────────────────
 const FilterChip = ({ label, onRemove }) => (
-    <div className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-800 border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
+    <div className="flex items-center gap-1.5 px-3 py-1 bg-bg-card border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
         {label}
         <button onClick={onRemove} className="hover:text-red-500 transition-colors ml-0.5">
             <X size={12} strokeWidth={3} />
@@ -70,7 +70,7 @@ const MyTasks = () => {
     const [tasks, setTasks] = useState([]);
     const [users, setUsers] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [allTags, setAllTags] = useState([]);
+    const [allDepartments, setAllDepartments] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Filters
@@ -82,7 +82,7 @@ const MyTasks = () => {
     const [priority, setPriority] = useState('All');
     const [category, setCategory] = useState('All');
     const [assignedBy, setAssignedBy] = useState('All');
-    const [tagFilter, setTagFilter] = useState('All');
+    const [departmentFilter, setDepartmentFilter] = useState('All');
     const [showFilters, setShowFilters] = useState(false);
 
     // UI
@@ -128,16 +128,10 @@ const MyTasks = () => {
             setUsers(Array.isArray(usersRes) ? usersRes : (usersRes.data || []));
             setCategories(catRes.data || catRes || []);
 
-            // Extract unique tags from all my tasks
-            const tagSet = new Set();
-            allTasks
-                .forEach(t => {
-                    try {
-                        const parsed = typeof t.tags === 'string' ? JSON.parse(t.tags) : (t.tags || []);
-                        if (Array.isArray(parsed)) parsed.forEach(tag => tag?.text && tagSet.add(tag.text));
-                    } catch (e) { }
-                });
-            setAllTags(Array.from(tagSet));
+            // Extract unique departments from all my tasks
+            const deptSet = new Set();
+            allTasks.forEach(t => { if (t.department) deptSet.add(t.department); });
+            setAllDepartments(Array.from(deptSet).sort());
         } catch (err) {
             console.error('Failed to fetch data:', err);
             toast.error('Failed to load tasks');
@@ -161,7 +155,7 @@ const MyTasks = () => {
         setPriority('All');
         setCategory('All');
         setAssignedBy('All');
-        setTagFilter('All');
+        setDepartmentFilter('All');
     };
 
     // My tasks = tasks where current user is the DOER (Already filtered by NEW API)
@@ -173,12 +167,7 @@ const MyTasks = () => {
         if (priority !== 'All' && t.priority !== priority) return false;
         if (category !== 'All' && t.category !== category) return false;
         if (assignedBy !== 'All' && t.assignerId !== assignedBy) return false;
-        if (tagFilter !== 'All') {
-            try {
-                const taskTags = typeof t.tags === 'string' ? JSON.parse(t.tags) : (t.tags || []);
-                if (!taskTags.some(tag => tag?.text === tagFilter)) return false;
-            } catch (e) { return false; }
-        }
+        if (departmentFilter !== 'All' && t.department !== departmentFilter) return false;
         return getDateRangeFilter(t.dueDate || t.createdAt, dateRange, customStartDate, customEndDate);
     });
 
@@ -222,16 +211,16 @@ const MyTasks = () => {
     };
 
     const activeFilterCount = [
-        priority !== 'All', category !== 'All', assignedBy !== 'All', tagFilter !== 'All'
+        priority !== 'All', category !== 'All', assignedBy !== 'All', departmentFilter !== 'All'
     ].filter(Boolean).length;
 
     // Quick stats for the top mini-cards
     const quickStats = [
-        { label: 'Total', value: myTasks.length, dot: 'bg-slate-400', bg: 'bg-white dark:bg-slate-900', color: 'text-slate-700 dark:text-slate-100' },
-        { label: 'Overdue', value: getStatusCount('Overdue'), dot: 'bg-red-500', bg: 'bg-red-50 dark:bg-red-900/10', color: 'text-red-600 dark:text-red-400' },
-        { label: 'Pending', value: getStatusCount('Pending'), dot: 'border-2 border-slate-400 bg-transparent', bg: 'bg-slate-50 dark:bg-slate-800/40', color: 'text-slate-600 dark:text-slate-300' },
-        { label: 'In Progress', value: getStatusCount('In Progress'), dot: 'bg-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/10', color: 'text-orange-600 dark:text-orange-400' },
-        { label: 'Completed', value: getStatusCount('Completed'), dot: 'bg-blue-500', bg: 'bg-emerald-50 dark:bg-emerald-900/10', color: 'text-emerald-600 dark:text-emerald-400' },
+        { label: 'Total', value: myTasks.length, dot: 'bg-slate-400', bg: 'bg-bg-card', border: 'border-border-main', color: 'text-text-main' },
+        { label: 'Overdue', value: getStatusCount('Overdue'), dot: 'bg-red-500', bg: 'bg-red-50 dark:bg-red-900/10', border: 'border-red-100 dark:border-red-900/20', color: 'text-red-600 dark:text-red-400' },
+        { label: 'Pending', value: getStatusCount('Pending'), dot: 'border-2 border-slate-400 bg-transparent', bg: 'bg-bg-main', border: 'border-border-main', color: 'text-text-muted' },
+        { label: 'In Progress', value: getStatusCount('In Progress'), dot: 'bg-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/10', border: 'border-orange-100 dark:border-orange-900/20', color: 'text-orange-600 dark:text-orange-400' },
+        { label: 'Completed', value: getStatusCount('Completed'), dot: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/10', border: 'border-emerald-100 dark:border-emerald-900/20', color: 'text-emerald-600 dark:text-emerald-400' },
     ];
 
     return (
@@ -244,19 +233,19 @@ const MyTasks = () => {
                         <ListTodo size={22} className="text-white" strokeWidth={2.5} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-none">My Tasks</h1>
+                        <h1 className="text-2xl font-black text-text-main leading-none">My Tasks</h1>
                         <p className="text-xs font-bold text-slate-400 mt-0.5">Tasks assigned to you</p>
                     </div>
                 </div>
 
                 {/* ── Quick Stats ── */}
-                <div className="flex flex-wrap gap-3 mb-8">
+                <div className="flex flex-wrap gap-4 mb-8">
                     {quickStats.map((s, i) => (
-                        <div key={i} className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl ${s.bg} border border-slate-100 dark:border-slate-800 premium-shadow flex-1 min-w-[100px]`}>
-                            <div className={`w-3 h-3 rounded-full shrink-0 ${s.dot}`} />
+                        <div key={i} className={`flex items-center gap-3.5 px-5 py-4 premium-card ${s.bg} ${s.border} flex-1 min-w-[120px]`}>
+                            <div className={`w-3.5 h-3.5 rounded-full shrink-0 shadow-sm ${s.dot}`} />
                             <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{s.label}</p>
-                                <p className={`text-xl font-black ${s.color} leading-tight`}>{s.value}</p>
+                                <p className="text-[10px] font-black text-text-muted uppercase tracking-widest leading-none mb-1.5">{s.label}</p>
+                                <p className={`text-2xl font-black ${s.color} leading-none tracking-tight`}>{s.value}</p>
                             </div>
                         </div>
                     ))}
@@ -282,8 +271,7 @@ const MyTasks = () => {
                             <select
                                 value={dateRange}
                                 onChange={(e) => setDateRange(e.target.value)}
-                                style={{ colorScheme: 'dark' }}
-                                className="w-full h-11 bg-white dark:bg-slate-900 border border-[#137fec] dark:border-slate-800 rounded-lg pl-3 pr-8 text-sm font-bold text-slate-700 dark:text-slate-100 outline-none appearance-none cursor-pointer shadow-sm"
+                                className="w-full h-11 bg-bg-card border-2 border-primary/20 hover:border-primary/40 rounded-xl pl-3 pr-8 text-sm font-bold text-text-main outline-none appearance-none cursor-pointer shadow-sm transition-all"
                             >
                                 <option value="All Time">All Time</option>
                                 <option value="Today">Today</option>
@@ -295,7 +283,7 @@ const MyTasks = () => {
                                 <option value="This Year">This Year</option>
                                 <option value="Custom">Custom</option>
                             </select>
-                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
                         </div>
                     </div>
 
@@ -304,7 +292,7 @@ const MyTasks = () => {
                         <>
                             <div className="flex flex-col gap-1">
                                 <span className="text-[10px] font-black text-slate-400 uppercase ml-1">Start Date</span>
-                                <div className="relative border border-[#137fec] dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-white dark:bg-slate-900 min-w-[130px]">
+                                <div className="relative border border-[#137fec] dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-bg-card min-w-[130px]">
                                     <CalendarIcon size={14} className="text-[#137fec] shrink-0" />
                                     <div className="flex flex-col flex-1">
                                         <span className="text-[8px] font-bold text-slate-400 leading-none">Start</span>
@@ -312,15 +300,15 @@ const MyTasks = () => {
                                             type="date"
                                             value={customStartDate}
                                             onChange={(e) => setCustomStartDate(e.target.value)}
-                                            style={{ colorScheme: 'dark' }}
-                                            className="bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 dark:text-slate-100 w-full"
+                                            
+                                            className="bg-transparent border-none outline-none text-[11px] font-bold text-text-main w-full"
                                         />
                                     </div>
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-[10px] font-black text-slate-400 uppercase ml-1">End Date</span>
-                                <div className="relative border border-[#137fec] dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-white dark:bg-slate-900 min-w-[130px]">
+                                <div className="relative border border-[#137fec] dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-bg-card min-w-[130px]">
                                     <CalendarIcon size={14} className="text-[#137fec] shrink-0" />
                                     <div className="flex flex-col flex-1">
                                         <span className="text-[8px] font-bold text-slate-400 leading-none">End</span>
@@ -328,8 +316,8 @@ const MyTasks = () => {
                                             type="date"
                                             value={customEndDate}
                                             onChange={(e) => setCustomEndDate(e.target.value)}
-                                            style={{ colorScheme: 'dark' }}
-                                            className="bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 dark:text-slate-100 w-full"
+                                            
+                                            className="bg-transparent border-none outline-none text-[11px] font-bold text-text-main w-full"
                                         />
                                     </div>
                                 </div>
@@ -354,15 +342,15 @@ const MyTasks = () => {
                         </button>
 
                         {showFilters && (
-                            <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-4 min-w-[240px] animate-in slide-in-from-top-2 duration-200">
+                            <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-bg-card border border-border-main rounded-xl shadow-2xl p-4 flex flex-col gap-4 min-w-[240px] animate-in slide-in-from-top-2 duration-200">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black text-slate-700 dark:text-slate-100 uppercase tracking-widest">Filters</span>
+                                    <span className="text-xs font-black text-text-main uppercase tracking-widest">Filters</span>
                                     <button onClick={handleClearFilters} className="text-[10px] font-bold text-[#137fec] hover:underline">Clear All</button>
                                 </div>
 
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase">Assigned By</label>
-                                    <select value={assignedBy} onChange={e => setAssignedBy(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
+                                    <select value={assignedBy} onChange={e => setAssignedBy(e.target.value)}  className="bg-bg-main border border-border-main p-2 rounded-lg text-xs font-bold outline-none text-text-main">
                                         <option value="All">Anyone</option>
                                         {users.map(u => <option key={u.userId || u.id} value={u.userId || u.id}>{u.firstName} {u.lastName}</option>)}
                                     </select>
@@ -370,7 +358,7 @@ const MyTasks = () => {
 
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase">Priority</label>
-                                    <select value={priority} onChange={e => setPriority(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
+                                    <select value={priority} onChange={e => setPriority(e.target.value)}  className="bg-bg-main border border-border-main p-2 rounded-lg text-xs font-bold outline-none text-text-main">
                                         <option value="All">All Priority</option>
                                         <option value="Urgent">Urgent</option>
                                         <option value="High">High</option>
@@ -381,17 +369,17 @@ const MyTasks = () => {
 
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase">Category</label>
-                                    <select value={category} onChange={e => setCategory(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
+                                    <select value={category} onChange={e => setCategory(e.target.value)}  className="bg-bg-main border border-border-main p-2 rounded-lg text-xs font-bold outline-none text-text-main">
                                         <option value="All">All Categories</option>
                                         {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                     </select>
                                 </div>
 
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase">Tag</label>
-                                    <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
-                                        <option value="All">All Tags</option>
-                                        {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+                                    <label className="text-[10px] font-black text-slate-400 uppercase">Department</label>
+                                    <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}  className="bg-bg-main border border-border-main p-2 rounded-lg text-xs font-bold outline-none text-text-main">
+                                        <option value="All">All Departments</option>
+                                        {allDepartments.map(d => <option key={d} value={d}>{d}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -408,7 +396,7 @@ const MyTasks = () => {
                                 placeholder="Search my tasks..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="w-full h-11 pl-10 pr-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#137fec]/20 text-slate-700 dark:text-slate-100"
+                                className="w-full h-11 pl-10 pr-4 bg-bg-card border border-border-main rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#137fec]/20 text-text-main"
                             />
                         </div>
                     </div>
@@ -429,7 +417,7 @@ const MyTasks = () => {
                     </button>
 
                     {/* View Mode */}
-                    <div className="flex bg-white dark:bg-slate-900 rounded-lg p-1 border border-slate-200 dark:border-slate-800 h-11 items-center self-end">
+                    <div className="flex bg-bg-card rounded-lg p-1 border border-border-main h-11 items-center self-end">
                         {[
                             { mode: 'List', icon: List },
                             { mode: 'Kanban', icon: Layout },
@@ -438,7 +426,7 @@ const MyTasks = () => {
                             <button
                                 key={mode}
                                 onClick={() => setViewMode(mode)}
-                                className={`p-2 rounded-md transition-all ${viewMode === mode ? 'bg-[#137fec] text-white shadow-sm' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                className={`p-2 rounded-md transition-all ${viewMode === mode ? 'bg-[#137fec] text-white shadow-sm' : 'text-slate-400 hover:bg-bg-main'}`}
                             >
                                 <Icon size={18} />
                             </button>
@@ -453,8 +441,8 @@ const MyTasks = () => {
                                 <select
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
-                                    className="w-full h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 text-sm font-bold text-slate-700 dark:text-slate-100 outline-none appearance-none cursor-pointer shadow-sm focus:border-[#137fec]"
-                                    style={{ colorScheme: 'dark' }}
+                                    className="w-full h-11 bg-bg-card border border-border-main rounded-lg pl-3 pr-8 text-sm font-bold text-text-main outline-none appearance-none cursor-pointer shadow-sm focus:border-[#137fec]"
+                                    
                                 >
                                     <option value="Target Date">Target Date</option>
                                     <option value="Created At">Created At</option>
@@ -465,7 +453,7 @@ const MyTasks = () => {
                             </div>
                             <button
                                 onClick={() => setSortDesc(!sortDesc)}
-                                className="h-11 w-11 flex justify-center items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm focus:border-[#137fec] active:scale-95"
+                                className="h-11 w-11 flex justify-center items-center bg-bg-card border border-border-main rounded-lg text-text-muted hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm focus:border-[#137fec] active:scale-95"
                                 title={sortDesc ? 'Descending' : 'Ascending'}
                             >
                                 <ArrowUpDown size={18} className={sortDesc ? '' : 'rotate-180 transform transition-transform'} />
@@ -475,7 +463,7 @@ const MyTasks = () => {
                 </div>
 
                 {/* ── Status Tabs ── */}
-                <div className="flex justify-center mb-8 border-b border-slate-200 dark:border-slate-800 relative">
+                <div className="flex justify-center mb-8 border-b border-border-main relative">
                     <div className="flex gap-6 overflow-x-auto no-scrollbar">
                         {[
                             { label: 'All', dotClass: 'bg-slate-400', key: 'All' },
@@ -487,11 +475,11 @@ const MyTasks = () => {
                              <button
                                  key={tab.key}
                                  onClick={() => setStatusFilter(tab.key)}
-                                 className={`flex items-center gap-2 pb-4 px-2 transition-all relative whitespace-nowrap ${statusFilter === tab.key ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                 className={`flex items-center gap-2 pb-4 px-2 transition-all relative whitespace-nowrap ${statusFilter === tab.key ? 'text-text-main' : 'text-text-muted hover:text-text-main'}`}
                              >
                                  <div className={`w-3 h-3 rounded-full shrink-0 ${tab.dotClass} ${statusFilter === tab.key ? 'ring-2 ring-primary/20 shadow-sm' : ''}`} />
                                  <span className="text-sm font-bold uppercase tracking-wide">
-                                     {tab.label} — <span className={`${statusFilter === tab.key ? 'text-primary dark:text-blue-400 font-black' : 'text-slate-500 dark:text-slate-500 font-bold'} transition-colors`}>{getStatusCount(tab.key)}</span>
+                                     {tab.label} — <span className={`${statusFilter === tab.key ? 'text-primary dark:text-blue-400 font-black' : 'text-text-muted font-bold'} transition-colors`}>{getStatusCount(tab.key)}</span>
                                  </span>
                                  {statusFilter === tab.key && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full shadow-[0_-2px_10px_rgba(19,127,236,0.4)]" />}
                              </button>
@@ -505,7 +493,7 @@ const MyTasks = () => {
                         {priority !== 'All' && <FilterChip label={`Priority: ${priority}`} onRemove={() => setPriority('All')} />}
                         {category !== 'All' && <FilterChip label={`Category: ${category}`} onRemove={() => setCategory('All')} />}
                         {assignedBy !== 'All' && <FilterChip label={`Assigned By: ${getUserName(assignedBy)}`} onRemove={() => setAssignedBy('All')} />}
-                        {tagFilter !== 'All' && <FilterChip label={`Tag: ${tagFilter}`} onRemove={() => setTagFilter('All')} />}
+                        {departmentFilter !== 'All' && <FilterChip label={`Department: ${departmentFilter}`} onRemove={() => setDepartmentFilter('All')} />}
                     </div>
                 )}
 
@@ -517,11 +505,11 @@ const MyTasks = () => {
                             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Loading My Tasks...</p>
                         </div>
                     ) : filteredTasks.length === 0 ? (
-                        <div className="bg-white/40 dark:bg-slate-900/40 border-2 border-dashed border-white/60 dark:border-slate-800 rounded-3xl p-20 flex flex-col items-center justify-center text-center">
-                            <div className="w-20 h-20 bg-white/60 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                        <div className="bg-bg-card/40 border-2 border-dashed border-white/60 dark:border-slate-800 rounded-3xl p-20 flex flex-col items-center justify-center text-center">
+                            <div className="w-20 h-20 bg-bg-card/60 rounded-full flex items-center justify-center mb-6">
                                 <CheckSquare size={40} className="text-slate-300 dark:text-slate-600" />
                             </div>
-                            <h3 className="text-xl font-black text-slate-700 dark:text-slate-200 mb-2">
+                            <h3 className="text-xl font-black text-text-main mb-2">
                                 {myTasks.length === 0 ? 'No Tasks Assigned to You' : 'No Tasks Match Filters'}
                             </h3>
                             <p className="text-slate-500 font-medium">
@@ -538,8 +526,8 @@ const MyTasks = () => {
                     ) : viewMode === 'List' ? (
                         sortedTasks.map((task) => (
                             <div
-                                key={task.id}
-                                className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 premium-shadow premium-shadow-hover transition-all duration-300 ${expandedTasks.has(task.id) ? 'ring-2 ring-primary/20 shadow-md' : ''}`}
+                                key={`${task.recordSource}_${task.id}`}
+                                className={`premium-card premium-card-hover border-border-main p-0.5 ${expandedTasks.has(task.id) ? 'ring-4 ring-primary/10' : ''}`}
                             >
                                 <div
                                     className="p-4 flex items-center gap-4 cursor-pointer"
@@ -559,7 +547,7 @@ const MyTasks = () => {
                                             <span className="text-xs font-bold text-slate-400 whitespace-nowrap hidden sm:block">
                                                 From: {task.assignerFirstName} {task.assignerLastName}
                                             </span>
-                                            <span className="text-base font-black text-slate-800 dark:text-slate-100 truncate">{task.taskTitle}</span>
+                                            <span className="text-base font-black text-text-main truncate">{task.taskTitle}</span>
                                             <div className="flex items-center gap-1 ml-1 scale-75 origin-left shrink-0">
                                                 {task.voiceNoteUrl && <Mic size={14} className="text-blue-500" strokeWidth={3} />}
                                                 {task.referenceDocs && <Paperclip size={14} className="text-orange-500" strokeWidth={3} />}
@@ -571,7 +559,7 @@ const MyTasks = () => {
                                                     task.status === 'In Progress' ? 'bg-orange-50 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800' :
                                                         task.status === 'Overdue' ? 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800' :
                                                             task.status === 'Hold' ? 'bg-amber-50 dark:bg-amber-900/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800' :
-                                                                'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                                                                'bg-bg-main text-text-muted border-slate-200 dark:border-slate-700'
                                                 }`}>{task.status}</span>
 
                                             {/* Due date */}
@@ -605,7 +593,7 @@ const MyTasks = () => {
                                 {expandedTasks.has(task.id) && (
                                     <div className="px-6 pb-5 pt-2 border-t border-slate-50 dark:border-slate-800 animate-in slide-in-from-top-2 duration-300 space-y-3">
                                         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-400 pt-2">
-                                            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                                            <div className="flex items-center gap-1.5 text-text-muted">
                                                 <Clock size={14} className="text-red-400" />
                                                 Due: {task.dueDate
                                                     ? new Date(task.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -622,7 +610,7 @@ const MyTasks = () => {
                                                 </div>
                                             )}
                                             {task.priority && (
-                                                <div className={`flex items-center gap-1.5 ${task.priority === 'Urgent' ? 'text-red-500' : task.priority === 'High' ? 'text-orange-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                <div className={`flex items-center gap-1.5 ${task.priority === 'Urgent' ? 'text-red-500' : task.priority === 'High' ? 'text-orange-500' : 'text-text-muted'}`}>
                                                     <Flag size={14} fill="currentColor" />
                                                     {task.priority}
                                                 </div>
@@ -631,7 +619,7 @@ const MyTasks = () => {
 
                                         {/* Description snippet */}
                                         {task.description && (
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed line-clamp-2 border-l-2 border-[#137fec]/30 pl-3">
+                                            <p className="text-xs text-text-muted font-medium leading-relaxed line-clamp-2 border-l-2 border-[#137fec]/30 pl-3">
                                                 {task.description}
                                             </p>
                                         )}
@@ -698,3 +686,6 @@ const MyTasks = () => {
 };
 
 export default MyTasks;
+
+
+

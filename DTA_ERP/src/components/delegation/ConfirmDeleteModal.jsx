@@ -11,7 +11,7 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, title = "Confirm Delet
                 onClick={onClose} 
             />
             
-            <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-red-500/10">
+            <div className="relative w-full max-w-sm bg-bg-card rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-red-500/10">
                 <div className="bg-red-500/5 px-4.5 py-3 flex items-center justify-between border-b border-red-500/10">
                     <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/20">
@@ -25,7 +25,7 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, title = "Confirm Delet
                 </div>
 
                 <div className="p-4.5 space-y-4">
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold leading-normal text-center italic px-2">
+                    <p className="text-[11px] text-text-muted font-bold leading-normal text-center italic px-2">
                         {message}
                     </p>
 
@@ -33,7 +33,7 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, title = "Confirm Delet
                         <button 
                             type="button" 
                             onClick={onClose}
-                            className="flex-1 py-2 text-[10px] font-black text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-800 rounded-lg transition-all"
+                            className="flex-1 py-2 text-[10px] font-black text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 bg-bg-main rounded-lg transition-all"
                         >
                             CANCEL
                         </button>
@@ -60,3 +60,6 @@ const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, title = "Confirm Delet
 };
 
 export default ConfirmDeleteModal;
+
+
+

@@ -38,11 +38,11 @@ const RecentActivity = () => {
 
   const statusClasses = {
     Completed:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+      "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20",
     Pending:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+      "bg-amber-500/10 text-amber-600 border border-amber-500/20",
     Processing:
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+      "bg-blue-500/10 text-blue-600 border border-blue-500/20",
   };
 
   const moduleColors = {
@@ -53,19 +53,19 @@ const RecentActivity = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm overflow-hidden">
+    <div className="bg-bg-card border border-border-main rounded-2xl p-6 shadow-sm overflow-hidden premium-card">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+          <h3 className="text-sm font-black text-text-main uppercase tracking-widest leading-none mb-1.5">
             Recent Activity
           </h3>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs font-bold text-text-muted">
             Real-time log of company-wide updates
           </p>
         </div>
-        <button className="text-sm font-bold text-slate-500 hover:text-primary flex items-center gap-1.5 transition-colors">
+        <button className="text-[10px] font-black text-text-muted hover:text-primary flex items-center gap-1.5 transition-all uppercase tracking-widest px-3 py-1 bg-bg-main rounded-lg border border-border-main/50">
           Filter{" "}
-          <span className="material-symbols-outlined text-[18px]">
+          <span className="material-symbols-outlined text-[16px]">
             filter_list
           </span>
         </button>
@@ -74,48 +74,48 @@ const RecentActivity = () => {
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left border-separate border-spacing-y-2">
           <thead>
-            <tr className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+            <tr className="text-[10px] text-text-muted font-black uppercase tracking-widest">
               <th className="px-4 py-2">Module</th>
               <th className="px-4 py-2">Description</th>
               <th className="px-4 py-2">User</th>
-              <th className="px-4 py-2">Time</th>
-              <th className="px-4 py-2">Status</th>
+              <th className="px-4 py-2 text-right">Time</th>
+              <th className="px-4 py-2 text-right">Status</th>
             </tr>
           </thead>
           <tbody>
             {activities.map((activity, index) => (
               <tr
                 key={index}
-                className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                className="group hover:bg-bg-main transition-all duration-300 cursor-default"
               >
-                <td className="px-4 py-4 font-bold text-slate-900 dark:text-white first:rounded-l-xl flex items-center gap-2.5">
+                <td className="px-4 py-4 font-bold text-text-main first:rounded-l-xl flex items-center gap-2.5">
                   <span
-                    className={`w-2.5 h-2.5 rounded-full ${moduleColors[activity.color]}`}
+                    className={`w-2.5 h-2.5 rounded-full shadow-sm ${moduleColors[activity.color]}`}
                   ></span>
-                  {activity.module}
+                  <span className="text-xs uppercase tracking-tight font-black">{activity.module}</span>
                 </td>
-                <td className="px-4 py-4 text-slate-600 dark:text-slate-300">
+                <td className="px-4 py-4 text-text-main font-medium text-xs">
                   {activity.description}
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="bg-slate-200 dark:bg-slate-700 text-[10px] font-bold size-7 rounded-full flex items-center justify-center">
+                    <div className="bg-primary/10 text-primary text-[10px] font-black size-7 rounded-full flex items-center justify-center border border-primary/20 uppercase tracking-tighter">
                       {activity.user
                         .split(" ")
                         .map((n) => n[0])
                         .join("")}
                     </div>
-                    <span className="text-slate-600 dark:text-slate-400 font-medium">
+                    <span className="text-text-main text-xs font-black">
                       {activity.user}
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-4 text-slate-500 font-medium">
+                <td className="px-4 py-4 text-text-muted font-black text-[10px] uppercase tracking-tighter text-right">
                   {activity.time}
                 </td>
-                <td className="px-4 py-4 last:rounded-r-xl">
+                <td className="px-4 py-4 last:rounded-r-xl text-right">
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold ${statusClasses[activity.status]}`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${statusClasses[activity.status]}`}
                   >
                     {activity.status}
                   </span>
@@ -126,7 +126,7 @@ const RecentActivity = () => {
         </table>
       </div>
 
-      <button className="w-full mt-4 py-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all">
+      <button className="w-full mt-6 py-3 rounded-xl border-2 border-dashed border-border-main text-[10px] font-black text-text-muted hover:text-primary hover:border-primary/30 hover:bg-bg-main transition-all uppercase tracking-widest">
         View All Activity Logs
       </button>
     </div>
@@ -134,3 +134,7 @@ const RecentActivity = () => {
 };
 
 export default RecentActivity;
+
+
+
+

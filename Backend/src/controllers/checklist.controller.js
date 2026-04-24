@@ -150,9 +150,9 @@ exports.updateChecklistStatus = async (req, res) => {
         const completedAt = status === 'Completed' ? new Date() : null;
         const query = `
             UPDATE checklist 
-            SET status = $1, 
+            SET status = $1::VARCHAR, 
                 proof_file_url = COALESCE($2, proof_file_url), 
-                completed_at = CASE WHEN $1 = 'Completed' THEN COALESCE($4, NOW()) ELSE completed_at END,
+                completed_at = CASE WHEN $1::VARCHAR = 'Completed' THEN COALESCE($4, NOW()) ELSE completed_at END,
                 revision_count = $5
             WHERE id = $3 RETURNING *`;
         const result = await db.query(query, [status, proofFileUrl, id, completedAt, newRevisionCount]);

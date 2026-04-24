@@ -2,7 +2,10 @@ import api from './api';
 
 const delegationService = {
     createDelegation: async (delegationData) => {
-        const response = await api.post('/delegations', delegationData);
+        const isFormData = typeof FormData !== 'undefined' && delegationData instanceof FormData;
+        const response = await api.post('/delegations', delegationData, isFormData 
+            ? { headers: { 'Content-Type': 'multipart/form-data' } }
+            : undefined);
         return response.data.data;
     },
     createDelegationTemplate: async (templateData) => {
@@ -23,7 +26,10 @@ const delegationService = {
         return response.data.data;
     },
     updateDelegation: async (id, updates) => {
-        const response = await api.patch(`/delegations/${id}`, updates);
+        const isFormData = typeof FormData !== 'undefined' && updates instanceof FormData;
+        const response = await api.patch(`/delegations/${id}`, updates, isFormData
+            ? { headers: { 'Content-Type': 'multipart/form-data' } }
+            : undefined);
         return response.data.data;
     },
     deleteDelegation: async (id, payload = {}) => {

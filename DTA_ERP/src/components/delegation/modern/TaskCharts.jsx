@@ -19,7 +19,7 @@ const DonutChart = ({ data, title }) => {
     let cumulativeValue = 0;
 
     return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-sm flex flex-col md:flex-row items-center gap-6 flex-1 min-w-[300px]">
+        <div className="bg-bg-card border border-border-main p-4 rounded-3xl shadow-sm flex flex-col md:flex-row items-center gap-6 flex-1 min-w-[300px]">
             <div className="flex-1">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4">{title}</h3>
                 <div className="relative w-[120px] h-[120px]">
@@ -67,7 +67,7 @@ const DonutChart = ({ data, title }) => {
                         )}
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-10 h-10 bg-white dark:bg-slate-900 rounded-full" />
+                        <div className="w-10 h-10 bg-bg-card rounded-full" />
                     </div>
                 </div>
             </div>
@@ -78,7 +78,7 @@ const DonutChart = ({ data, title }) => {
                     return (
                         <div key={index} className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                            <span className="text-[11px] font-medium text-text-muted whitespace-nowrap">
                                 {item.label} - {item.value} ({percentage}%)
                             </span>
                         </div>
@@ -104,7 +104,7 @@ const StackedBarChart = ({ data, title, xLabel }) => {
     const yAxisTicks = [0, Math.ceil(maxValue / 4), Math.ceil(maxValue / 2), Math.ceil((maxValue * 3) / 4), maxValue];
 
     return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-sm flex flex-col h-full min-h-[400px]">
+        <div className="bg-bg-card border border-border-main p-6 rounded-3xl shadow-sm flex flex-col h-full min-h-[400px]">
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white uppercase tracking-tight">{title}</h3>
                 <div className="flex gap-4">
@@ -126,7 +126,7 @@ const StackedBarChart = ({ data, title, xLabel }) => {
                 {/* Grid Lines */}
                 <div className="absolute left-8 right-0 top-0 bottom-20 flex flex-col justify-between pointer-events-none">
                     {yAxisTicks.map((_, i) => (
-                        <div key={i} className="w-full border-t border-slate-100 dark:border-slate-800 h-0" />
+                        <div key={i} className="w-full border-t border-border-main h-0" />
                     ))}
                 </div>
 
@@ -137,7 +137,7 @@ const StackedBarChart = ({ data, title, xLabel }) => {
                         return (
                             <div key={i} className="flex flex-col items-center justify-end h-full" style={{ width: `${100 / paginatedData.length}%` }}>
                                 {total > 0 ? (
-                                    <div className="flex flex-col-reverse w-4 rounded-t-full overflow-hidden transition-all duration-700 bg-slate-50 dark:bg-slate-800/50" 
+                                    <div className="flex flex-col-reverse w-4 rounded-t-full overflow-hidden transition-all duration-700 bg-bg-main/50" 
                                          style={{ height: `${(total / maxValue) * 100}%` }}>
                                         <div className="w-full hover:brightness-110 transition-all" style={{ height: `${(d.pending / total) * 100}%`, backgroundColor: COLORS.pending }} title={`Pending: ${d.pending}`} />
                                         <div className="w-full hover:brightness-110 transition-all" style={{ height: `${(d.overdue / total) * 100}%`, backgroundColor: COLORS.overdue }} title={`Overdue: ${d.overdue}`} />
@@ -156,7 +156,7 @@ const StackedBarChart = ({ data, title, xLabel }) => {
                 <div className="absolute left-8 right-0 bottom-6 h-12 flex items-start">
                     {paginatedData.map((d, i) => (
                         <div key={i} className="flex flex-col items-center text-center px-1" style={{ width: `${100 / paginatedData.length}%` }}>
-                            <div className="text-[10px] font-extrabold text-slate-700 dark:text-slate-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-full leading-tight" title={d.label}>
+                            <div className="text-[10px] font-extrabold text-text-main whitespace-nowrap overflow-hidden text-ellipsis max-w-full leading-tight" title={d.label}>
                                 {d.label}
                             </div>
                             {d.sublabel && (
@@ -305,4 +305,7 @@ const TaskCharts = ({ tasks = [], users = [], groups = [], currentUserId, type =
 };
 
 export default TaskCharts;
+
+
+
 

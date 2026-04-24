@@ -160,13 +160,13 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
       });
 
       try {
-         if (delegationToEdit) {
+          if (delegationToEdit) {
             await delegationService.updateDelegation(delegationToEdit.id, data);
             toast.success('Delegation updated successfully');
-         } else {
-            await taskService.createTask(data);
-            toast.success('Task created successfully');
-         }
+          } else {
+            await delegationService.createDelegation(data);
+            toast.success('Delegation created successfully');
+          }
          onSuccess();
          onClose();
          setIsSubmitting(true);
@@ -566,3 +566,6 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
 };
 
 export default CreateDelegationModal;
+
+
+

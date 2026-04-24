@@ -170,7 +170,7 @@ exports.createDelegation = async (req, res) => {
           );
           if (rTime) {
             await client.query(
-              `INSERT INTO task_reminders (delegation_id, type, time_value, time_unit, trigger_type, reminder_time)
+              `INSERT INTO delegation_reminders (delegation_id, type, time_value, time_unit, trigger_type, reminder_time)
                              VALUES ($1, $2, $3, $4, $5, $6)`,
               [
                 newDelegation.id,
@@ -190,13 +190,6 @@ exports.createDelegation = async (req, res) => {
         ...newDelegation,
         triggeredById: final_delegator_id
       });
-      if (false) await createNotification(
-        targetDoerId,
-        "New Task Assigned",
-        `You have been assigned: ${final_name}`,
-        "delegation",
-        newDelegation.id,
-      );
     }
 
     await client.query("COMMIT");
@@ -226,10 +219,10 @@ exports.getDelegations = async (req, res) => {
       values = [];
     if (role === "SuperAdmin" || role === "Admin") {
       query =
-        "SELECT * FROM delegation WHERE record_source = 'delegation' AND deleted_at IS NULL ORDER BY created_at DESC";
+        "SELECT * FROM delegation WHERE deleted_at IS NULL ORDER BY created_at DESC";
     } else {
       query =
-        "SELECT * FROM delegation WHERE record_source = 'delegation' AND deleted_at IS NULL AND (doer_id = $1 OR (delegator_id = $1 AND doer_id != $1) OR $1 = ANY(in_loop_ids) OR $1 = ANY(subscribed_by)) ORDER BY created_at DESC";
+        "SELECT * FROM delegation WHERE deleted_at IS NULL AND (doer_id = $1 OR (delegator_id = $1 AND doer_id != $1) OR $1 = ANY(in_loop_ids) OR $1 = ANY(subscribed_by)) ORDER BY created_at DESC";
       values = [userId];
     }
     const result = await db.query(query, values);
@@ -247,7 +240,7 @@ exports.addRemark = async (req, res) => {
   const username = req.user.email || req.user.name;
   try {
     const query =
-      "INSERT INTO remark (delegation_id, user_id, username, remark) VALUES ($1, $2, $3, $4) RETURNING *";
+      "INSERT INTO delegation_remarks (delegation_id, user_id, username, remark) VALUES ($1, $2, $3, $4) RETURNING *";
     const result = await db.query(query, [id, userId, username, remark]);
     await db.query(
       "UPDATE delegation SET remarks = array_append(remarks, $1) WHERE id = $2",
@@ -269,15 +262,15 @@ exports.getDelegationDetail = async (req, res) => {
     if (delegationRes.rows.length === 0)
       return res.status(404).json({ message: "Not found" });
     const remarksRes = await db.query(
-      "SELECT * FROM remark WHERE delegation_id = $1 ORDER BY created_at ASC",
+      "SELECT * FROM delegation_remarks WHERE delegation_id = $1 ORDER BY created_at ASC",
       [id],
     );
     const historyRes = await db.query(
-      "SELECT * FROM revision_history WHERE delegation_id = $1 ORDER BY created_at DESC",
+      "SELECT * FROM delegation_revision_history WHERE delegation_id = $1 ORDER BY created_at DESC",
       [id],
     );
     const remindersRes = await db.query(
-      "SELECT * FROM task_reminders WHERE delegation_id = $1",
+      "SELECT * FROM delegation_reminders WHERE delegation_id = $1",
       [id],
     );
     const subtasksRes = await db.query(
@@ -299,7 +292,7 @@ exports.getDelegationDetail = async (req, res) => {
     );
 
     const row = delegationRes.rows[0];
-    const { record_source, ...delegationRow } = row;
+    const delegationRow = row;
     const remarks = remarksRes.rows.map((r) => ({
       id: r.id,
       userId: r.user_id,
@@ -393,9 +386,19 @@ exports.updateDelegation = async (req, res) => {
 
     const parseIdArray = (value) => {
       if (value === undefined || value === null || value === '' || value === 'undefined' || value === 'null') return null;
-      const raw = Array.isArray(value) ? value : (typeof value === 'string' ? (() => {
-        try { return JSON.parse(value); } catch { return [value]; }
-      })() : [value]);
+      let raw;
+      if (Array.isArray(value)) {
+        raw = value;
+      } else if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          raw = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          raw = [value];
+        }
+      } else {
+        raw = [value];
+      }
       const ids = raw
         .map((v) => parseInt(v))
         .filter((v) => !isNaN(v));
@@ -666,7 +669,7 @@ exports.updateDelegation = async (req, res) => {
 
     if (statusChanged || dueDateChanged) {
       await client.query(
-        `INSERT INTO revision_history
+        `INSERT INTO delegation_revision_history
           (delegation_id, old_due_date, new_due_date, old_status, new_status, reason, changed_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
@@ -698,7 +701,7 @@ exports.updateDelegation = async (req, res) => {
 
     if (updates.remark) {
       await client.query(
-        "INSERT INTO remark (delegation_id, user_id, username, remark) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO delegation_remarks (delegation_id, user_id, username, remark) VALUES ($1, $2, $3, $4)",
         [
           id,
           req.user.id || req.user.User_Id || changedBy,
@@ -713,7 +716,7 @@ exports.updateDelegation = async (req, res) => {
     }
 
     if (parsedReminders !== null && Array.isArray(parsedReminders)) {
-      await client.query("DELETE FROM task_reminders WHERE delegation_id = $1", [id]);
+      await client.query("DELETE FROM delegation_reminders WHERE delegation_id = $1", [id]);
       for (const reminder of parsedReminders) {
         const timeValue = parseInt(
           reminder?.timeValue ?? reminder?.timingValue ?? "0",
@@ -734,7 +737,7 @@ exports.updateDelegation = async (req, res) => {
         );
         if (!reminderTime) continue;
         await client.query(
-          `INSERT INTO task_reminders
+          `INSERT INTO delegation_reminders
             (delegation_id, type, time_value, time_unit, trigger_type, reminder_time)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [id, type, Number.isNaN(timeValue) ? 0 : timeValue, timeUnit, triggerType, reminderTime],
@@ -827,76 +830,7 @@ exports.subscribeToDelegation = async (req, res) => {
   }
 };
 
-exports.getMyTasks = async (req, res) => {
-  const userId = req.user.id || req.user.User_Id;
-  try {
-    const result = await db.query(
-      "SELECT * FROM delegation WHERE doer_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
-      [userId],
-    );
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Error" });
-  }
-};
-
-exports.getDelegatedTasks = async (req, res) => {
-  const userId = req.user.id || req.user.User_Id;
-  try {
-    const result = await db.query(
-      "SELECT * FROM delegation WHERE record_source = 'delegation' AND delegator_id = $1 AND doer_id != $1 AND deleted_at IS NULL ORDER BY created_at DESC",
-      [userId],
-    );
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Error" });
-  }
-};
-
-exports.getSubscribedTasks = async (req, res) => {
-  const userId = req.user.id || req.user.User_Id;
-  try {
-    const result = await db.query(
-      "SELECT * FROM delegation WHERE ($1 = ANY(subscribed_by) OR $1 = ANY(in_loop_ids)) AND deleted_at IS NULL ORDER BY created_at DESC",
-      [userId],
-    );
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Error" });
-  }
-};
-
-exports.getAllTasks = async (req, res) => {
-  const userId = req.user.id || req.user.User_Id;
-  const { role } = req.user;
-  try {
-    let query,
-      values = [];
-    if (role === "Admin" || role === "SuperAdmin") {
-      query =
-        "SELECT * FROM delegation WHERE record_source = 'delegation' AND deleted_at IS NULL ORDER BY created_at DESC";
-    } else {
-      query =
-        "SELECT * FROM delegation WHERE record_source = 'delegation' AND deleted_at IS NULL AND (doer_id = $1 OR (delegator_id = $1 AND doer_id != $1) OR $1 = ANY(in_loop_ids) OR $1 = ANY(subscribed_by)) ORDER BY created_at DESC";
-      values = [userId];
-    }
-    const result = await db.query(query, values);
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Error" });
-  }
-};
-
-exports.getDeletedTasks = async (req, res) => {
-  try {
-    const result = await db.query(
-      "SELECT * FROM delegation WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
-    );
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Error" });
-  }
-};
+// Redundant task management exports removed as they are now handled by task.controller.js
 
 exports.streamAudio = async (req, res) => {
   const { fileId } = req.params;

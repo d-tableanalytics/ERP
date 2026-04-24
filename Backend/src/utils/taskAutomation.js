@@ -18,9 +18,8 @@ const processRecurringTasks = async () => {
     try {
         // Fetch all active recurring tasks
         const query = `
-            SELECT * FROM delegation 
-            WHERE record_source = 'task' 
-            AND deleted_at IS NULL 
+            SELECT * FROM tasks 
+            WHERE deleted_at IS NULL 
             AND (repeat_settings->>'isRepeat')::boolean = true
             AND (
                 repeat_settings->>'repeatEndDate' IS NULL 
@@ -79,7 +78,7 @@ const processRecurringTasks = async () => {
             if (shouldCreate) {
                 // Prevent duplicate creation for today (check if a child task exists for today)
                 const duplicateCheck = await db.pool.query(
-                    'SELECT id FROM delegation WHERE parent_id = $1 AND created_at::date = $2::date',
+                    'SELECT id FROM tasks WHERE parent_id = $1 AND created_at::date = $2::date',
                     [task.id, todayStr]
                 );
 
@@ -94,7 +93,7 @@ const processRecurringTasks = async () => {
                     }
 
                     const newTaskData = {
-                        delegation_name: task.delegation_name,
+                        task_title: task.task_title,
                         description: task.description,
                         delegator_id: task.delegator_id,
                         delegator_name: task.delegator_name,
@@ -113,8 +112,7 @@ const processRecurringTasks = async () => {
                         repeat_settings: { ...settings, isRepeat: false }, // Child tasks are not recurring
                         in_loop_ids: task.in_loop_ids,
                         group_id: task.group_id,
-                        parent_id: task.id,
-                        record_source: 'task'
+                        parent_id: task.id
                     };
 
                     await Task.create(newTaskData);

@@ -22,11 +22,7 @@ router.get('/audio/:fileId', delegationController.streamAudio);
 router.use(verifyToken);
 
 // ── Task Management Filtered Views ────────────────────────────────────────────
-router.get('/my-tasks',         delegationController.getMyTasks);
-router.get('/delegated-tasks',  delegationController.getDelegatedTasks);
-router.get('/subscribed-tasks', delegationController.getSubscribedTasks);
-router.get('/all-tasks',        delegationController.getAllTasks);
-router.get('/deleted-tasks',    delegationController.getDeletedTasks);
+// (Removed: Handled by task.routes.js)
 
 // ── Subscribe to a delegation ─────────────────────────────────────────────────
 router.patch('/:id/subscribe',  delegationController.subscribeToDelegation);

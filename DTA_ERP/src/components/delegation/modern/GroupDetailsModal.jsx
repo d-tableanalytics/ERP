@@ -368,3 +368,6 @@ const GroupDetailsModal = ({ isOpen, onClose, groupId, onSuccess }) => {
 };
 
 export default GroupDetailsModal;
+
+
+

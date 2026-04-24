@@ -18,6 +18,10 @@ import {
   Mic,
   ShieldCheck,
   Trash2,
+  Square,
+  Play,
+  Pause,
+  StopCircle,
   Tag,
   Bell,
   BellOff,
@@ -34,13 +38,13 @@ import {
   ImageIcon,
   FileText,
   Maximize2,
-  Pause,
   Volume2,
   ExternalLink,
   Eye,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import taskService from "../../services/taskService";
+import delegationService from "../../services/delegationService";
 import teamService from "../../services/teamService";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import CreateDelegationModal from "./CreateDelegationModal";
@@ -50,7 +54,7 @@ import TaskCreationForm from "./TaskCreationForm";
 
 import usePermissions from "../../hooks/usePermissions";
 
-const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
+const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuccess }) => {
   const { can, userId: loggedInUserId } = usePermissions();
   const [task, setTask] = useState(null);
   const [users, setUsers] = useState([]);
@@ -70,6 +74,12 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
   const [selectedReferenceFiles, setSelectedReferenceFiles] = useState([]);
   const [selectedEvidenceFiles, setSelectedEvidenceFiles] = useState([]);
   const [selectedVoiceNote, setSelectedVoiceNote] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [voiceState, setVoiceState] = useState('idle'); // 'idle', 'recording', 'recorded'
+  const [showRecorder, setShowRecorder] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const referenceDocsInputRef = useRef(null);
   const evidenceFilesInputRef = useRef(null);
   const voiceNoteInputRef = useRef(null);
@@ -80,12 +90,65 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
     }
   }, [isOpen, taskId]);
 
+  useEffect(() => {
+    let interval;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
+  const handleStartRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setSelectedVoiceNote(blob);
+        setVoiceState('recorded');
+        setIsRecording(false);
+        // Stop all tracks
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setVoiceState('recording');
+      setRecordingTime(0);
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      toast.error('Could not access microphone');
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleDeleteRecording = () => {
+    setSelectedVoiceNote(null);
+    setVoiceState('idle');
+    setRecordingTime(0);
+  };
+
   const fetchInitialData = async () => {
     try {
       setLoading(true);
       setError(null);
       const [taskRes, usersRes] = await Promise.all([
-        taskService.getTaskById(taskId),
+        taskSource === 'delegation' 
+          ? delegationService.getDelegationById(taskId) 
+          : taskService.getTaskById(taskId),
         teamService.getUsers(),
       ]);
       setTask(taskRes);
@@ -101,7 +164,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
   const fetchTaskDetails = async () => {
     try {
-      const response = await taskService.getTaskById(taskId);
+      const response = await (taskSource === 'delegation' 
+        ? delegationService.getDelegationById(taskId) 
+        : taskService.getTaskById(taskId));
       setTask(response);
       setStatus(response.status);
     } catch (err) {
@@ -153,11 +218,17 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
       const userId = storedUser?.user?.id || storedUser?.id;
       const itemName = updatedChecklist[index].itemName || updatedChecklist[index].text || `Item ${index + 1}`;
 
-      await taskService.updateTask(taskId, {
+      const updates = {
         checklistItems: updatedChecklist,
         changedBy: userId,
         reason: `Checklist item '${itemName}' marked as ${updatedChecklist[index].completed ? "completed" : "incomplete"}.`,
-      });
+      };
+
+      if (taskSource === 'delegation') {
+        await delegationService.updateDelegation(taskId, updates);
+      } else {
+        await taskService.updateTask(taskId, updates);
+      }
 
       toast.success(
         updatedChecklist[index].completed
@@ -218,10 +289,12 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
           selectedEvidenceFiles.length === 0
         ) {
           if (remark.trim()) {
-            await taskService.addRemark(taskId, {
-              userId,
-              remark: remark.trim(),
-            });
+            const remarkPayload = { userId, remark: remark.trim() };
+            if (taskSource === 'delegation') {
+              await delegationService.addRemark(taskId, remarkPayload);
+            } else {
+              await taskService.addRemark(taskId, remarkPayload);
+            }
             setRemark("");
           }
           toast.dismiss(loadingToastId);
@@ -242,15 +315,24 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
             formData.append("evidence_files", file),
           );
           if (selectedVoiceNote) {
-            formData.append("voice_note", selectedVoiceNote);
+            formData.append("voice_note", selectedVoiceNote, "voice-note.webm");
           }
-          await taskService.updateTask(taskId, formData);
+          if (taskSource === 'delegation') {
+            await delegationService.updateDelegation(taskId, formData);
+          } else {
+            await taskService.updateTask(taskId, formData);
+          }
         } else {
-          await taskService.updateTask(taskId, {
+          const updates = {
             status: status,
             changedBy: userId,
             reason: remark.trim() || `Status updated to ${status}`,
-          });
+          };
+          if (taskSource === 'delegation') {
+            await delegationService.updateDelegation(taskId, updates);
+          } else {
+            await taskService.updateTask(taskId, updates);
+          }
         }
       } else if (hasUploads) {
         const formData = new FormData();
@@ -266,22 +348,31 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
           formData.append("evidence_files", file),
         );
         if (selectedVoiceNote) {
-          formData.append("voice_note", selectedVoiceNote);
+          formData.append("voice_note", selectedVoiceNote, "voice-note.webm");
         }
-        await taskService.updateTask(taskId, formData);
+        if (taskSource === 'delegation') {
+          await delegationService.updateDelegation(taskId, formData);
+        } else {
+          await taskService.updateTask(taskId, formData);
+        }
       }
 
       if (remark.trim()) {
-        await taskService.addRemark(taskId, {
-          userId,
-          remark: remark.trim(),
-        });
+        const remarkPayload = { userId, remark: remark.trim() };
+        if (taskSource === 'delegation') {
+          await delegationService.addRemark(taskId, remarkPayload);
+        } else {
+          await taskService.addRemark(taskId, remarkPayload);
+        }
         setRemark("");
       }
 
       setSelectedReferenceFiles([]);
       setSelectedEvidenceFiles([]);
       setSelectedVoiceNote(null);
+      setVoiceState('idle');
+      setShowRecorder(false);
+      setRecordingTime(0);
       if (referenceDocsInputRef.current) referenceDocsInputRef.current.value = "";
       if (evidenceFilesInputRef.current) evidenceFilesInputRef.current.value = "";
       if (voiceNoteInputRef.current) voiceNoteInputRef.current.value = "";
@@ -392,9 +483,13 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
     const loadingToastId = toast.loading("Deleting task...");
     try {
       setSubmitting(true);
-      await taskService.softDeleteTask(taskId);
+      if (taskSource === 'delegation') {
+        await delegationService.softDeleteDelegation(taskId);
+      } else {
+        await taskService.softDeleteTask(taskId);
+      }
       toast.dismiss(loadingToastId);
-      toast.success("🗑️ Task moved to trash successfully", { duration: 3000 });
+      toast.success("🗑️ Record moved to trash successfully", { duration: 3000 });
       setShowDeleteConfirm(false);
       onClose();
       if (onSuccess) onSuccess();
@@ -442,9 +537,15 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
       setSubmitting(true);
       if (!Array.isArray(loopIds)) loopIds = [];
       loopIds = [...loopIds, currentUserId];
-      await taskService.updateTask(taskId, { inLoopIds: loopIds });
+      
+      if (taskSource === 'delegation') {
+        await delegationService.updateDelegation(taskId, { inLoopIds: loopIds });
+      } else {
+        await taskService.updateTask(taskId, { inLoopIds: loopIds });
+      }
+      
       await fetchTaskDetails();
-      toast.success("🔔 You are now subscribed to this task!", { duration: 3000 });
+      toast.success("🔔 You are now subscribed!", { duration: 3000 });
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error("Failed to toggle subscription:", err);
@@ -461,11 +562,17 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
       const storedUser = JSON.parse(localStorage.getItem("user"));
       const userId = storedUser?.user?.id || storedUser?.id;
 
-      await taskService.updateTask(subtaskId, {
+      const updates = {
         status: newStatus,
         changedBy: userId,
         reason: `Subtask status updated to ${newStatus}`,
-      });
+      };
+
+      if (taskSource === 'delegation') {
+        await delegationService.updateDelegation(subtaskId, updates);
+      } else {
+        await taskService.updateTask(subtaskId, updates);
+      }
 
       toast.dismiss(loadingToastId);
       toast.success(
@@ -525,9 +632,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         onClick={onClose}
       />
 
-      <div className="absolute right-0 top-0 h-full w-full max-w-4xl bg-white dark:bg-slate-900 shadow-2xl transition-transform duration-300 transform translate-x-0 border-l border-slate-100 dark:border-slate-800 flex flex-col">
+      <div className="absolute right-0 top-0 h-full w-full max-w-4xl bg-bg-card shadow-2xl transition-transform duration-300 transform translate-x-0 border-l border-border-main flex flex-col">
         {/* Header */}
-        <div className="px-4.5 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between sticky top-0 z-[60]">
+        <div className="px-4.5 py-3 bg-bg-card border-b border-border-main flex items-center justify-between sticky top-0 z-[60]">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
@@ -535,7 +642,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
             >
               <ArrowLeft size={16} />
             </button>
-            <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+            <div className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-tight">
               <span>Delegations</span>
               <ChevronRight size={10} className="text-slate-300 dark:text-slate-600" />
               <span className="text-[#137fec] dark:text-blue-400">Details</span>
@@ -543,7 +650,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
           </div>
           <div className="flex items-center gap-3">
             <div
-              className={`px-2.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-lg border border-slate-100 dark:border-slate-800 uppercase flex items-center gap-1.5 shadow-sm`}
+              className={`px-2.5 py-1 bg-bg-main/50 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-lg border border-border-main uppercase flex items-center gap-1.5 shadow-sm`}
             >
               {getStatusIcon(task?.status)}
               {task?.status}
@@ -585,19 +692,19 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4.5 space-y-4.5 custom-scrollbar bg-slate-50/30 dark:bg-slate-950/30">
-            <h1 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight leading-tight">
+            <h1 className="text-lg font-black text-text-main tracking-tight leading-tight">
               {task.taskTitle}
             </h1>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
               <div className="lg:col-span-2 space-y-5">
                 {/* Core Information */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
-                    <div className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400">
+                    <div className="p-1.5 bg-bg-main rounded-lg text-text-muted">
                       <Info size={14} />
                     </div>
-                    <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">
+                    <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">
                       Core Information
                     </h2>
                   </div>
@@ -611,7 +718,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                         <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 dark:text-indigo-400 rounded-lg">
                           <Tag size={13} />
                         </div>
-                        <span className="text-xs font-black text-slate-700 dark:text-slate-200">
+                        <span className="text-xs font-black text-text-main">
                           {task.category || "N/A"}
                         </span>
                       </div>
@@ -624,7 +731,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                         <div
                           className={`w-2 h-2 rounded-full ${task.priority === "Urgent" ? "bg-red-500 shadow-red-500/20" : task.priority === "High" ? "bg-orange-500 shadow-orange-500/20" : task.priority === "Medium" ? "bg-indigo-500 shadow-indigo-500/20" : "bg-slate-400"} shadow-lg`}
                         />
-                        <span className="text-xs font-black text-slate-700 dark:text-slate-200">
+                        <span className="text-xs font-black text-text-main">
                           {task.priority}
                         </span>
                       </div>
@@ -637,7 +744,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                         <div className="p-1.5 bg-rose-50 dark:bg-rose-900/20 text-rose-500 dark:text-rose-400 rounded-lg">
                           <Calendar size={13} />
                         </div>
-                        <span className="text-xs font-black text-slate-700 dark:text-slate-200">
+                        <span className="text-xs font-black text-text-main">
                           {task.dueDate
                             ? new Date(task.dueDate).toLocaleString("en-GB")
                             : "Not set"}
@@ -662,15 +769,15 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                     (item) => item.completed,
                   ).length;
                   return (
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                    <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                       <div className="flex items-center gap-2 mb-4">
                         <div className="p-1.5 bg-[#137fec]/10 dark:bg-blue-900/20 rounded-lg text-[#137fec] dark:text-blue-400">
                           <CheckSquare size={14} />
                         </div>
-                        <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">
+                        <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">
                           Checklist
                         </h2>
-                        <span className="ml-auto text-[9px] font-black text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                        <span className="ml-auto text-[9px] font-black text-text-muted bg-bg-main px-2 py-0.5 rounded-lg border border-border-main">
                           {completedCount} / {parsedChecklist.length}
                         </span>
                       </div>
@@ -683,7 +790,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                             <button
                               onClick={() => handleToggleChecklistItem(idx)}
                               disabled={submitting || !isDoer()}
-                              className={`shrink-0 w-4.5 h-4.5 rounded-lg border transition-all flex items-center justify-center ${item.completed ? "bg-[#137fec] border-[#137fec] text-white" : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-[#137fec] dark:hover:border-blue-500"} shadow-sm`}
+                              className={`shrink-0 w-4.5 h-4.5 rounded-lg border transition-all flex items-center justify-center ${item.completed ? "bg-[#137fec] border-[#137fec] text-white" : "border-slate-200 dark:border-slate-700 bg-bg-main hover:border-[#137fec] dark:hover:border-blue-500"} shadow-sm`}
                             >
                               {item.completed && (
                                 <Check size={10} strokeWidth={4} />
@@ -702,26 +809,26 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                 })()}
 
                 {/* Sub Tasks Section */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="p-1.5 bg-sky-50 dark:bg-sky-900/20 rounded-lg text-sky-500 dark:text-sky-400">
                       <Layers size={14} />
                     </div>
-                    <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Sub Tasks</h2>
+                    <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Sub Tasks</h2>
                     <div className="flex items-center gap-2 ml-4">
-                      <div className="px-2 py-0.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 text-[9px] font-black text-slate-500 dark:text-slate-400">
+                      <div className="px-2 py-0.5 rounded-lg bg-bg-main border border-border-main text-[9px] font-black text-text-muted">
                         {task.subtasks?.filter(s => s.status === 'Completed').length || 0} / {task.subtasks?.length || 0}
                       </div>
                       <button
                         onClick={() => setIsSubtaskModalOpen(true)}
-                        className="w-6 h-6 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-sky-500 dark:hover:bg-blue-600 hover:text-white flex items-center justify-center text-slate-400 transition-all border border-slate-100 dark:border-slate-800 shadow-sm"
+                        className="w-6 h-6 rounded-lg bg-bg-main hover:bg-sky-500 dark:hover:bg-blue-600 hover:text-white flex items-center justify-center text-slate-400 transition-all border border-border-main shadow-sm"
                       >
                         <Plus size={14} />
                       </button>
                     </div>
                     <button
                       onClick={() => setSubtasksExpanded(!subtasksExpanded)}
-                      className="ml-auto p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-slate-50 dark:bg-slate-800 rounded-lg"
+                      className="ml-auto p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-bg-main rounded-lg"
                     >
                       <ChevronDown size={14} className={`transition-transform duration-300 ${subtasksExpanded ? 'rotate-180' : ''}`} />
                     </button>
@@ -736,7 +843,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                             className="p-3.5 rounded-2xl border border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 hover:border-[#137fec]/30 transition-all cursor-pointer group shadow-sm"
                           >
                             <div className="flex justify-between items-start mb-2.5">
-                              <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">T-{idx + 1} &nbsp; {sub.taskTitle}</h3>
+                              <h3 className="text-xs font-black text-text-main uppercase tracking-tight">T-{idx + 1} &nbsp; {sub.taskTitle}</h3>
                               <span className="text-[9px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest whitespace-nowrap">
                                 {(() => {
                                   const diff = Math.floor((new Date() - new Date(sub.createdAt)) / 60000);
@@ -749,11 +856,11 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                 <Clock size={10} />
                                 {sub.dueDate ? new Date(sub.dueDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'NA'}
                               </div>
-                              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                              <div className="flex items-center gap-1.5 bg-bg-card px-2 py-1 rounded-lg border border-border-main shadow-sm">
                                 <div className={`w-1.5 h-1.5 rounded-full ${sub.status === 'Completed' ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-orange-500 shadow-lg shadow-orange-500/30'}`} />
                                 <span className={sub.status === 'Completed' ? 'text-emerald-500' : 'text-orange-500'}>{sub.status}</span>
                               </div>
-                              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                              <div className="flex items-center gap-1.5 bg-bg-card px-2 py-1 rounded-lg border border-border-main shadow-sm">
                                 <User size={10} />
                                 {getUserName(sub.doerId)}
                               </div>
@@ -765,7 +872,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                   handleUpdateSubtaskStatus(sub.id, 'In Progress');
                                 }}
                                 disabled={submitting || sub.status === 'In Progress'}
-                                className="px-3 py-1.5 rounded-lg border border-orange-100 dark:border-orange-900/30 text-orange-500 bg-white dark:bg-slate-900 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                className="px-3 py-1.5 rounded-lg border border-orange-100 dark:border-orange-900/30 text-orange-500 bg-bg-card hover:bg-orange-50 dark:hover:bg-orange-900/20 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
                               >
                                 <PlayCircle size={10} /> In Progress
                               </button>
@@ -775,7 +882,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                   handleUpdateSubtaskStatus(sub.id, 'Completed');
                                 }}
                                 disabled={submitting || sub.status === 'Completed'}
-                                className="px-3 py-1.5 rounded-lg border border-emerald-100 dark:border-emerald-900/30 text-emerald-500 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                className="px-3 py-1.5 rounded-lg border border-emerald-100 dark:border-emerald-900/30 text-emerald-500 bg-bg-card hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
                               >
                                 <CheckCircle2 size={10} /> Complete
                               </button>
@@ -783,7 +890,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
+                        <div className="text-center py-6 border-2 border-dashed border-border-main rounded-2xl">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No sub tasks yet</p>
                           <button
                             onClick={() => setIsSubtaskModalOpen(true)}
@@ -800,7 +907,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                 {/* Quick Actions */}
                 {isAssignerOrDoer() && (
                   <div className="space-y-4 pt-2">
-                    <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">
+                    <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">
                       Quick Actions
                     </h2>
                     <div className="flex flex-wrap gap-2.5">
@@ -808,13 +915,13 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                         <>
                           <button
                             onClick={() => handleQuickAction("In Progress")}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all font-black text-[10px] uppercase tracking-widest shadow-sm ${status === "In Progress" ? "bg-orange-500 text-white border-orange-600" : "bg-white dark:bg-slate-800 text-orange-600 dark:text-orange-400 border-orange-100 dark:border-orange-900/30 hover:bg-orange-50 dark:hover:bg-orange-900/10"}`}
+                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all font-black text-[10px] uppercase tracking-widest shadow-sm ${status === "In Progress" ? "bg-orange-500 text-white border-orange-600" : "bg-bg-card text-orange-600 dark:text-orange-400 border-orange-100 dark:border-orange-900/30 hover:bg-orange-50 dark:hover:bg-orange-900/10"}`}
                           >
                             <PlayCircle size={14} /> In Progress
                           </button>
                           <button
                             onClick={() => handleQuickAction("Completed")}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all font-black text-[10px] uppercase tracking-widest shadow-sm ${status === "Completed" ? "bg-[#137fec] text-white border-[#106bc7]" : "bg-white dark:bg-slate-800 text-[#137fec] dark:text-blue-400 border-[#137fec]/20 dark:border-blue-900/30 hover:bg-blue-50 dark:hover:bg-blue-900/10"}`}
+                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all font-black text-[10px] uppercase tracking-widest shadow-sm ${status === "Completed" ? "bg-[#137fec] text-white border-[#106bc7]" : "bg-bg-card text-[#137fec] dark:text-blue-400 border-[#137fec]/20 dark:border-blue-900/30 hover:bg-blue-50 dark:hover:bg-blue-900/10"}`}
                           >
                             <CheckCircle2 size={14} /> Complete
                           </button>
@@ -822,7 +929,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                       )}
                       <button
                         onClick={() => setIsRemindersModalOpen(true)}
-                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-black text-[10px] uppercase tracking-widest bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border-main text-text-muted font-black text-[10px] uppercase tracking-widest bg-bg-card hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
                       >
                         <Bell size={14} /> REMINDERS
                       </button>
@@ -837,7 +944,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                         onChange={(e) => setRemark(e.target.value)}
                         placeholder="Focus on specific details or updates..."
                         rows={2}
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-[13px] text-slate-700 dark:text-slate-100 focus:ring-4 focus:ring-[#137fec]/5 focus:border-[#137fec]/30 dark:focus:border-blue-500/50 outline-none transition-all resize-none font-medium"
+                        className="w-full bg-bg-card border border-border-main rounded-2xl p-4 text-[13px] text-text-main focus:ring-4 focus:ring-[#137fec]/5 focus:border-[#137fec]/30 dark:focus:border-blue-500/50 outline-none transition-all resize-none font-medium"
                       />
 
                       {isDoer() && (
@@ -862,12 +969,82 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => voiceNoteInputRef.current?.click()}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-100 dark:border-purple-900/30 text-purple-600 dark:text-purple-400 bg-purple-50/60 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20 text-[10px] font-black uppercase tracking-widest transition-all"
+                              onClick={() => setShowRecorder(!showRecorder)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all ${showRecorder ? "border-purple-600 bg-purple-600 text-white" : "border-purple-100 dark:border-purple-900/30 text-purple-600 dark:text-purple-400 bg-purple-50/60 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20"}`}
                             >
-                              <Mic size={12} /> Voice Note
+                              <Mic size={12} /> {showRecorder ? "Close Recorder" : "Voice Note"}
                             </button>
                           </div>
+
+                          {showRecorder && (
+                            <div className="mt-2 p-4 bg-bg-card border border-purple-100 dark:border-purple-900/30 rounded-2xl flex flex-col items-center gap-4 animate-in slide-in-from-top-2 duration-300 shadow-sm">
+                              {voiceState === 'idle' && (
+                                <button
+                                  type="button"
+                                  onClick={handleStartRecording}
+                                  className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-purple-500/20 hover:bg-purple-700 transition-all active:scale-95"
+                                >
+                                  <Mic size={14} /> Start Recording
+                                </button>
+                              )}
+                              {voiceState === 'recording' && (
+                                <div className="flex flex-col items-center gap-3 w-full">
+                                  <div className="flex items-center gap-3 px-4 py-2 bg-bg-main rounded-xl border border-red-100 animate-pulse">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                    <span className="text-[20px] font-black text-text-main tabular-nums">
+                                      {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={handleStopRecording}
+                                    className="flex items-center gap-2 px-6 py-2.5 bg-red-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-95"
+                                  >
+                                    <StopCircle size={14} /> Stop Recording
+                                  </button>
+                                </div>
+                              )}
+                              {voiceState === 'recorded' && (
+                                <div className="flex items-center gap-3 w-full">
+                                  <div className="flex-1 flex items-center gap-2 p-2.5 bg-bg-main border border-border-main rounded-xl">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const audio = new Audio(URL.createObjectURL(selectedVoiceNote));
+                                        audio.play();
+                                      }}
+                                      className="w-10 h-10 rounded-lg bg-purple-600 text-white flex items-center justify-center hover:bg-purple-700 shadow-md transition-all active:scale-95"
+                                    >
+                                      <Play size={16} fill="currentColor" />
+                                    </button>
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] font-black text-text-main uppercase tracking-widest">Voice Note</span>
+                                      <span className="text-[9px] font-bold text-text-muted">Ready to upload</span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={handleDeleteRecording}
+                                    className="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:text-red-500 hover:bg-red-50 transition-all"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-3 w-full">
+                                <div className="flex-1 h-px bg-border-main" />
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Or</span>
+                                <div className="flex-1 h-px bg-border-main" />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => voiceNoteInputRef.current?.click()}
+                                className="text-[10px] font-black text-purple-600 hover:text-purple-700 uppercase tracking-widest transition-colors flex items-center gap-1.5"
+                              >
+                                <Paperclip size={12} /> Select audio file instead
+                              </button>
+                            </div>
+                          )}
 
                           <input
                             ref={evidenceFilesInputRef}
@@ -907,7 +1084,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                 e.target.value = "";
                                 return;
                               }
-                              setSelectedVoiceNote(file);
+                              setSelectedVoiceNote(new File([file], `voice_note_${new Date().getTime()}.webm`, { type: file.type }));
+                              setVoiceState('recorded');
+                              setShowRecorder(true);
                               e.target.value = "";
                             }}
                           />
@@ -995,7 +1174,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                               selectedEvidenceFiles.length === 0 &&
                               !selectedVoiceNote)
                           }
-                          className={`py-2 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${remark.trim() || status !== task?.status || selectedReferenceFiles.length > 0 || selectedEvidenceFiles.length > 0 || selectedVoiceNote ? "bg-[#137fec] text-white shadow-[#137fec]/20" : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"}`}
+                          className={`py-2 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${remark.trim() || status !== task?.status || selectedReferenceFiles.length > 0 || selectedEvidenceFiles.length > 0 || selectedVoiceNote ? "bg-[#137fec] text-white shadow-[#137fec]/20" : "bg-bg-main text-slate-400 dark:text-slate-600 cursor-not-allowed"}`}
                         >
                           {submitting ? "SUBMITTING..." : "SUBMIT UPDATE"}
                         </button>
@@ -1007,8 +1186,8 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
               {/* Sidebar Info */}
               <div className="space-y-5">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
-                  <h3 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-4 opacity-80 flex items-center gap-2">
+                <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
+                  <h3 className="text-[10px] font-black text-text-main uppercase tracking-widest mb-4 opacity-80 flex items-center gap-2">
                     <Users size={12} /> Stakeholders
                   </h3>
                   <div className="space-y-4">
@@ -1024,7 +1203,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                             <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                               Assigner
                             </p>
-                            <p className="text-xs font-black text-slate-700 dark:text-slate-200 truncate">
+                            <p className="text-xs font-black text-text-main truncate">
                               {info.name}
                             </p>
                             {info.designation && (
@@ -1049,7 +1228,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                             <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                               Assignee
                             </p>
-                            <p className="text-xs font-black text-slate-700 dark:text-slate-200 truncate">
+                            <p className="text-xs font-black text-text-main truncate">
                               {info.name}
                             </p>
                             {info.designation && (
@@ -1067,7 +1246,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                       const watcherIds = getWatchers();
                       if (watcherIds.length === 0) return null;
                       return (
-                        <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <div className="pt-3 border-t border-border-main">
                           <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
                             <Eye size={10} /> Watchers ({watcherIds.length})
                           </p>
@@ -1080,7 +1259,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                     {info.initials}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 truncate leading-tight">
+                                    <p className="text-[11px] font-black text-text-main truncate leading-tight">
                                       {info.name}
                                     </p>
                                     {info.designation && (
@@ -1124,8 +1303,8 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                   if (!hasAttachments) return null;
 
                   return (
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
-                      <h3 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-4 opacity-80 flex items-center gap-2">
+                    <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
+                      <h3 className="text-[10px] font-black text-text-main uppercase tracking-widest mb-4 opacity-80 flex items-center gap-2">
                         <Paperclip size={12} /> Attachments
                       </h3>
                       <div className="space-y-3">
@@ -1166,8 +1345,8 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
                 {/* Remarks Section */}
                 {task?.remarks_detail?.length > 0 && (
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
-                    <h3 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-4 opacity-80 flex items-center gap-2">
+                  <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
+                    <h3 className="text-[10px] font-black text-text-main uppercase tracking-widest mb-4 opacity-80 flex items-center gap-2">
                       <MessageSquare size={12} /> Remarks History
                     </h3>
                     <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
@@ -1176,9 +1355,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                           <div className="w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-800/30">
                             <span className="text-[8px] font-black uppercase">{rmk.username?.substring(0, 2)}</span>
                           </div>
-                          <div className="flex-1 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-tr-xl rounded-b-xl border border-slate-100 dark:border-slate-800">
+                          <div className="flex-1 bg-bg-main/50 p-3 rounded-tr-xl rounded-b-xl border border-border-main">
                             <div className="flex justify-between items-start mb-1 gap-2">
-                              <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 truncate">{rmk.username}</span>
+                              <span className="text-[10px] font-black text-text-main truncate">{rmk.username}</span>
                               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0 text-right">
                                 {new Date(typeof rmk.createdAt === 'string' && !rmk.createdAt.endsWith('Z') ? rmk.createdAt + 'Z' : rmk.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </span>
@@ -1244,3 +1423,6 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 };
 
 export default TaskDetailsDrawer;
+
+
+

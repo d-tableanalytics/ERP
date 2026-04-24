@@ -55,7 +55,7 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric',
 // ── FilterChip ───────────────────────────────────────────────────────────────
 
 const FilterChip = ({ label, onRemove }) => (
-    <div className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-800 border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
+    <div className="flex items-center gap-1.5 px-3 py-1 bg-bg-card border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
         {label}
         <button onClick={onRemove} className="hover:text-red-500 transition-colors ml-0.5">
             <X size={12} strokeWidth={3} />
@@ -69,7 +69,7 @@ const DeletedTasks = () => {
     const [tasks, setTasks]         = useState([]);
     const [users, setUsers]         = useState([]);
     const [categories, setCategories] = useState([]);
-    const [allTags, setAllTags]     = useState([]);
+    const [allDepartments, setAllDepartments] = useState([]);
     const [loading, setLoading]     = useState(true);
     const [restoringId, setRestoringId] = useState(null);
 
@@ -82,7 +82,7 @@ const DeletedTasks = () => {
     const [priority, setPriority]           = useState('All');
     const [category, setCategory]           = useState('All');
     const [assignedBy, setAssignedBy]       = useState('All');
-    const [tagFilter, setTagFilter]         = useState('All');
+    const [departmentFilter, setDepartmentFilter] = useState('All');
     const [showFilters, setShowFilters]     = useState(false);
 
     // Sort
@@ -125,15 +125,10 @@ const DeletedTasks = () => {
             setUsers(Array.isArray(usersRes) ? usersRes : (usersRes.data || []));
             setCategories(catRes.data || catRes || []);
 
-            // Collect unique tags
-            const tagSet = new Set();
-            fetched.forEach(t => {
-                try {
-                    const parsed = typeof t.tags === 'string' ? JSON.parse(t.tags) : (t.tags || []);
-                    if (Array.isArray(parsed)) parsed.forEach(tag => tag?.text && tagSet.add(tag.text));
-                } catch (e) {}
-            });
-            setAllTags(Array.from(tagSet));
+            // Collect unique departments
+            const deptSet = new Set();
+            fetched.forEach(t => { if (t.department) deptSet.add(t.department); });
+            setAllDepartments(Array.from(deptSet).sort());
         } catch (err) {
             console.error(err);
             toast.error('Failed to load deleted tasks');
@@ -146,7 +141,7 @@ const DeletedTasks = () => {
         setSearch(''); setDateRange('All Time');
         setCustomStartDate(''); setCustomEndDate('');
         setStatusFilter('All'); setPriority('All');
-        setCategory('All'); setAssignedBy('All'); setTagFilter('All');
+        setCategory('All'); setAssignedBy('All'); setDepartmentFilter('All');
     };
 
     const handleRestore = async (id) => {
@@ -185,12 +180,7 @@ const DeletedTasks = () => {
             if (category !== 'All' && t.category !== category) return false;
             if (assignedBy !== 'All' && t.assignerId !== assignedBy) return false;
 
-            if (tagFilter !== 'All') {
-                try {
-                    const taskTags = typeof t.tags === 'string' ? JSON.parse(t.tags) : (t.tags || []);
-                    if (!taskTags.some(tag => tag?.text === tagFilter)) return false;
-                } catch { return false; }
-            }
+            if (departmentFilter !== 'All' && t.department !== departmentFilter) return false;
 
             return getDateRangeFilter(t.deletedAt || t.createdAt, dateRange, customStartDate, customEndDate);
         });
@@ -216,7 +206,7 @@ const DeletedTasks = () => {
         });
 
         return result;
-    }, [tasks, search, statusFilter, priority, category, assignedBy, tagFilter, dateRange, customStartDate, customEndDate, sortBy, sortDesc]);
+    }, [tasks, search, statusFilter, priority, category, assignedBy, departmentFilter, dateRange, customStartDate, customEndDate, sortBy, sortDesc]);
 
     const getStatusCount = (st) => {
         if (st === 'All') return tasks.length;
@@ -224,7 +214,7 @@ const DeletedTasks = () => {
     };
 
     const activeFilterCount = [
-        priority !== 'All', category !== 'All', assignedBy !== 'All', tagFilter !== 'All'
+        priority !== 'All', category !== 'All', assignedBy !== 'All', departmentFilter !== 'All'
     ].filter(Boolean).length;
 
     // ── Not-admin guard ───────────────────────────────────────────────────────
@@ -232,11 +222,11 @@ const DeletedTasks = () => {
     if (!isAdmin) {
         return (
             <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 flex items-center justify-center">
-                <div className="text-center p-12 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 max-w-sm">
+                <div className="text-center p-12 bg-bg-card rounded-3xl shadow-sm border border-border-main max-w-sm">
                     <div className="w-20 h-20 rounded-full bg-red-50 dark:bg-red-900/10 flex items-center justify-center mx-auto mb-5">
                         <Shield size={36} className="text-red-400" />
                     </div>
-                    <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">ADMIN Only</h2>
+                    <h2 className="text-xl font-black text-text-main mb-2">ADMIN Only</h2>
                     <p className="text-slate-400 text-sm font-medium">
                         You need administrator access to view the deleted tasks bin.
                     </p>
@@ -256,7 +246,7 @@ const DeletedTasks = () => {
                         <Trash2 size={22} className="text-white" strokeWidth={2.5} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-none">Deleted Tasks</h1>
+                        <h1 className="text-2xl font-black text-text-main leading-none">Deleted Tasks</h1>
                         <p className="text-xs font-bold text-slate-400 mt-0.5">ADMIN View — Trash Bin</p>
                     </div>
                 </div>
@@ -279,8 +269,8 @@ const DeletedTasks = () => {
                         <select
                             value={dateRange}
                             onChange={e => setDateRange(e.target.value)}
-                            style={{ colorScheme: 'dark' }}
-                            className="w-full h-11 bg-white dark:bg-slate-900 border border-red-400 dark:border-red-900/50 rounded-lg pl-3 pr-8 text-sm font-bold text-slate-700 dark:text-slate-100 outline-none appearance-none cursor-pointer shadow-sm"
+                            
+                            className="w-full h-11 bg-bg-card border border-red-400 dark:border-red-900/50 rounded-lg pl-3 pr-8 text-sm font-bold text-text-main outline-none appearance-none cursor-pointer shadow-sm"
                         >
                             <option value="All Time">All Time</option>
                             <option value="Today">Today</option>
@@ -300,7 +290,7 @@ const DeletedTasks = () => {
                     <>
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-black text-slate-400 uppercase ml-1">Start Date</span>
-                            <div className="relative border border-red-400 dark:border-red-900/50 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-white dark:bg-slate-900 min-w-[130px]">
+                            <div className="relative border border-red-400 dark:border-red-900/50 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-bg-card min-w-[130px]">
                                 <CalendarIcon size={14} className="text-red-500 shrink-0" />
                                 <div className="flex flex-col flex-1">
                                     <span className="text-[8px] font-bold text-slate-400 leading-none">Start</span>
@@ -308,15 +298,15 @@ const DeletedTasks = () => {
                                         type="date"
                                         value={customStartDate}
                                         onChange={e => setCustomStartDate(e.target.value)}
-                                        style={{ colorScheme: 'dark' }}
-                                        className="bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 dark:text-slate-100 w-full"
+                                        
+                                        className="bg-transparent border-none outline-none text-[11px] font-bold text-text-main w-full"
                                     />
                                 </div>
                             </div>
                         </div>
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-black text-slate-400 uppercase ml-1">End Date</span>
-                            <div className="relative border border-red-400 dark:border-red-900/50 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-white dark:bg-slate-900 min-w-[130px]">
+                            <div className="relative border border-red-400 dark:border-red-900/50 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-bg-card min-w-[130px]">
                                 <CalendarIcon size={14} className="text-red-500 shrink-0" />
                                 <div className="flex flex-col flex-1">
                                     <span className="text-[8px] font-bold text-slate-400 leading-none">End</span>
@@ -324,8 +314,8 @@ const DeletedTasks = () => {
                                         type="date"
                                         value={customEndDate}
                                         onChange={e => setCustomEndDate(e.target.value)}
-                                        style={{ colorScheme: 'dark' }}
-                                        className="bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 dark:text-slate-100 w-full"
+                                        
+                                        className="bg-transparent border-none outline-none text-[11px] font-bold text-text-main w-full"
                                     />
                                 </div>
                             </div>
@@ -352,15 +342,15 @@ const DeletedTasks = () => {
                     </button>
 
                     {showFilters && (
-                        <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-4 min-w-[240px] animate-in slide-in-from-top-2 duration-200">
+                        <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-bg-card border border-border-main rounded-xl shadow-2xl p-4 flex flex-col gap-4 min-w-[240px] animate-in slide-in-from-top-2 duration-200">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-black text-slate-700 dark:text-slate-100 uppercase tracking-widest">Filters</span>
+                                <span className="text-xs font-black text-text-main uppercase tracking-widest">Filters</span>
                                 <button onClick={handleClearFilters} className="text-[10px] font-bold text-red-500 hover:underline">Clear All</button>
                             </div>
 
                             <div className="flex flex-col gap-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase">Assigned By</label>
-                                <select value={assignedBy} onChange={e => setAssignedBy(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
+                                <select value={assignedBy} onChange={e => setAssignedBy(e.target.value)}  className="bg-bg-main border border-border-main p-2 rounded-lg text-xs font-bold outline-none text-text-main">
                                     <option value="All">Anyone</option>
                                     {users.map(u => <option key={u.userId || u.id} value={u.userId || u.id}>{u.firstName} {u.lastName}</option>)}
                                 </select>
@@ -368,7 +358,7 @@ const DeletedTasks = () => {
 
                             <div className="flex flex-col gap-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase">Priority</label>
-                                <select value={priority} onChange={e => setPriority(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
+                                <select value={priority} onChange={e => setPriority(e.target.value)}  className="bg-bg-main border border-border-main p-2 rounded-lg text-xs font-bold outline-none text-text-main">
                                     <option value="All">All Priority</option>
                                     <option value="Urgent">Urgent</option>
                                     <option value="High">High</option>
@@ -379,17 +369,17 @@ const DeletedTasks = () => {
 
                             <div className="flex flex-col gap-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase">Category</label>
-                                <select value={category} onChange={e => setCategory(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
+                                <select value={category} onChange={e => setCategory(e.target.value)}  className="bg-bg-main border border-border-main p-2 rounded-lg text-xs font-bold outline-none text-text-main">
                                     <option value="All">All Categories</option>
                                     {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                             </div>
 
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase">Tag</label>
-                                <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
-                                    <option value="All">All Tags</option>
-                                    {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+                                <label className="text-[10px] font-black text-slate-400 uppercase">Department</label>
+                                <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}  className="bg-bg-main border border-border-main p-2 rounded-lg text-xs font-bold outline-none text-text-main">
+                                    <option value="All">All Departments</option>
+                                    {allDepartments.map(d => <option key={d} value={d}>{d}</option>)}
                                 </select>
                             </div>
                         </div>
@@ -406,7 +396,7 @@ const DeletedTasks = () => {
                             placeholder="Search deleted tasks..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="w-full h-11 pl-10 pr-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-300 text-slate-700 dark:text-slate-100"
+                            className="w-full h-11 pl-10 pr-10 bg-bg-card border border-border-main rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-300 text-text-main"
                         />
                         {search && (
                             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
@@ -436,8 +426,8 @@ const DeletedTasks = () => {
                             <select
                                 value={sortBy}
                                 onChange={e => setSortBy(e.target.value)}
-                                style={{ colorScheme: 'dark' }}
-                                className="w-full h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 text-sm font-bold text-slate-700 dark:text-slate-100 outline-none appearance-none cursor-pointer shadow-sm focus:border-red-400"
+                                
+                                className="w-full h-11 bg-bg-card border border-border-main rounded-lg pl-3 pr-8 text-sm font-bold text-text-main outline-none appearance-none cursor-pointer shadow-sm focus:border-red-400"
                             >
                                 <option value="Deleted At">Deleted At</option>
                                 <option value="Due Date">Due Date</option>
@@ -448,7 +438,7 @@ const DeletedTasks = () => {
                         </div>
                         <button
                             onClick={() => setSortDesc(!sortDesc)}
-                            className="h-11 w-11 flex justify-center items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm active:scale-95"
+                            className="h-11 w-11 flex justify-center items-center bg-bg-card border border-border-main rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm active:scale-95"
                             title={sortDesc ? 'Descending' : 'Ascending'}
                         >
                             <ArrowUpDown size={18} className={sortDesc ? '' : 'rotate-180 transform transition-transform'} />
@@ -463,12 +453,12 @@ const DeletedTasks = () => {
                     {priority !== 'All' && <FilterChip label={`Priority: ${priority}`} onRemove={() => setPriority('All')} />}
                     {category !== 'All' && <FilterChip label={`Category: ${category}`} onRemove={() => setCategory('All')} />}
                     {assignedBy !== 'All' && <FilterChip label={`Assigned By: ${getUserName(assignedBy)}`} onRemove={() => setAssignedBy('All')} />}
-                    {tagFilter !== 'All' && <FilterChip label={`Tag: ${tagFilter}`} onRemove={() => setTagFilter('All')} />}
+                    {departmentFilter !== 'All' && <FilterChip label={`Department: ${departmentFilter}`} onRemove={() => setDepartmentFilter('All')} />}
                 </div>
             )}
 
             {/* ── Status Tabs ── */}
-            <div className="flex justify-center mb-8 border-b border-slate-200 dark:border-slate-800 relative">
+            <div className="flex justify-center mb-8 border-b border-border-main relative">
                 <div className="flex gap-6 overflow-x-auto no-scrollbar">
                     {[
                         { label: 'All',         dotClass: 'bg-slate-400',                              key: 'All' },
@@ -480,11 +470,11 @@ const DeletedTasks = () => {
                         <button
                             key={tab.key}
                             onClick={() => setStatusFilter(tab.key)}
-                            className={`flex items-center gap-2 pb-4 px-2 transition-all relative whitespace-nowrap ${statusFilter === tab.key ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            className={`flex items-center gap-2 pb-4 px-2 transition-all relative whitespace-nowrap ${statusFilter === tab.key ? 'text-text-main' : 'text-text-muted hover:text-text-main'}`}
                         >
                             <div className={`w-3 h-3 rounded-full shrink-0 ${tab.dotClass} ${statusFilter === tab.key ? 'ring-2 ring-red-500/20 shadow-sm' : ''}`} />
                             <span className="text-sm font-bold uppercase tracking-wide">
-                                {tab.label} — <span className={`${statusFilter === tab.key ? 'text-red-500 dark:text-red-400 font-black' : 'text-slate-500 dark:text-slate-500 font-bold'} transition-colors`}>{getStatusCount(tab.key)}</span>
+                                {tab.label} — <span className={`${statusFilter === tab.key ? 'text-red-500 dark:text-red-400 font-black' : 'text-text-muted font-bold'} transition-colors`}>{getStatusCount(tab.key)}</span>
                             </span>
                             {statusFilter === tab.key && (
                                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-500 rounded-t-full shadow-[0_-2px_10px_rgba(239,68,68,0.3)]" />
@@ -502,11 +492,11 @@ const DeletedTasks = () => {
                         <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Loading Deleted Tasks...</p>
                     </div>
                 ) : filteredTasks.length === 0 ? (
-                    <div className="bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-20 flex flex-col items-center justify-center text-center">
-                        <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-5">
+                    <div className="bg-bg-card border-2 border-dashed border-border-main rounded-3xl p-20 flex flex-col items-center justify-center text-center">
+                        <div className="w-20 h-20 bg-bg-main rounded-full flex items-center justify-center mb-5">
                             <Trash2 size={32} className="text-slate-300 dark:text-slate-600" />
                         </div>
-                        <h3 className="text-lg font-black text-slate-700 dark:text-slate-200">Trash Is Empty</h3>
+                        <h3 className="text-lg font-black text-text-main">Trash Is Empty</h3>
                         <p className="text-slate-400 text-sm font-medium mt-1">
                             {search || activeFilterCount > 0 || statusFilter !== 'All'
                                 ? 'No deleted tasks match your filters'
@@ -526,7 +516,7 @@ const DeletedTasks = () => {
                         const st = getStatus(task);
                         
                         return (
-                            <div key={task.id} className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 premium-shadow premium-shadow-hover transition-all duration-300 p-5 flex items-start gap-5 ${expandedTasks.has(task.id) ? 'ring-2 ring-red-500/20 shadow-md' : ''}`}>
+                            <div key={task.id} className={`bg-bg-card rounded-xl border border-border-main premium-shadow premium-shadow-hover transition-all duration-300 p-5 flex items-start gap-5 ${expandedTasks.has(task.id) ? 'ring-2 ring-red-500/20 shadow-md' : ''}`}>
 
                                 {/* Avatar */}
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center text-white font-black text-sm shrink-0 shadow">
@@ -537,7 +527,7 @@ const DeletedTasks = () => {
                                 <div className="flex-1 min-w-0">
                                     {/* Top row */}
                                     <div className="flex items-center gap-3 flex-wrap mb-1">
-                                        <span className="font-black text-slate-700 dark:text-slate-200 text-sm">
+                                        <span className="font-black text-text-main text-sm">
                                             {task.doerFirstName} {task.doerLastName}
                                         </span>
                                         {task.category && (
@@ -549,29 +539,29 @@ const DeletedTasks = () => {
                                     </div>
 
                                     {/* Title */}
-                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 truncate mb-2">{task.taskTitle}</h3>
+                                    <h3 className="text-base font-black text-text-main truncate mb-2">{task.taskTitle}</h3>
 
                                     {/* Meta */}
                                     <div className="flex flex-wrap items-center gap-3 text-xs">
                                         <span className="text-slate-400 font-semibold">
-                                            Assigned By <span className="font-black text-slate-700 dark:text-slate-300">{task.assignerFirstName} {task.assignerLastName}</span>
+                                            Assigned By <span className="font-black text-text-main">{task.assignerFirstName} {task.assignerLastName}</span>
                                         </span>
 
                                         {task.dueDate && (
-                                            <span className={`flex items-center gap-1.5 font-bold ${st === 'OverDue' ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                                            <span className={`flex items-center gap-1.5 font-bold ${st === 'OverDue' ? 'text-red-500' : 'text-text-muted'}`}>
                                                 <Clock size={12} />
                                                 {fmt(task.dueDate)}
                                                 {st === 'OverDue' && ' | Overdue'}
                                             </span>
                                         )}
 
-                                        <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border font-bold text-[11px] ${st === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800' : st === 'In Progress' ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800' : st === 'OverDue' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}>
+                                        <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border font-bold text-[11px] ${st === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800' : st === 'In Progress' ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800' : st === 'OverDue' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800' : 'bg-bg-main text-text-muted border-border-main'}`}>
                                             <span className={`w-1.5 h-1.5 rounded-full ${st === 'Completed' ? 'bg-emerald-500' : st === 'In Progress' ? 'bg-orange-500' : st === 'OverDue' ? 'bg-red-500' : 'bg-slate-400'}`} />
                                             {st}
                                         </span>
 
                                         {task.priority && (
-                                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full border font-bold text-[11px] ${task.priority === 'Urgent' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800' : task.priority === 'High' ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800' : task.priority === 'Medium' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}>
+                                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full border font-bold text-[11px] ${task.priority === 'Urgent' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800' : task.priority === 'High' ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800' : task.priority === 'Medium' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800' : 'bg-bg-main text-text-muted border-border-main'}`}>
                                                 <Flag size={10} strokeWidth={3} />
                                                 {task.priority}
                                             </span>
@@ -590,7 +580,7 @@ const DeletedTasks = () => {
                                 <button
                                     onClick={() => handleRestore(task.id)}
                                     disabled={restoringId === task.id}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-800 hover:border-[#137fec] text-slate-500 dark:text-slate-400 hover:text-[#137fec] dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 font-bold text-sm transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-border-main hover:border-[#137fec] text-text-muted hover:text-[#137fec] dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 font-bold text-sm transition-all active:scale-95 disabled:opacity-50 shrink-0"
                                 >
                                     {restoringId === task.id ? (
                                         <span className="w-4 h-4 border-2 border-[#137fec] border-t-transparent rounded-full animate-spin" />
@@ -610,3 +600,6 @@ const DeletedTasks = () => {
 };
 
 export default DeletedTasks;
+
+
+

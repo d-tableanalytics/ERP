@@ -397,8 +397,8 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                 onClick={onClose}
             />
 
-            <div className="absolute right-0 top-0 h-full w-full max-w-4xl bg-white dark:bg-slate-900 shadow-2xl transition-transform duration-300 transform translate-x-0 border-l border-slate-100 dark:border-slate-800 flex flex-col">
-                <div className="px-4.5 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between sticky top-0 z-[60]">
+            <div className="absolute right-0 top-0 h-full w-full max-w-4xl bg-bg-card shadow-2xl transition-transform duration-300 transform translate-x-0 border-l border-border-main flex flex-col">
+                <div className="px-4.5 py-3 bg-bg-card border-b border-border-main flex items-center justify-between sticky top-0 z-[60]">
                     <div className="flex items-center gap-3">
                         <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
                             <ArrowLeft size={16} />
@@ -410,7 +410,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className={`px-2.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-lg border border-slate-100 dark:border-slate-800 uppercase flex items-center gap-1.5 shadow-sm`}>
+                        <div className={`px-2.5 py-1 bg-bg-main/50 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-lg border border-border-main uppercase flex items-center gap-1.5 shadow-sm`}>
                             {getStatusIcon(task?.status)}
                             {task?.status}
                         </div>
@@ -458,18 +458,18 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                     </div>
                 ) : (
                     <div className="flex-1 overflow-y-auto p-4.5 space-y-4.5 custom-scrollbar bg-slate-50/30 dark:bg-slate-950/30">
-                        <h1 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight leading-tight">{task.taskTitle}</h1>
+                        <h1 className="text-lg font-black text-text-main tracking-tight leading-tight">{task.taskTitle}</h1>
 
 
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                             <div className="lg:col-span-2 space-y-5">
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                                <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                                     <div className="flex items-center gap-2 mb-4">
-                                        <div className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-500">
+                                        <div className="p-1.5 bg-bg-main rounded-lg text-slate-500">
                                             <Info size={14} />
                                         </div>
-                                        <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Core Information</h2>
+                                        <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Core Information</h2>
                                     </div>
 
                                     <div className="flex flex-wrap items-start gap-x-10 gap-y-6">
@@ -479,7 +479,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                 <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 rounded-lg">
                                                     <Tag size={13} />
                                                 </div>
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">{task.category || 'N/A'}</span>
+                                                <span className="text-xs font-black text-text-main">{task.category || 'N/A'}</span>
                                             </div>
                                         </div>
                                         <div className="space-y-1.5">
@@ -489,7 +489,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                     task.priority === 'High' ? 'bg-orange-500 shadow-orange-500/20' :
                                                         task.priority === 'Medium' ? 'bg-indigo-500 shadow-indigo-500/20' : 'bg-slate-400'
                                                     } shadow-lg`} />
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">{task.priority}</span>
+                                                <span className="text-xs font-black text-text-main">{task.priority}</span>
                                             </div>
                                         </div>
                                         <div className="space-y-1.5">
@@ -498,7 +498,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                 <div className="p-1.5 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-lg">
                                                     <Calendar size={13} />
                                                 </div>
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">
+                                                <span className="text-xs font-black text-text-main">
                                                     {task.dueDate ? new Date(task.dueDate).toLocaleString('en-GB', {
                                                         day: 'numeric',
                                                         month: 'short',
@@ -513,19 +513,19 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                         <div className="space-y-1.5">
                                             <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Evidence</label>
                                             <div className="flex items-center gap-2">
-                                                <div className={`p-1.5 rounded-lg ${task.evidenceRequired ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500' : 'bg-slate-50 dark:bg-slate-800 text-slate-400'}`}>
+                                                <div className={`p-1.5 rounded-lg ${task.evidenceRequired ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500' : 'bg-bg-main text-slate-400'}`}>
                                                     <ShieldCheck size={13} />
                                                 </div>
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">{task.evidenceRequired ? 'Required' : 'Optional'}</span>
+                                                <span className="text-xs font-black text-text-main">{task.evidenceRequired ? 'Required' : 'Optional'}</span>
                                             </div>
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Verification</label>
                                             <div className="flex items-center gap-2">
-                                                <div className={`p-1.5 rounded-lg ${isVerificationRequired ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500' : 'bg-slate-50 dark:bg-slate-800 text-slate-400'}`}>
+                                                <div className={`p-1.5 rounded-lg ${isVerificationRequired ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500' : 'bg-bg-main text-slate-400'}`}>
                                                     <ShieldCheck size={13} />
                                                 </div>
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">{isVerificationRequired ? 'Required' : 'Not Required'}</span>
+                                                <span className="text-xs font-black text-text-main">{isVerificationRequired ? 'Required' : 'Not Required'}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -537,7 +537,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                         }
                                         if (parsedTags.length === 0) return null;
                                         return (
-                                            <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                                            <div className="mt-5 pt-5 border-t border-border-main space-y-3">
                                                 <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Task Tags</label>
                                                 <div className="flex flex-wrap gap-2">
                                                     {parsedTags.map((tag, i) => {
@@ -574,13 +574,13 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                     const completedCount = parsedChecklist.filter(item => item.completed).length;
 
                                     return (
-                                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                                        <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                                             <div className="flex items-center gap-2 mb-4">
                                                 <div className="p-1.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-500">
                                                     <CheckSquare size={14} />
                                                 </div>
-                                                <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Checklist</h2>
-                                                <span className="ml-auto text-[9px] font-black text-slate-500 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Checklist</h2>
+                                                <span className="ml-auto text-[9px] font-black text-slate-500 bg-bg-main px-2 py-0.5 rounded-lg border border-border-main">
                                                     {completedCount} / {parsedChecklist.length}
                                                 </span>
                                             </div>
@@ -590,7 +590,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                         <button
                                                             onClick={() => handleToggleChecklistItem(idx)}
                                                             disabled={submitting || !isDoer()}
-                                                            className={`shrink-0 w-4.5 h-4.5 rounded-lg border transition-all flex items-center justify-center ${item.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 bg-slate-50 dark:bg-slate-800 hover:border-emerald-500'} disabled:opacity-50 disabled:cursor-not-allowed shadow-sm`}
+                                                            className={`shrink-0 w-4.5 h-4.5 rounded-lg border transition-all flex items-center justify-center ${item.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 bg-bg-main hover:border-emerald-500'} disabled:opacity-50 disabled:cursor-not-allowed shadow-sm`}
                                                         >
                                                             {item.completed && <Check size={10} strokeWidth={4} />}
                                                         </button>
@@ -605,26 +605,26 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                 })()}
 
                                 {/* SUBTASKS SECTION */}
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                                <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                                     <div className="flex items-center gap-2 mb-4">
                                         <div className="p-1.5 bg-sky-50 dark:bg-sky-900/20 rounded-lg text-sky-500">
                                             <Layers size={14} />
                                         </div>
-                                        <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Sub Tasks</h2>
+                                        <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Sub Tasks</h2>
                                         <div className="flex items-center gap-2 ml-4">
-                                            <div className="px-2 py-0.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 text-[9px] font-black text-slate-500">
+                                            <div className="px-2 py-0.5 rounded-lg bg-bg-main border border-border-main text-[9px] font-black text-slate-500">
                                                 {task.subtasks?.filter(s => s.status === 'Completed').length || 0} / {task.subtasks?.length || 0}
                                             </div>
                                             <button
                                                 onClick={() => setIsSubtaskModalOpen(true)}
-                                                className="w-6 h-6 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-sky-500 hover:text-white flex items-center justify-center text-slate-400 transition-all border border-slate-100 dark:border-slate-800 shadow-sm"
+                                                className="w-6 h-6 rounded-lg bg-bg-main hover:bg-sky-500 hover:text-white flex items-center justify-center text-slate-400 transition-all border border-border-main shadow-sm"
                                             >
                                                 <Plus size={14} />
                                             </button>
                                         </div>
                                         <button
                                             onClick={() => setSubtasksExpanded(!subtasksExpanded)}
-                                            className="ml-auto p-1.5 text-slate-400 hover:text-slate-600 transition-colors bg-slate-50 dark:bg-slate-800 rounded-lg"
+                                            className="ml-auto p-1.5 text-slate-400 hover:text-slate-600 transition-colors bg-bg-main rounded-lg"
                                         >
                                             <ChevronDown size={14} className={`transition-transform duration-300 ${subtasksExpanded ? 'rotate-180' : ''}`} />
                                         </button>
@@ -639,7 +639,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                         className="p-3.5 rounded-2xl border border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 hover:border-emerald-500/30 transition-all cursor-pointer group shadow-sm"
                                                     >
                                                         <div className="flex justify-between items-start mb-2.5">
-                                                            <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">T-{idx + 1} &nbsp; {sub.taskTitle}</h3>
+                                                            <h3 className="text-xs font-black text-text-main uppercase tracking-tight">T-{idx + 1} &nbsp; {sub.taskTitle}</h3>
                                                             <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest whitespace-nowrap">
                                                                 {(() => {
                                                                     const diff = Math.floor((new Date() - new Date(sub.createdAt)) / 60000);
@@ -652,11 +652,11 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                                 <Clock size={10} />
                                                                  {sub.dueDate ? new Date(sub.dueDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'NA'}
                                                             </div>
-                                                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                                                            <div className="flex items-center gap-1.5 bg-bg-card px-2 py-1 rounded-lg border border-border-main shadow-sm">
                                                                 <div className={`w-1.5 h-1.5 rounded-full ${sub.status === 'Completed' ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-orange-500 shadow-lg shadow-orange-500/30'}`} />
                                                                 <span className={sub.status === 'Completed' ? 'text-emerald-500' : 'text-orange-500'}>{sub.status}</span>
                                                             </div>
-                                                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                                                            <div className="flex items-center gap-1.5 bg-bg-card px-2 py-1 rounded-lg border border-border-main shadow-sm">
                                                                 <User size={10} />
                                                                 {getShortUserName(sub.doerId)}
                                                             </div>
@@ -668,7 +668,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                                     handleUpdateSubtaskStatus(sub.id, 'In Progress');
                                                                 }}
                                                                 disabled={submitting || sub.status === 'In Progress'}
-                                                                className="px-3 py-1.5 rounded-lg border border-orange-100 dark:border-orange-900/30 text-orange-500 bg-white dark:bg-slate-900 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                                                className="px-3 py-1.5 rounded-lg border border-orange-100 dark:border-orange-900/30 text-orange-500 bg-bg-card hover:bg-orange-50 dark:hover:bg-orange-900/20 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
                                                             >
                                                                 <PlayCircle size={10} /> In Progress
                                                             </button>
@@ -678,7 +678,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                                     handleUpdateSubtaskStatus(sub.id, 'Completed');
                                                                 }}
                                                                 disabled={submitting || sub.status === 'Completed'}
-                                                                className="px-3 py-1.5 rounded-lg border border-emerald-100 dark:border-emerald-900/30 text-emerald-500 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                                                className="px-3 py-1.5 rounded-lg border border-emerald-100 dark:border-emerald-900/30 text-emerald-500 bg-bg-card hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
                                                             >
                                                                 <CheckCircle2 size={10} /> Complete
                                                             </button>
@@ -686,7 +686,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="text-center py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
+                                                <div className="text-center py-6 border-2 border-dashed border-border-main rounded-2xl">
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No sub tasks yet</p>
                                                     <button
                                                         onClick={() => setIsSubtaskModalOpen(true)}
@@ -702,7 +702,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
                                 {isAssignerOrDoer() ? (
                                 <div className="space-y-4 pt-2">
-                                    <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Quick Actions</h2>
+                                    <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Quick Actions</h2>
 
                                         <div className="flex flex-wrap gap-2.5">
                                             {isDoer() && (
@@ -713,7 +713,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                         className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 ${
                                                             status === 'In Progress' 
                                                             ? 'bg-orange-500 text-white border-orange-500 shadow-orange-500/20' 
-                                                            : 'bg-white dark:bg-slate-900 text-orange-600 border-orange-100 dark:border-orange-900/30 hover:bg-orange-50 dark:hover:bg-orange-900/20'
+                                                            : 'bg-bg-card text-orange-600 border-orange-100 dark:border-orange-900/30 hover:bg-orange-50 dark:hover:bg-orange-900/20'
                                                         } disabled:opacity-50`}
                                                     >
                                                         <PlayCircle size={14} /> In Progress
@@ -724,7 +724,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                         className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 ${
                                                             status === 'Completed' 
                                                             ? 'bg-emerald-500 text-white border-emerald-500 shadow-emerald-500/20' 
-                                                            : 'bg-white dark:bg-slate-900 text-emerald-600 border-emerald-100 dark:border-emerald-900/30 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                                            : 'bg-bg-card text-emerald-600 border-emerald-100 dark:border-emerald-900/30 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
                                                         } disabled:opacity-50`}
                                                     >
                                                         <CheckCircle2 size={14} /> Complete
@@ -732,7 +732,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                     <button
                                                         onClick={() => setIsRemindersModalOpen(true)}
                                                         disabled={submitting}
-                                                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 bg-white dark:bg-slate-900"
+                                                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border-main text-text-muted hover:bg-bg-main transition-all font-black text-[10px] uppercase tracking-widest shadow-sm active:scale-95 bg-bg-card"
                                                     >
                                                         <Bell size={14} /> REMINDERS
                                                     </button>
@@ -740,20 +740,20 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                             )}
                                             <button
                                                 onClick={() => document.getElementById('remark-input')?.focus()}
-                                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30 transition-all font-black text-[10px] uppercase tracking-widest bg-white dark:bg-slate-900 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-sm active:scale-95"
+                                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-blue-100 dark:border-blue-900/30 transition-all font-black text-[10px] uppercase tracking-widest bg-bg-card text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-sm active:scale-95"
                                             >
                                                 <MessageSquare size={14} /> Comment
                                             </button>
                                             <button
                                                 onClick={() => setIsSubtaskModalOpen(true)}
-                                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-sky-100 dark:border-sky-900/30 transition-all font-black text-[10px] uppercase tracking-widest bg-white dark:bg-slate-900 text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/20 shadow-sm active:scale-95"
+                                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-sky-100 dark:border-sky-900/30 transition-all font-black text-[10px] uppercase tracking-widest bg-bg-card text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/20 shadow-sm active:scale-95"
                                             >
                                                 <Layers size={14} /> Sub Task
                                             </button>
                                             {canEditTask && (
                                                 <button
                                                     onClick={() => setIsEditModalOpen(true)}
-                                                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-purple-100 dark:border-purple-900/30 transition-all font-black text-[10px] uppercase tracking-widest bg-white dark:bg-slate-900 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 shadow-sm active:scale-95"
+                                                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-purple-100 dark:border-purple-900/30 transition-all font-black text-[10px] uppercase tracking-widest bg-bg-card text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 shadow-sm active:scale-95"
                                                 >
                                                     <Pencil size={14} /> {editLabel}
                                                 </button>
@@ -769,7 +769,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                     onChange={(e) => setRemark(e.target.value)}
                                                     placeholder="Focus on specific details or updates..."
                                                     rows={2}
-                                                    className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-[13px] text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 resize-none font-medium leading-relaxed"
+                                                    className="w-full bg-bg-card border border-border-main rounded-2xl p-4 text-[13px] text-text-main focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 resize-none font-medium leading-relaxed"
                                                 />
                                                 <div className="flex justify-end mt-2">
                                                     <button
@@ -778,7 +778,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                         className={`py-2 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${
                                                             (remark.trim() || status !== task.status)
                                                             ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
-                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                                                            : 'bg-bg-main text-slate-400 cursor-not-allowed'
                                                         }`}
                                                     >
                                                         {submitting ? 'SUBMITTING...' : 'SUBMIT UPDATE'}
@@ -821,18 +821,18 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                 
                                 {/* ATTACHMENTS SECTION */}
                                 {((task.voiceNoteUrl || task.referenceDocs) && (
-                                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                                    <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                                         <div className="flex items-center gap-2 mb-4">
                                             <div className="p-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-500">
                                                 <Paperclip size={14} />
                                             </div>
-                                            <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Attachments</h2>
+                                            <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Attachments</h2>
                                         </div>
                                         
                                         <div className="space-y-4">
                                             {/* Voice Note */}
                                             {task.voiceNoteUrl && (
-                                                <div className="p-3.5 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+                                                <div className="p-3.5 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-border-main flex flex-col gap-3">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                                             <Mic size={14} className="text-emerald-500" />
@@ -867,9 +867,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                         const fileName = url.split('/').pop().replace(/^\d+-/, '');
 
                                                         return (
-                                                            <div key={idx} className="relative group p-2 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500/30 transition-all flex flex-col gap-2">
+                                                            <div key={idx} className="relative group p-2 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-border-main hover:border-emerald-500/30 transition-all flex flex-col gap-2">
                                                                 {isImage ? (
-                                                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-100 dark:border-slate-800">
+                                                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 border border-border-main">
                                                                         <img 
                                                                             src={url} 
                                                                             alt={`Attachment ${idx + 1}`} 
@@ -899,7 +899,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                                             <FileText size={20} />
                                                                         </div>
                                                                         <div className="flex-1 min-w-0">
-                                                                            <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 truncate pr-6">{fileName}</p>
+                                                                            <p className="text-[10px] font-black text-text-main truncate pr-6">{fileName}</p>
                                                                             <a 
                                                                                 href={url} 
                                                                                 target="_blank" 
@@ -930,12 +930,12 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                 ))}
 
                                 {task.evidenceUrl && (
-                                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                                    <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                                         <div className="flex items-center gap-2 mb-4">
                                             <div className="p-1.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-500">
                                                 <ShieldCheck size={14} />
                                             </div>
-                                            <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Evidence Provided</h2>
+                                            <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Evidence Provided</h2>
                                         </div>
                                         
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -955,7 +955,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                     return (
                                                         <div key={idx} className="relative group p-2 bg-emerald-50/30 dark:bg-emerald-500/5 rounded-xl border border-emerald-100 dark:border-emerald-500/20 hover:border-emerald-500/40 transition-all flex flex-col gap-2 shadow-sm">
                                                             {isImage ? (
-                                                                <div className="relative aspect-video rounded-lg overflow-hidden bg-white dark:bg-slate-800 border border-emerald-100 dark:border-emerald-900/20">
+                                                                <div className="relative aspect-video rounded-lg overflow-hidden bg-bg-card border border-emerald-100 dark:border-emerald-900/20">
                                                                     <img src={url} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover" />
                                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
                                                                         <button onClick={() => setPreviewImage(url)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all shadow-lg"><Maximize2 size={16} /></button>
@@ -966,7 +966,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                                 <div className="flex items-center gap-3 p-1">
                                                                     <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 shrink-0"><FileText size={20} /></div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 truncate pr-6">{fileName}</p>
+                                                                        <p className="text-[10px] font-black text-text-main truncate pr-6">{fileName}</p>
                                                                         <a href={url} target="_blank" rel="noopener noreferrer" className="text-[9px] font-black text-emerald-600 hover:text-emerald-700 uppercase tracking-widest flex items-center gap-1">View Evidence <ExternalLink size={8} /></a>
                                                                     </div>
                                                                     <a href={url} download target="_blank" rel="noopener noreferrer" className="absolute right-2 top-2 p-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-800 rounded-lg text-emerald-600 transition-all"><Download size={14} /></a>
@@ -980,12 +980,12 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                     </div>
                                 )}
 
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                                <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                                     <div className="flex items-center gap-2 mb-4">
                                         <div className="p-1.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-500">
                                             <History size={14} />
                                         </div>
-                                        <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Revision History</h2>
+                                        <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Revision History</h2>
                                     </div>
                                     <div className={`space-y-4 ${revisionHistory.length > 0 ? 'relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-100 dark:before:bg-slate-800' : ''}`}>
                                         {revisionHistory.length > 0 ? (
@@ -997,7 +997,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                 const reason = rev.reason;
                                                 return (
                                                 <div key={i} className="relative pl-7 group">
-                                                    <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border-2 border-purple-500 z-10 shadow-sm transition-transform group-hover:scale-110" />
+                                                    <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-bg-card border-2 border-purple-500 z-10 shadow-sm transition-transform group-hover:scale-110" />
                                                     <div className="p-3 bg-slate-50/50 dark:bg-slate-950/50 rounded-xl border border-slate-50 dark:border-slate-800 shadow-sm">
                                                         <div className="flex justify-between items-center mb-1.5">
                                                             <div className="flex items-center gap-2">
@@ -1014,9 +1014,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                             </div>
                                                         </div>
                                                         {reason && (
-                                                            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 italic mb-2">"{reason}"</p>
+                                                            <p className="text-[11px] font-medium text-text-muted italic mb-2">"{reason}"</p>
                                                         )}
-                                                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                        <div className="pt-2 border-t border-border-main flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-slate-400">
                                                             <span>BY: {getShortUserName(changedBy)}</span>
                                                             <span className="line-through">OLD: {oldStatus}</span>
                                                         </div>
@@ -1024,19 +1024,19 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                 </div>
                                             )})
                                         ) : (
-                                            <div className="text-center py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
+                                            <div className="text-center py-6 border-2 border-dashed border-border-main rounded-2xl">
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No revisions logged</p>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm">
+                                <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                                     <div className="flex items-center gap-2 mb-4">
                                         <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-500">
                                             <MessageCircle size={14} />
                                         </div>
-                                        <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Remark History</h2>
+                                        <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Remark History</h2>
                                     </div>
                                     <div className={`space-y-4 ${remarkHistory.length > 0 ? 'relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-100 dark:before:bg-slate-800' : ''}`}>
                                         {remarkHistory.length > 0 ? (
@@ -1046,23 +1046,23 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                 const createdAt = r.createdAt || r.created_at;
                                                 return (
                                                 <div key={i} className="relative pl-7 group">
-                                                    <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border-2 border-blue-500 z-10 shadow-sm transition-transform group-hover:scale-110" />
+                                                    <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-bg-card border-2 border-blue-500 z-10 shadow-sm transition-transform group-hover:scale-110" />
                                                     <div className="p-3 bg-slate-50/50 dark:bg-slate-950/50 rounded-xl border border-slate-50 dark:border-slate-800 shadow-sm flex gap-3.5">
-                                                        <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-[10px] font-black text-slate-500 shadow-sm shrink-0">
+                                                        <div className="w-8 h-8 rounded-xl bg-bg-card border border-border-main flex items-center justify-center text-[10px] font-black text-slate-500 shadow-sm shrink-0">
                                                             {getUserInitial(userId)}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex justify-between items-center mb-1">
-                                                                <span className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{getShortUserName(userId)}</span>
+                                                                <span className="text-[10px] font-black text-text-main uppercase tracking-tight">{getShortUserName(userId)}</span>
                                                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{createdAt ? new Date(createdAt).toLocaleDateString() : '-'}</span>
                                                             </div>
-                                                            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed italic">"{remarkText}"</p>
+                                                            <p className="text-[11px] font-medium text-text-muted leading-relaxed italic">"{remarkText}"</p>
                                                         </div>
                                                     </div>
                                                 </div>
                                             )})
                                         ) : (
-                                            <div className="text-center py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
+                                            <div className="text-center py-6 border-2 border-dashed border-border-main rounded-2xl">
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No remarks yet</p>
                                             </div>
                                         )}
@@ -1071,8 +1071,8 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                             </div>
 
                             <div className="space-y-5">
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4.5 shadow-sm space-y-4.5">
-                                    <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80 flex items-center gap-2">
+                                <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm space-y-4.5">
+                                    <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80 flex items-center gap-2">
                                         <Users size={14} className="text-indigo-500" />
                                         Involved Parties
                                     </h2>
@@ -1083,11 +1083,11 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                         </div>
                                         <div className="space-y-0.5">
                                             <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Assigned By</label>
-                                            <p className="text-xs font-black text-slate-700 dark:text-slate-200">{getUserName(getAssignerId())}</p>
+                                            <p className="text-xs font-black text-text-main">{getUserName(getAssignerId())}</p>
                                         </div>
                                     </div>
 
-                                    <div className="h-px bg-slate-50 dark:bg-slate-800" />
+                                    <div className="h-px bg-bg-main" />
 
                                     <div className="flex items-center gap-3.5 group">
                                         <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-500 font-black text-sm transition-transform group-hover:scale-105 shadow-sm border border-amber-100 dark:border-amber-900/30">
@@ -1095,19 +1095,19 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                         </div>
                                         <div className="space-y-0.5">
                                             <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Assigned To</label>
-                                            <p className="text-xs font-black text-slate-700 dark:text-slate-200">{getUserName(getDoerId())}</p>
+                                            <p className="text-xs font-black text-text-main">{getUserName(getDoerId())}</p>
                                         </div>
                                     </div>
 
                                     {task.inLoopIds && Array.isArray(task.inLoopIds) && task.inLoopIds.length > 0 && (
                                         <>
-                                            <div className="h-px bg-slate-50 dark:bg-slate-800" />
+                                            <div className="h-px bg-bg-main" />
                                             <div className="space-y-3">
                                                 <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">In Loop</label>
                                                 <div className="flex flex-wrap gap-2">
                                                     {[...new Set(task.inLoopIds)].map(userId => (
                                                         <div key={userId} className="flex items-center gap-2 bg-slate-50/50 dark:bg-slate-950/50 p-2 rounded-xl border border-slate-50 dark:border-slate-800 shadow-sm">
-                                                            <div className="w-6 h-6 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-500 dark:text-indigo-400 font-black text-[9px] border border-slate-100 dark:border-slate-800 shadow-sm">
+                                                            <div className="w-6 h-6 rounded-lg bg-bg-card flex items-center justify-center text-indigo-500 dark:text-indigo-400 font-black text-[9px] border border-border-main shadow-sm">
                                                                 {getUserInitial(userId)}
                                                             </div>
                                                             <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-tight">{getShortUserName(userId)}</span>
@@ -1119,10 +1119,10 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                     )}
                                 </div>
 
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm space-y-3">
+                                <div className="bg-bg-card rounded-2xl border border-border-main p-4 shadow-sm space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Created On</span>
-                                        <span className="text-[9px] font-black text-slate-700 dark:text-slate-200">
+                                        <span className="text-[9px] font-black text-text-main">
                                             {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'N/A'}
                                         </span>
                                     </div>
@@ -1207,13 +1207,13 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                         >
                             CLOSE <X size={20} />
                         </button>
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl relative">
+                        <div className="bg-bg-card rounded-2xl overflow-hidden shadow-2xl relative">
                             <img 
                                 src={previewImage} 
                                 alt="Full preview" 
                                 className="w-full h-auto max-h-[80vh] object-contain"
                             />
-                            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
+                            <div className="p-4 border-t border-border-main flex items-center justify-between bg-slate-50 dark:bg-slate-950">
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest truncate max-w-md">
                                     {previewImage.split('/').pop().replace(/^\d+-/, '')}
                                 </span>
@@ -1236,3 +1236,6 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 };
 
 export default TaskDetailsDrawer;
+
+
+

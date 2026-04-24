@@ -202,7 +202,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
                         <div className="space-y-4">
                             {/* Task Name */}
                             <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <label className="text-sm font-bold text-text-main flex items-center gap-2">
                                     <CheckCircle2 size={16} className="text-emerald-500" />
                                     Task Name
                                 </label>
@@ -219,7 +219,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
 
                             {/* Description */}
                             <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <label className="text-sm font-bold text-text-main flex items-center gap-2">
                                     <AlignLeft size={16} className="text-emerald-500" />
                                     Description
                                 </label>
@@ -236,7 +236,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Doer Selection */}
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                    <label className="text-sm font-bold text-text-main flex items-center gap-2">
                                         <User size={16} className="text-emerald-500" />
                                         Assing Doer
                                     </label>
@@ -258,7 +258,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
 
                                 {/* Priority */}
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                    <label className="text-sm font-bold text-text-main flex items-center gap-2">
                                         <Flag size={16} className="text-emerald-500" />
                                         Priority
                                     </label>
@@ -279,7 +279,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Department */}
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                                    <label className="text-sm font-bold text-text-main">
                                         Department
                                     </label>
                                     <input
@@ -294,7 +294,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
 
                                 {/* Due Date */}
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                    <label className="text-sm font-bold text-text-main flex items-center gap-2">
                                         <Calendar size={16} className="text-emerald-500" />
                                         Due Date
                                     </label>
@@ -310,9 +310,9 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
                             </div>
 
                             {/* Evidence Required */}
-                            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-(--border-color)">
+                            <div className="flex items-center justify-between p-4 bg-bg-main/30 rounded-xl border border-(--border-color)">
                                 <div>
-                                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Evidence Required</p>
+                                    <p className="text-sm font-bold text-text-main">Evidence Required</p>
                                     <p className="text-xs text-slate-500">Requires photo/doc upon completion</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
@@ -363,12 +363,12 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
                                 </div>
 
                                 {(voiceNotePreviewUrl || selectedFile) && (
-                                    <div className="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-(--border-color)">
+                                    <div className="flex flex-col gap-2 p-3 bg-bg-main/50 rounded-xl border border-(--border-color)">
                                         {voiceNotePreviewUrl && (
                                             <div className="flex items-center justify-between gap-2">
                                                 <div className="flex items-center gap-2 overflow-hidden">
                                                     <Mic size={14} className="text-emerald-500 flex-shrink-0" />
-                                                    <span className="text-xs truncate text-slate-600 dark:text-slate-400">Voice Note Preview</span>
+                                                    <span className="text-xs truncate text-text-muted">Voice Note Preview</span>
                                                 </div>
                                                 <audio src={voiceNotePreviewUrl} controls className="h-6 w-32" />
                                                 <X
@@ -385,7 +385,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
                                             <div className="flex items-center justify-between gap-2 border-t border-(--border-color) pt-2 mt-1 first:border-0 first:pt-0 first:mt-0">
                                                 <div className="flex items-center gap-2 overflow-hidden">
                                                     <Paperclip size={14} className="text-emerald-500 flex-shrink-0" />
-                                                    <span className="text-xs truncate text-slate-600 dark:text-slate-400">{selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                                    <span className="text-xs truncate text-text-muted">{selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
                                                 </div>
                                                 <X
                                                     size={14}
@@ -401,11 +401,11 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
                     </form>
 
                     {/* Footer */}
-                    <div className="p-6 border-t border-(--border-color) bg-slate-50 dark:bg-slate-800/50 flex gap-4">
+                    <div className="p-6 border-t border-(--border-color) bg-bg-main/50 flex gap-4">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 py-3 px-4 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition-all"
+                            className="flex-1 py-3 px-4 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-text-muted hover:bg-white dark:hover:bg-slate-800 transition-all"
                         >
                             Cancel
                         </button>
@@ -431,3 +431,6 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
 };
 
 export default CreateDelegationDrawer;
+
+
+

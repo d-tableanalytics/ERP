@@ -33,14 +33,14 @@ const TaskRemindersModal = ({ isOpen, onClose, onSave, initialReminders = [] }) 
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]">
-            <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="w-full max-w-sm bg-bg-card rounded-2xl shadow-2xl border border-border-main overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="px-4.5 py-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <div className="px-4.5 py-3 flex items-center justify-between border-b border-border-main bg-bg-card">
                     <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
                             <Bell size={16} />
                         </div>
-                        <h2 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Task Reminders</h2>
+                        <h2 className="text-sm font-black text-text-main uppercase tracking-tight">Task Reminders</h2>
                     </div>
                     <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-300 hover:text-emerald-500">
                         <X size={16} />
@@ -50,15 +50,15 @@ const TaskRemindersModal = ({ isOpen, onClose, onSave, initialReminders = [] }) 
                 {/* Content */}
                 <div className="p-4.5 space-y-3.5 max-h-[60vh] overflow-y-auto custom-scrollbar">
                     {reminders.map((reminder, index) => (
-                        <div key={index} className="relative bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 space-y-3">
+                        <div key={index} className="relative bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-border-main space-y-3">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5">
                                     <div className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-black text-[10px] shadow-lg shadow-emerald-500/10">
                                         {index + 1}
                                     </div>
-                                    <span className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest text-[10px]">Reminder {index + 1}</span>
+                                    <span className="font-black text-text-muted uppercase tracking-widest text-[10px]">Reminder {index + 1}</span>
                                 </div>
-                                <div className="flex bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div className="flex bg-bg-card p-1 rounded-lg border border-border-main">
                                     {[
                                         { id: 'whatsapp', icon: MessageCircle, label: 'WHATSAPP' },
                                         { id: 'email', icon: Mail, label: 'EMAIL' },
@@ -69,7 +69,7 @@ const TaskRemindersModal = ({ isOpen, onClose, onSave, initialReminders = [] }) 
                                             onClick={() => updateReminder(index, { type: type.id })}
                                             className={`px-2 py-1 rounded-md text-[9px] font-black transition-all flex items-center gap-1.5 ${
                                                 reminder.type === type.id 
-                                                ? 'bg-slate-100 dark:bg-slate-800 text-emerald-500 shadow-sm' 
+                                                ? 'bg-bg-main text-emerald-500 shadow-sm' 
                                                 : 'text-slate-400 opacity-50 hover:opacity-100'
                                             }`}
                                         >
@@ -86,23 +86,23 @@ const TaskRemindersModal = ({ isOpen, onClose, onSave, initialReminders = [] }) 
                                         type="number"
                                         value={reminder.timeValue}
                                         onChange={(e) => updateReminder(index, { timeValue: e.target.value })}
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg p-2 font-black text-center text-[11px] focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none transition-all text-slate-800 dark:text-slate-100"
-                                        style={{ colorScheme: 'dark' }}
+                                        className="w-full bg-bg-card border border-border-main rounded-lg p-2 font-black text-center text-[11px] focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none transition-all text-text-main"
+                                        
                                     />
                                 </div>
                                 <div className="flex-1">
                                     <select 
                                         value={reminder.timeUnit}
                                         onChange={(e) => updateReminder(index, { timeUnit: e.target.value })}
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg p-2 font-black text-[10px] appearance-none cursor-pointer focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none text-center transition-all text-slate-800 dark:text-slate-100"
-                                        style={{ colorScheme: 'dark' }}
+                                        className="w-full bg-bg-card border border-border-main rounded-lg p-2 font-black text-[10px] appearance-none cursor-pointer focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none text-center transition-all text-text-main"
+                                        
                                     >
-                                        <option value="minutes" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">MINUTES</option>
-                                        <option value="hours" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">HOURS</option>
-                                        <option value="days" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">DAYS</option>
+                                        <option value="minutes" className="bg-bg-card text-text-main">MINUTES</option>
+                                        <option value="hours" className="bg-bg-card text-text-main">HOURS</option>
+                                        <option value="days" className="bg-bg-card text-text-main">DAYS</option>
                                      </select>
                                 </div>
-                                <div className="flex bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-100 dark:border-slate-800 gap-1">
+                                <div className="flex bg-bg-card p-1 rounded-lg border border-border-main gap-1">
                                     {['before', 'after'].map((type) => (
                                         <button
                                             key={type}
@@ -136,10 +136,10 @@ const TaskRemindersModal = ({ isOpen, onClose, onSave, initialReminders = [] }) 
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2.5 bg-slate-50 dark:bg-slate-950/50">
+                <div className="p-4 border-t border-border-main flex items-center gap-2.5 bg-slate-50 dark:bg-slate-950/50">
                     <button 
                         onClick={addReminder}
-                        className="flex-1 py-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 font-black uppercase tracking-widest text-[9px] hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-2 rounded-lg border-2 border-dashed border-border-main text-slate-400 font-black uppercase tracking-widest text-[9px] hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
                     >
                         <Plus size={14} />
                         ADD REMINDER
@@ -158,3 +158,6 @@ const TaskRemindersModal = ({ isOpen, onClose, onSave, initialReminders = [] }) 
 };
 
 export default TaskRemindersModal;
+
+
+

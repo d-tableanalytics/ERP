@@ -7,14 +7,14 @@ import {
 
 const KanbanColumn = ({ title, tasks, color, icon: Icon, onTaskClick }) => {
     return (
-        <div className="flex-1 min-w-[300px] bg-slate-50/50 dark:bg-slate-900/50 rounded-xl p-4 flex flex-col gap-4 border border-slate-100 dark:border-slate-800">
+        <div className="flex-1 min-w-[300px] bg-slate-50/50 dark:bg-slate-900/50 rounded-xl p-4 flex flex-col gap-4 border border-border-main">
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-lg ${color} bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700`}>
+                    <div className={`p-1.5 rounded-lg ${color} bg-bg-card shadow-sm border border-border-main`}>
                         <Icon size={16} />
                     </div>
-                    <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">{title}</span>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">{tasks.length}</span>
+                    <span className="text-sm font-black text-text-main uppercase tracking-wider">{title}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-black text-text-muted uppercase">{tasks.length}</span>
                 </div>
                 <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                     <MoreVertical size={16} />
@@ -26,7 +26,7 @@ const KanbanColumn = ({ title, tasks, color, icon: Icon, onTaskClick }) => {
                     <div 
                         key={task.id} 
                         onClick={() => onTaskClick?.(task)}
-                        className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all group cursor-pointer border-l-4 border-l-transparent hover:border-l-[#137fec]">
+                        className="bg-bg-card p-4 rounded-xl shadow-sm border border-border-main hover:shadow-md transition-all group cursor-pointer border-l-4 border-l-transparent hover:border-l-[#137fec]">
                         <div className="flex justify-between items-start mb-2">
                             <h4 className="text-[13px] font-black text-slate-800 dark:text-white leading-tight group-hover:text-[#137fec] dark:group-hover:text-blue-400 transition-colors">{task.taskTitle}</h4>
                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase ${
@@ -37,7 +37,7 @@ const KanbanColumn = ({ title, tasks, color, icon: Icon, onTaskClick }) => {
                             </span>
                         </div>
                         
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold line-clamp-2 mb-3 leading-relaxed">
+                        <p className="text-[11px] text-text-muted font-bold line-clamp-2 mb-3 leading-relaxed">
                             {task.description || 'No description provided'}
                         </p>
 
@@ -101,3 +101,6 @@ const TaskKanbanView = ({ tasks, onTaskClick }) => {
 };
 
 export default TaskKanbanView;
+
+
+

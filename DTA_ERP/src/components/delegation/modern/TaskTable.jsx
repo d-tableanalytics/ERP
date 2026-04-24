@@ -83,7 +83,7 @@ const TaskTable = ({ type = 'assigned', search = '', department = '', startDate 
         <div className="w-full overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-secondary)">
             <table className="w-full text-left border-collapse">
                 <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-(--border-color)">
+                    <tr className="bg-bg-main/50 border-b border-(--border-color)">
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Task Title</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Priority</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
@@ -93,10 +93,10 @@ const TaskTable = ({ type = 'assigned', search = '', department = '', startDate 
                 </thead>
                 <tbody className="divide-y divide-(--border-color)">
                     {tasks.map((task) => (
-                        <tr key={task.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                        <tr key={task.id} className="hover:bg-bg-main/30 transition-colors group">
                             <td className="px-6 py-4">
                                 <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{task.taskTitle}</span>
+                                    <span className="text-sm font-bold text-text-main">{task.taskTitle}</span>
                                     <span className="text-xs text-slate-500 truncate max-w-[200px]">{task.description}</span>
                                 </div>
                             </td>
@@ -108,10 +108,10 @@ const TaskTable = ({ type = 'assigned', search = '', department = '', startDate 
                             <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
                                     {getStatusIcon(task.status)}
-                                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{task.status}</span>
+                                    <span className="text-xs font-medium text-text-muted">{task.status}</span>
                                 </div>
                             </td>
-                            <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                            <td className="px-6 py-4 text-xs text-text-muted font-medium">
                                 {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
                             </td>
                             <td className="px-6 py-4">
@@ -166,3 +166,6 @@ const TaskTable = ({ type = 'assigned', search = '', department = '', startDate 
 };
 
 export default TaskTable;
+
+
+

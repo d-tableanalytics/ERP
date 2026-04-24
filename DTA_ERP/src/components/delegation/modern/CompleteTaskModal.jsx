@@ -88,13 +88,13 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess, apiMode = 'task' 
 
     return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]">
-            <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="px-4.5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="w-full max-w-sm bg-bg-card rounded-2xl shadow-2xl border border-border-main overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="px-4.5 py-3 border-b border-border-main flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
                             <CheckCircle2 size={16} />
                         </div>
-                        <h2 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Complete Task</h2>
+                        <h2 className="text-sm font-black text-text-main uppercase tracking-tight">Complete Task</h2>
                     </div>
                     <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-300 hover:text-emerald-500 transition-colors">
                         <X size={16} />
@@ -102,14 +102,14 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess, apiMode = 'task' 
                 </div>
 
                 <div className="p-4.5 space-y-4">
-                    <div className="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-border-main">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-70">Task Title</p>
-                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">{task.taskTitle}</p>
+                        <p className="text-[11px] font-bold text-text-main uppercase tracking-tight">{task.taskTitle}</p>
                     </div>
 
                     {(task.evidenceRequired || true) && (
                         <div className="space-y-3">
-                            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 block px-1 uppercase tracking-widest">
+                            <label className="text-[10px] font-black text-text-muted block px-1 uppercase tracking-widest">
                                 Evidence {task.evidenceRequired && <span className="text-red-500">*</span>}
                             </label>
                             
@@ -119,7 +119,7 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess, apiMode = 'task' 
                                         <div key={idx} className="flex items-center justify-between p-2 bg-emerald-50 dark:bg-emerald-500/5 rounded-xl border border-emerald-100 dark:border-emerald-500/20 animate-in slide-in-from-left-2 duration-200">
                                             <div className="flex items-center gap-2 overflow-hidden">
                                                 <Paperclip size={12} className="text-emerald-500 shrink-0" />
-                                                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate">{file.name}</span>
+                                                <span className="text-[10px] font-bold text-text-main truncate">{file.name}</span>
                                             </div>
                                             <button onClick={() => removeFile(idx)} className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-500/10 rounded-full text-red-400 hover:text-red-500 transition-colors">
                                                 <X size={12} />
@@ -129,7 +129,7 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess, apiMode = 'task' 
                                 </div>
                             )}
 
-                            <label className={`flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-xl cursor-pointer transition-all border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:bg-slate-50 dark:hover:bg-slate-800/30`}>
+                            <label className={`flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-xl cursor-pointer transition-all border-border-main hover:border-emerald-500 hover:bg-bg-main/30`}>
                                 <div className="flex flex-col items-center justify-center p-4">
                                     <UploadCloud className="w-6 h-6 text-slate-300 dark:text-slate-700 mb-1" />
                                     <p className="text-[10px] font-black text-slate-400 text-center px-4 uppercase tracking-tighter">Click to add {selectedFiles.length > 0 ? 'more' : 'evidence'}</p>
@@ -158,10 +158,10 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess, apiMode = 'task' 
                     )}
                 </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex gap-2.5">
+                <div className="p-4 bg-slate-50 dark:bg-slate-950/50 border-t border-border-main flex gap-2.5">
                     <button 
                         onClick={onClose} 
-                        className="flex-1 py-2 rounded-lg border border-slate-200 dark:border-slate-800 text-[10px] font-black text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-all uppercase tracking-widest"
+                        className="flex-1 py-2 rounded-lg border border-border-main text-[10px] font-black text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-all uppercase tracking-widest"
                     >
                         CANCEL
                     </button>
@@ -179,3 +179,6 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess, apiMode = 'task' 
 };
 
 export default CompleteTaskModal;
+
+
+

@@ -3,7 +3,6 @@ const { uploadToDrive } = require('../utils/googleDrive');
 const { createNotification } = require('../utils/notification');
 const { Task } = require('../models/task.model');
 const { notifyUser } = require('../services/notificationService');
-const delegationController = require('./delegation.controller');
 
 // Helper to calculate reminder time
 const calculateReminderTime = (dueDate, timeValue, timeUnit, triggerType) => {
@@ -153,7 +152,21 @@ exports.getTaskById = async (req, res) => {
         if (!task) {
             return res.status(404).json({ success: false, message: 'Task not found' });
         }
-        return delegationController.getDelegationDetail(req, res);
+        
+        // Fetch remarks, revision history, and subtasks
+        const remarks = await Task.getRemarks(id);
+        const revisionHistory = await Task.getRevisionHistory(id);
+        const subtasks = await Task.getSubtasks(id);
+
+        res.status(200).json({ 
+            success: true, 
+            data: {
+                ...task,
+                remarks_list: remarks,
+                revision_history_list: revisionHistory,
+                subtasks: subtasks
+            } 
+        });
     } catch (err) {
         console.error('Error in getTaskById:', err);
         return res.status(500).json({ success: false, message: 'Error fetching task detail' });
@@ -163,12 +176,127 @@ exports.getTaskById = async (req, res) => {
 // 9. Update Task
 exports.updateTask = async (req, res) => {
     const { id } = req.params;
+    const userId = req.user.id || req.user.User_Id;
+    const userName = req.user.name || 'User';
+
     try {
-        const task = await Task.findById(id);
-        if (!task) {
+        const existingTask = await Task.findById(id);
+        if (!existingTask) {
             return res.status(404).json({ success: false, message: 'Task not found' });
         }
-        return delegationController.updateDelegation(req, res);
+
+        const updates = { ...req.body };
+        
+        // Handle file uploads if any
+        if (req.files) {
+            if (req.files['voice_note']) {
+                const file = req.files['voice_note'][0];
+                updates.voice_note_url = await uploadToDrive(file.buffer, file.originalname, file.mimetype);
+            }
+            if (req.files['reference_docs']) {
+                const docs = await Promise.all(req.files['reference_docs'].map(async (f) => {
+                    return await uploadToDrive(f.buffer, f.originalname, f.mimetype);
+                }));
+                updates.reference_docs = [...(existingTask.referenceDocs || []), ...docs.filter(u => u !== null)];
+            }
+            if (req.files['evidence_files']) {
+                const docs = await Promise.all(req.files['evidence_files'].map(async (f) => {
+                    return await uploadToDrive(f.buffer, f.originalname, f.mimetype);
+                }));
+                updates.evidence_url = docs[0]; // Assuming single evidence for now or update schema
+            }
+        }
+
+        // Tracking history if status or due date changes
+        if ((updates.status && updates.status !== existingTask.status) || (updates.dueDate && updates.dueDate !== existingTask.dueDate)) {
+            await db.pool.query(
+                `INSERT INTO task_revision_history (task_id, old_due_date, new_due_date, old_status, new_status, reason, changed_by)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [id, existingTask.dueDate, updates.dueDate || existingTask.dueDate, existingTask.status, updates.status || existingTask.status, updates.reason || 'Manual update', userName]
+            );
+            
+            if (updates.status && updates.status !== existingTask.status) {
+                updates.revision_count = (existingTask.revisionCount || 0) + 1;
+                if (updates.status.toLowerCase() === 'completed') {
+                    updates.completed_at = new Date();
+                }
+            }
+        }
+
+        // Map frontend field names to backend if necessary
+        const backendUpdates = {};
+        if (updates.taskTitle) backendUpdates.task_title = updates.taskTitle;
+        if (updates.description) backendUpdates.description = updates.description;
+        if (updates.status) backendUpdates.status = updates.status;
+        if (updates.priority) backendUpdates.priority = updates.priority;
+        if (updates.dueDate) backendUpdates.due_date = updates.dueDate;
+        if (updates.category) backendUpdates.category = updates.category;
+        
+        // Handle JSON fields safely
+        const safeParse = (str, fallback) => {
+            if (!str || str === 'undefined' || str === 'null' || str === '') return fallback;
+            try { return typeof str === 'string' ? JSON.parse(str) : str; } catch (e) { return fallback; }
+        };
+
+        if (updates.tags) backendUpdates.tags = JSON.stringify(safeParse(updates.tags, []));
+        if (updates.checklistItems || updates.checklist) {
+            const checklist = safeParse(updates.checklistItems || updates.checklist, []);
+            backendUpdates.checklist = JSON.stringify(checklist);
+        }
+        if (updates.repeatSettings || updates.repeat_settings) {
+            backendUpdates.repeat_settings = JSON.stringify(safeParse(updates.repeatSettings || updates.repeat_settings, {}));
+        }
+        if (updates.inLoopIds || updates.in_loop_ids) {
+            backendUpdates.in_loop_ids = safeParse(updates.inLoopIds || updates.in_loop_ids, []);
+        }
+
+        if (updates.groupId || updates.group_id) backendUpdates.group_id = updates.groupId || updates.group_id;
+        if (updates.parentId || updates.parent_id) backendUpdates.parent_id = updates.parentId || updates.parent_id;
+        
+        if (updates.voice_note_url) backendUpdates.voice_note_url = updates.voice_note_url;
+        if (updates.reference_docs) backendUpdates.reference_docs = updates.reference_docs;
+        if (updates.evidence_url) backendUpdates.evidence_url = updates.evidence_url;
+        if (updates.completed_at) backendUpdates.completed_at = updates.completed_at;
+        if (updates.revision_count !== undefined) backendUpdates.revision_count = updates.revision_count;
+
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            const updatedTask = await Task.update(id, backendUpdates, client);
+
+            // Handle Reminders Update
+            if (updates.reminders) {
+                const final_reminders = safeParse(updates.reminders, []);
+                await client.query('DELETE FROM task_reminders WHERE task_id = $1', [id]);
+                
+                for (const r of final_reminders) {
+                    const rTime = calculateReminderTime(backendUpdates.due_date || existingTask.dueDate, r.timeValue, r.timeUnit, r.triggerType);
+                    if (rTime) {
+                        await client.query(
+                            'INSERT INTO task_reminders (task_id, type, time_value, time_unit, trigger_type, reminder_time) VALUES ($1, $2, $3, $4, $5, $6)',
+                            [id, r.type, r.timeValue, r.timeUnit, r.triggerType, rTime]
+                        );
+                    }
+                }
+            }
+
+            await client.query('COMMIT');
+
+            // Trigger notification
+            await notifyUser('TASK_UPDATED', {
+                ...updatedTask,
+                triggeredById: userId,
+                changedBy: userName
+            });
+
+            res.status(200).json({ success: true, data: updatedTask });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     } catch (err) {
         console.error('Error in updateTask:', err);
         return res.status(500).json({ success: false, message: 'Error updating task' });
@@ -178,12 +306,27 @@ exports.updateTask = async (req, res) => {
 // 10. Add Task Remark
 exports.addTaskRemark = async (req, res) => {
     const { id } = req.params;
+    const { remark } = req.body;
+    const userId = req.user.id || req.user.User_Id;
+    const userName = req.user.name || 'User';
+
     try {
         const task = await Task.findById(id);
         if (!task) {
             return res.status(404).json({ success: false, message: 'Task not found' });
         }
-        return delegationController.addRemark(req, res);
+        
+        const newRemark = await Task.addRemark(id, userId, userName, remark);
+
+        // Trigger notification
+        await notifyUser('TASK_REMARK_ADDED', {
+            ...task,
+            remark: remark,
+            triggeredById: userId,
+            changedBy: userName
+        });
+
+        res.status(201).json({ success: true, data: newRemark });
     } catch (err) {
         console.error('Error in addTaskRemark:', err);
         return res.status(500).json({ success: false, message: 'Error adding task remark' });
@@ -318,7 +461,7 @@ exports.createTask = async (req, res) => {
                 for (const r of final_reminders) {
                     const rTime = calculateReminderTime(final_due_date, r.timeValue, r.timeUnit, r.triggerType);
                     await client.query(
-                        'INSERT INTO task_reminders (delegation_id, type, time_value, time_unit, trigger_type, reminder_time) VALUES ($1, $2, $3, $4, $5, $6)',
+                        'INSERT INTO task_reminders (task_id, type, time_value, time_unit, trigger_type, reminder_time) VALUES ($1, $2, $3, $4, $5, $6)',
                         [newTask.id, r.type, r.timeValue, r.timeUnit, r.triggerType, rTime]
                     );
                 }

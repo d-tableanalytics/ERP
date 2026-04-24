@@ -159,3 +159,6 @@ const CategorySelectionModal = ({ isOpen, onClose, onSelect, categories = [] }) 
 };
 
 export default CategorySelectionModal;
+
+
+

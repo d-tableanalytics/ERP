@@ -10,27 +10,27 @@ const StatCard = ({
   onClick,
 }) => {
   const colorClasses = {
-    blue: "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+    blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200/50 dark:border-blue-500/20",
     green:
-      "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
+      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-500/20",
     orange:
-      "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+      "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200/50 dark:border-orange-500/20",
     purple:
-      "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
+      "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200/50 dark:border-purple-500/20",
   };
 
   return (
     <div
       onClick={onClick}
-      className={`bg-bg-card rounded-2xl p-6 border border-border-main shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between h-[160px] ${onClick ? "cursor-pointer" : ""}`}
+      className={`premium-card premium-card-hover bg-bg-card p-6 flex flex-col justify-between h-[160px] ${onClick ? "cursor-pointer" : ""}`}
     >
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-text-muted text-sm font-medium mb-1.5">{title}</p>
-          <h3 className="text-3xl font-bold text-text-main">{value}</h3>
+          <p className="text-text-muted text-[10px] font-black uppercase tracking-widest mb-1.5">{title}</p>
+          <h3 className="text-3xl font-black text-text-main tracking-tight leading-none">{value}</h3>
         </div>
         <div
-          className={`p-3 rounded-xl ${colorClasses[color] || colorClasses.blue}`}
+          className={`w-12 h-12 rounded-xl flex items-center justify-center border shadow-sm ${colorClasses[color] || colorClasses.blue}`}
         >
           <span className="material-symbols-outlined text-[28px]">{icon}</span>
         </div>
@@ -38,17 +38,17 @@ const StatCard = ({
 
       <div className="flex items-center gap-2 mt-auto">
         <span
-          className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
-            trend.startsWith("+")
-              ? "bg-emerald-100/80 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+          className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+            trend.includes("Done") || trend.startsWith("+")
+              ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
               : trend.startsWith("-")
-                ? "bg-red-100/80 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                ? "bg-red-500/10 text-red-600 border border-red-500/20"
+                : "bg-primary/10 text-primary border border-primary/20"
           }`}
         >
           {trend}
         </span>
-        <span className="text-slate-400 dark:text-slate-500 text-xs font-medium">
+        <span className="text-text-muted text-[10px] font-bold uppercase tracking-tight">
           {trendLabel}
         </span>
       </div>
@@ -57,3 +57,7 @@ const StatCard = ({
 };
 
 export default StatCard;
+
+
+
+
