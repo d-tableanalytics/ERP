@@ -12,6 +12,29 @@ import {
   removeHoliday,
 } from "../../src/store/slices/helpTicketConfigSlice";
 import { registerUser } from "../../src/store/slices/authSlice";
+import {
+  fetchDepartments,
+  fetchEmployees,
+  deleteEmployee,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+} from "../../src/store/slices/masterSlice";
+import notificationService from "../../src/services/notificationService";
+
+const getTodayDate = () => new Date().toISOString().split("T")[0];
+
+const getDefaultRegisterForm = () => ({
+  First_Name: "",
+  Last_Name: "",
+  Work_Email: "",
+  Password: "",
+  Role: "Employee",
+  Designation: "",
+  Department: "",
+  Joining_Date: getTodayDate(),
+});
+
 const DemoModule = ({ type }) => {
   const dispatch = useDispatch();
   const config = getModuleConfig(type);
@@ -20,6 +43,12 @@ const DemoModule = ({ type }) => {
   const { settings, holidays, isSaving } = useSelector(
     (state) => state.helpTicketConfig,
   );
+  const {
+    departments,
+    employees,
+    isLoading: isMasterLoading,
+    isSavingDepartment,
+  } = useSelector((state) => state.master);
   const [form, setForm] = useState({
     auto_close_days: "",
     reminder_days: "",
@@ -29,26 +58,53 @@ const DemoModule = ({ type }) => {
     holiday_date: "",
     description: "",
   });
-  const [registerForm, setRegisterForm] = useState({
-    First_Name: "",
-    Last_Name: "",
-    Work_Email: "",
-    Password: "",
-    Role: "Employee",
-    Designation: "",
-    Department: "",
-    Joining_Date: new Date().toISOString().split("T")[0],
+  const [registerForm, setRegisterForm] = useState(getDefaultRegisterForm);
+  const [departmentForm, setDepartmentForm] = useState({ name: "" });
+  const [editingDepartmentId, setEditingDepartmentId] = useState(null);
+  const [teamSearchTerm, setTeamSearchTerm] = useState("");
+  const [notificationSettings, setNotificationSettings] = useState({
+    whatsapp_notifications: false,
+    email_notifications: false,
+    timezone: 'Asia/Kolkata',
+    daily_reminder_time: '09:00',
+    whatsapp_reminders: false,
+    email_reminders: false,
+    daily_task_report: false,
+    weekly_offs: ['Sunday'],
+    notification_channels: {
+      newTask: { admin: true, manager: true, member: true },
+      taskEdit: { admin: true, manager: true, member: true },
+      taskComment: { admin: true, manager: true, member: true },
+      taskInProgress: { admin: true, manager: true, member: true },
+      taskComplete: { admin: true, manager: true, member: true },
+      taskReOpen: { admin: true, manager: true, member: true }
+    }
   });
+  const [notificationLoading, setNotificationLoading] = useState(false);
 
   useEffect(() => {
     if (
       activeSetting === "Help Ticket Setting" ||
-      activeSetting === "Add Holiday" ||
-      activeSetting === "Add Users"
+      activeSetting === "Add Holiday"
     ) {
       dispatch(fetchHelpTicketConfig());
     }
+    if (activeSetting === "Notifications") {
+      fetchNotificationSettings();
+    }
+    if (activeSetting === "Team") {
+      dispatch(fetchEmployees());
+    }
   }, [activeSetting, dispatch]);
+
+  useEffect(() => {
+    if (
+      (activeSetting === "Add Users" || activeSetting === "Departments") &&
+      departments.length === 0
+    ) {
+      dispatch(fetchDepartments());
+    }
+  }, [activeSetting, departments.length, dispatch]);
 
   useEffect(() => {
     if (!settings) return;
@@ -118,6 +174,49 @@ const DemoModule = ({ type }) => {
     }
   };
 
+  const fetchNotificationSettings = async () => {
+    try {
+      const settings = await notificationService.getSettings();
+      setNotificationSettings(settings);
+    } catch (error) {
+      console.error('Error fetching notification settings:', error);
+      toast.error('Failed to load notification settings');
+    }
+  };
+
+  const handleNotificationChange = (field, value) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleChannelChange = (channel, role, value) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      notification_channels: {
+        ...prev.notification_channels,
+        [channel]: {
+          ...prev.notification_channels[channel],
+          [role]: value
+        }
+      }
+    }));
+  };
+
+  const handleSaveNotificationSettings = async () => {
+    setNotificationLoading(true);
+    try {
+      await notificationService.updateSettings(notificationSettings);
+      toast.success('Notification settings saved successfully');
+    } catch (error) {
+      console.error('Error saving notification settings:', error);
+      toast.error('Failed to save notification settings');
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
   const handleRegisterChange = (e) => {
     const { name, value } = e.target;
     setRegisterForm((prev) => ({ ...prev, [name]: value }));
@@ -139,18 +238,99 @@ const DemoModule = ({ type }) => {
     try {
       await dispatch(registerUser(registerForm)).unwrap();
       toast.success("User registered successfully");
-      setRegisterForm({
-        First_Name: "",
-        Last_Name: "",
-        Work_Email: "",
-        Password: "",
-        Role: "Employee",
-        Designation: "",
-        Department: "",
-        Joining_Date: new Date().toISOString().split("T")[0],
-      });
+      setRegisterForm(getDefaultRegisterForm());
     } catch (err) {
       toast.error(err || "Failed to register user");
+    }
+  };
+
+  const resetDepartmentForm = () => {
+    setDepartmentForm({ name: "" });
+    setEditingDepartmentId(null);
+  };
+
+  const handleDepartmentFormChange = (e) => {
+    setDepartmentForm({ name: e.target.value });
+  };
+
+  const handleSaveDepartment = async () => {
+    if (!departmentForm.name.trim()) {
+      toast.error("Department name is required");
+      return;
+    }
+
+    try {
+      const previousDepartmentName = departments.find(
+        (department) => department.id === editingDepartmentId,
+      )?.name;
+
+      if (editingDepartmentId) {
+        const updatedDepartment = await dispatch(
+          updateDepartment({
+            id: editingDepartmentId,
+            name: departmentForm.name,
+          }),
+        ).unwrap();
+
+        setRegisterForm((prev) =>
+          previousDepartmentName &&
+          prev.Department === previousDepartmentName
+            ? { ...prev, Department: updatedDepartment.name }
+            : prev,
+        );
+
+        toast.success("Department updated successfully");
+      } else {
+        await dispatch(
+          createDepartment({
+            name: departmentForm.name,
+          }),
+        ).unwrap();
+        toast.success("Department created successfully");
+      }
+
+      resetDepartmentForm();
+    } catch (err) {
+      toast.error(err || "Failed to save department");
+    }
+  };
+
+  const handleEditDepartment = (department) => {
+    setEditingDepartmentId(department.id);
+    setDepartmentForm({ name: department.name });
+  };
+
+  const handleDeleteDepartment = async (department) => {
+    if (!window.confirm(`Delete department "${department.name}"?`)) return;
+
+    try {
+      await dispatch(deleteDepartment(department.id)).unwrap();
+      toast.success("Department deleted successfully");
+
+      setRegisterForm((prev) =>
+        prev.Department === department.name
+          ? { ...prev, Department: "" }
+          : prev,
+      );
+
+      if (editingDepartmentId === department.id) {
+        resetDepartmentForm();
+      }
+    } catch (err) {
+      toast.error(err || "Failed to delete department");
+    }
+  };
+
+  const handleDeleteEmployee = async (emp) => {
+    if (!window.confirm(`Are you sure you want to delete ${emp.First_Name} ${emp.Last_Name}?`)) {
+      return;
+    }
+
+    try {
+      await dispatch(deleteEmployee(emp.id)).unwrap();
+      toast.success("Employee deleted successfully");
+    } catch (err) {
+      toast.error(err || "Failed to delete employee");
     }
   };
 
@@ -258,21 +438,30 @@ const DemoModule = ({ type }) => {
 
   // Settings Layout
   if (type === "settings") {
+    const canManageDepartments =
+      user?.role === "Admin" || user?.role === "SuperAdmin";
+    const canManageHolidays =
+      user?.role === "Admin" ||
+      user?.role === "SuperAdmin" ||
+      user?.role === "PC";
+    const renderedSettings = [
+      "General",
+      "Notifications",
+      "Team",
+      "Help Ticket Setting",
+      "Add Users",
+      "Departments",
+      "Add Holiday",
+    ];
     const SETTINGS = [
       "General",
       "Security",
       "Notifications",
-      "Team",
+      ...(canManageDepartments ? ["Team"] : []),
       "Billing",
       "Integrations",
-      ...(user?.role === "Admin" || user?.role === "SuperAdmin"
-        ? ["Add Users"]
-        : []),
-      ...(user?.role === "Admin" ||
-      user?.role === "SuperAdmin" ||
-      user?.role === "PC"
-        ? ["Add Holiday"]
-        : []),
+      ...(canManageDepartments ? ["Add Users", "Departments"] : []),
+      ...(canManageHolidays ? ["Add Holiday"] : []),
       "Help Ticket Setting",
     ];
 
@@ -333,6 +522,162 @@ const DemoModule = ({ type }) => {
                         <option>Spanish</option>
                         <option>French</option>
                       </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ========= Notifications ========= */}
+              {activeSetting === "Notifications" && (
+                <>
+                  <div>
+                    <h3 className="text-lg font-bold text-text-main mb-1">
+                      Notification Settings
+                    </h3>
+                    <p className="text-text-muted text-sm pb-4 border-b border-border-main">
+                      Configure how you receive notifications and reminders.
+                    </p>
+                  </div>
+
+                  <div className="space-y-6 max-w-2xl">
+                    {/* Notification Channels */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-bold text-text-main">Notification Channels</h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="whatsapp_notifications"
+                            checked={notificationSettings.whatsapp_notifications}
+                            onChange={(e) => handleNotificationChange('whatsapp_notifications', e.target.checked)}
+                            className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                          />
+                          <label htmlFor="whatsapp_notifications" className="text-sm font-medium text-text-main">
+                            WhatsApp Notifications
+                          </label>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="email_notifications"
+                            checked={notificationSettings.email_notifications}
+                            onChange={(e) => handleNotificationChange('email_notifications', e.target.checked)}
+                            className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                          />
+                          <label htmlFor="email_notifications" className="text-sm font-medium text-text-main">
+                            Email Notifications
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reminder Settings */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-bold text-text-main">Reminder Settings</h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="whatsapp_reminders"
+                            checked={notificationSettings.whatsapp_reminders}
+                            onChange={(e) => handleNotificationChange('whatsapp_reminders', e.target.checked)}
+                            className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                          />
+                          <label htmlFor="whatsapp_reminders" className="text-sm font-medium text-text-main">
+                            WhatsApp Reminders
+                          </label>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="email_reminders"
+                            checked={notificationSettings.email_reminders}
+                            onChange={(e) => handleNotificationChange('email_reminders', e.target.checked)}
+                            className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                          />
+                          <label htmlFor="email_reminders" className="text-sm font-medium text-text-main">
+                            Email Reminders
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2 max-w-xs">
+                        <label className="text-sm font-bold text-text-main">
+                          Daily Reminder Time
+                        </label>
+                        <input
+                          type="time"
+                          value={notificationSettings.daily_reminder_time}
+                          onChange={(e) => handleNotificationChange('daily_reminder_time', e.target.value)}
+                          className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Notification Channels by Role */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-bold text-text-main">Notification Types by Role</h4>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full border border-border-main rounded-lg">
+                          <thead className="bg-bg-main">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-sm font-bold text-text-main">Event Type</th>
+                              <th className="px-4 py-2 text-center text-sm font-bold text-text-main">Admin</th>
+                              <th className="px-4 py-2 text-center text-sm font-bold text-text-main">Manager</th>
+                              <th className="px-4 py-2 text-center text-sm font-bold text-text-main">Member</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(notificationSettings.notification_channels).map(([event, roles]) => (
+                              <tr key={event} className="border-t border-border-main">
+                                <td className="px-4 py-2 text-sm text-text-main capitalize">
+                                  {event.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={roles.admin}
+                                    onChange={(e) => handleChannelChange(event, 'admin', e.target.checked)}
+                                    className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                                  />
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={roles.manager}
+                                    onChange={(e) => handleChannelChange(event, 'manager', e.target.checked)}
+                                    className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                                  />
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={roles.member}
+                                    onChange={(e) => handleChannelChange(event, 'member', e.target.checked)}
+                                    className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <div className="flex justify-end pt-4">
+                      <button
+                        onClick={handleSaveNotificationSettings}
+                        disabled={notificationLoading}
+                        className="bg-primary text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50 hover:bg-primary/90 transition-colors"
+                      >
+                        {notificationLoading ? "Saving..." : "Save Settings"}
+                      </button>
                     </div>
                   </div>
                 </>
@@ -569,17 +914,42 @@ const DemoModule = ({ type }) => {
                     </div>
 
                     <div className="grid gap-2">
-                      <label className="text-sm font-bold text-text-main">
-                        Department
-                      </label>
-                      <input
-                        type="text"
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="text-sm font-bold text-text-main">
+                          Department
+                        </label>
+                        {canManageDepartments && (
+                          <button
+                            type="button"
+                            onClick={() => setActiveSetting("Departments")}
+                            className="text-xs font-bold text-primary hover:underline"
+                          >
+                            Manage Departments
+                          </button>
+                        )}
+                      </div>
+                      <select
                         name="Department"
                         value={registerForm.Department}
                         onChange={handleRegisterChange}
-                        placeholder="e.g. Engineering"
                         className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
-                      />
+                      >
+                        <option value="">
+                          {isMasterLoading && departments.length === 0
+                            ? "Loading departments..."
+                            : departments.length === 0
+                              ? "No departments available"
+                              : "Select Department"}
+                        </option>
+                        {departments.map((department) => (
+                          <option key={department.id} value={department.name}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-text-muted">
+                        Departments are loaded from the master list.
+                      </p>
                     </div>
 
                     <div className="grid gap-2">
@@ -620,6 +990,125 @@ const DemoModule = ({ type }) => {
                       >
                         Register Employee
                       </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ========= Departments ========= */}
+              {activeSetting === "Departments" && (
+                <>
+                  <div>
+                    <h3 className="text-lg font-bold text-text-main mb-1">
+                      Department Management
+                    </h3>
+                    <p className="text-text-muted text-sm pb-4 border-b border-border-main">
+                      Create, update, and delete departments used in user and
+                      task forms.
+                    </p>
+                  </div>
+
+                  <div className="space-y-8 max-w-2xl">
+                    <div className="bg-bg-main/60 border border-border-main rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <h4 className="text-sm font-bold text-text-main">
+                          {editingDepartmentId
+                            ? "Edit Department"
+                            : "Create Department"}
+                        </h4>
+                        {editingDepartmentId && (
+                          <button
+                            type="button"
+                            onClick={resetDepartmentForm}
+                            className="text-xs font-bold text-text-muted hover:text-text-main"
+                          >
+                            Cancel Edit
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <input
+                          type="text"
+                          value={departmentForm.name}
+                          onChange={handleDepartmentFormChange}
+                          placeholder="Enter department name"
+                          className="flex-1 px-4 py-2 bg-bg-card border border-border-main rounded-lg outline-none focus:border-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveDepartment}
+                          disabled={isSavingDepartment}
+                          className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {isSavingDepartment
+                            ? "Saving..."
+                            : editingDepartmentId
+                              ? "Update"
+                              : "Add Department"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <h4 className="text-sm font-bold text-text-main">
+                          Department List
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => dispatch(fetchDepartments())}
+                          className="text-xs font-bold text-primary hover:underline"
+                        >
+                          Refresh
+                        </button>
+                      </div>
+
+                      {isMasterLoading && departments.length === 0 ? (
+                        <div className="text-sm text-text-muted bg-bg-main border border-border-main rounded-xl p-4">
+                          Loading departments...
+                        </div>
+                      ) : departments.length === 0 ? (
+                        <div className="text-sm text-text-muted bg-bg-main border border-border-main rounded-xl p-4">
+                          No departments found. Add a department to use it in
+                          the Add Users form.
+                        </div>
+                      ) : (
+                        departments.map((department) => (
+                          <div
+                            key={department.id}
+                            className="flex items-center justify-between gap-4 bg-bg-main border border-border-main rounded-xl p-4"
+                          >
+                            <div>
+                              <p className="font-bold text-text-main">
+                                {department.name}
+                              </p>
+                              <p className="text-xs text-text-muted">
+                                ID: {department.id}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleEditDepartment(department)}
+                                className="text-sm font-bold text-primary hover:underline"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteDepartment(department)
+                                }
+                                className="text-sm font-bold text-red-500 hover:underline"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>
@@ -717,10 +1206,134 @@ const DemoModule = ({ type }) => {
                 </>
               )}
 
+              {/* ========= Team View ========= */}
+              {activeSetting === "Team" && (
+                <>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-border-main">
+                    <div>
+                      <h3 className="text-lg font-bold text-text-main mb-1">
+                        Team Members
+                      </h3>
+                      <p className="text-text-muted text-sm">
+                        Manage and view all registered employees.
+                      </p>
+                    </div>
+                    
+                    <div className="relative max-w-xs w-full">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg">
+                        search
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Search members..."
+                        value={teamSearchTerm}
+                        onChange={(e) => setTeamSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-bg-main border border-border-main rounded-xl outline-none focus:border-primary text-sm transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {isMasterLoading && employees?.length === 0 ? (
+                      <div className="flex items-center justify-center h-48 text-text-muted italic">
+                        Loading team members...
+                      </div>
+                    ) : (employees || []).length === 0 ? (
+                      <div className="flex items-center justify-center h-48 text-text-muted italic">
+                        No team members found.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="text-text-muted text-[11px] font-bold uppercase tracking-wider border-b border-border-main">
+                              <th className="px-4 py-3">ID</th>
+                              <th className="px-4 py-3">Member</th>
+                              <th className="px-4 py-3">Work Email</th>
+                              <th className="px-4 py-3">Department</th>
+                              <th className="px-4 py-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border-main/50">
+                            {(employees || [])
+                              .filter(emp => 
+                                `${emp.First_Name || ''} ${emp.Last_Name || ''}`.toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
+                                (emp.Work_Email || '').toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
+                                (emp.Department || '').toLowerCase().includes(teamSearchTerm.toLowerCase())
+                              )
+                              .map((emp) => (
+                                <tr key={emp.id} className="hover:bg-bg-main/30 transition-colors group">
+                                  <td className="px-4 py-4">
+                                    <span className="text-xs font-bold text-text-muted">
+                                      #{emp.id}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold border border-primary/20 shadow-sm shrink-0">
+                                        {emp.First_Name?.[0] || '?'}{emp.Last_Name?.[0] || ''}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-text-main truncate">
+                                          {emp.First_Name} {emp.Last_Name}
+                                        </p>
+                                        <div className="mt-1">
+                                          {(() => {
+                                            const displayRole = emp.Role || emp.role;
+                                            return (
+                                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider shadow-sm
+                                                ${displayRole === 'SuperAdmin' ? 'bg-purple-500 text-white' : 
+                                                  displayRole === 'Admin' ? 'bg-blue-600 text-white' : 
+                                                  displayRole === 'PC' ? 'bg-orange-500 text-white' :
+                                                  'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}
+                                              >
+                                                {displayRole}
+                                              </span>
+                                            );
+                                          })()}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-4">
+                                    <div className="flex items-center gap-2 text-text-muted">
+                                      <span className="material-symbols-outlined text-sm">mail</span>
+                                      <span className="text-sm truncate">{emp.Work_Email || emp.email}</span>
+                                    </div>
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-text-main">
+                                        {emp.Department}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button 
+                                        onClick={() => handleDeleteEmployee(emp)}
+                                        className="text-text-muted hover:text-red-500 transition-colors"
+                                        title="Delete Member"
+                                      >
+                                        <span className="material-symbols-outlined text-lg">
+                                          delete
+                                        </span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               {/* ========= Coming Soon ========= */}
-              {!["General", "Help Ticket Setting", "Add Holiday"].includes(
-                activeSetting,
-              ) && (
+              {!renderedSettings.includes(activeSetting) && (
                 <div className="flex items-center justify-center h-[300px] text-text-muted font-bold">
                   {activeSetting} settings coming soon 🚧
                 </div>

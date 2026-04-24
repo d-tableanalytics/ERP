@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { X, CheckCircle2, Paperclip, Loader2, UploadCloud } from 'lucide-react';
 import delegationService from '../../services/delegationService';
+import taskService from '../../services/taskService';
 
-const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
+const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess, apiMode = 'task' }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [error, setError] = useState(null);
@@ -62,10 +63,17 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
                 evidenceUrls = [...evidenceUrls, ...newUrls];
             }
 
-            await delegationService.updateDelegation(task.id, {
-                status: 'Completed',
-                evidenceUrl: JSON.stringify(evidenceUrls)
-            });
+            if (apiMode === 'delegation') {
+                await delegationService.updateDelegation(task.id, {
+                    status: 'Completed',
+                    evidenceUrl: JSON.stringify(evidenceUrls)
+                });
+            } else {
+                await taskService.updateTask(task.id, {
+                    status: 'Completed',
+                    evidenceUrl: JSON.stringify(evidenceUrls)
+                });
+            }
 
             onSuccess();
         } catch (err) {

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import delegationService from '../../services/delegationService';
+import taskService from '../../services/taskService';
 import teamService from '../../services/teamService';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
 import TaskCreationForm from './TaskCreationForm';
@@ -21,6 +22,7 @@ import usePermissions from '../../hooks/usePermissions';
 const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
     const { can, userId: loggedInUserId } = usePermissions();
     const [task, setTask] = useState(null);
+    const [apiMode, setApiMode] = useState('task'); // 'task' | 'delegation'
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -42,14 +44,56 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         }
     }, [isOpen, taskId]);
 
+    const fetchEntityDetails = async (id, preferredMode = null) => {
+        const loadTask = async () => ({ data: await taskService.getTaskById(id), mode: 'task' });
+        const loadDelegation = async () => ({ data: await delegationService.getDelegationById(id), mode: 'delegation' });
+
+        if (preferredMode === 'task') {
+            try {
+                return await loadTask();
+            } catch (err) {
+                return await loadDelegation();
+            }
+        }
+
+        if (preferredMode === 'delegation') {
+            try {
+                return await loadDelegation();
+            } catch (err) {
+                return await loadTask();
+            }
+        }
+
+        try {
+            return await loadTask();
+        } catch (err) {
+            return await loadDelegation();
+        }
+    };
+
+    const updateCurrentRecord = async (id, payload) => {
+        if (apiMode === 'delegation') {
+            return delegationService.updateDelegation(id, payload);
+        }
+        return taskService.updateTask(id, payload);
+    };
+
+    const addCurrentRemark = async (id, payload) => {
+        if (apiMode === 'delegation') {
+            return delegationService.addRemark(id, payload);
+        }
+        return taskService.addRemark(id, payload);
+    };
+
     const fetchInitialData = async () => {
         try {
             setLoading(true);
             setError(null);
-            const [taskRes, usersRes] = await Promise.all([
-                delegationService.getDelegationById(taskId),
+            const [{ data: taskRes, mode }, usersRes] = await Promise.all([
+                fetchEntityDetails(taskId),
                 teamService.getUsers()
             ]);
+            setApiMode(mode);
             setTask(taskRes);
             setUsers(usersRes);
             setStatus(taskRes.status);
@@ -63,7 +107,8 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
     const fetchTaskDetails = async () => {
         try {
-            const response = await delegationService.getDelegationById(taskId);
+            const { data: response, mode } = await fetchEntityDetails(taskId, apiMode);
+            setApiMode(mode);
             setTask(response);
             setStatus(response.status);
         } catch (err) {
@@ -107,7 +152,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
             const storedUser = JSON.parse(localStorage.getItem('user'));
             const userId = storedUser?.user?.id || storedUser?.id;
 
-            await delegationService.updateDelegation(taskId, {
+            await updateCurrentRecord(taskId, {
                 checklistItems: updatedChecklist,
                 changedBy: userId,
                 reason: `Checklist item '${updatedChecklist[index].itemName || updatedChecklist[index].text}' marked as ${updatedChecklist[index].completed ? 'completed' : 'incomplete'}.`
@@ -141,7 +186,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                     // Remarks will be lost if we don't handle them or modal doesn't.
                     // For now, let's submit remark then show modal.
                     if (remark.trim()) {
-                        await delegationService.addRemark(taskId, {
+                        await addCurrentRemark(taskId, {
                             userId,
                             remark: remark.trim()
                         });
@@ -152,7 +197,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                     return;
                 }
 
-                await delegationService.updateDelegation(taskId, {
+                await updateCurrentRecord(taskId, {
                     status: status,
                     changedBy: userId,
                     reason: remark.trim() || `Status updated to ${status}`
@@ -163,7 +208,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
             // (Note: updateDelegation in backend often creates a revision record from 'reason', 
             // but addRemark adds to the remarks history specifically)
             if (remark.trim()) {
-                await delegationService.addRemark(taskId, {
+                await addCurrentRemark(taskId, {
                     userId,
                     remark: remark.trim()
                 });
@@ -183,14 +228,28 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         }
     };
 
+    const getUserById = (userId) => users.find(
+        (u) => String(u.userId ?? u.id ?? '') === String(userId ?? '')
+    );
+
     const getUserName = (userId) => {
-        const user = users.find(u => u.userId === userId || u.id === userId);
-        return user ? `${user.firstName} ${user.lastName}` : `User ${userId}`;
+        if (userId === undefined || userId === null || userId === '') return 'Unknown';
+        const user = getUserById(userId);
+        if (!user) return `User ${userId}`;
+        const firstName = user.firstName || user.first_name || '';
+        const lastName = user.lastName || user.last_name || '';
+        return `${firstName} ${lastName}`.trim() || `User ${userId}`;
     };
 
     const getUserInitial = (userId) => {
-        const user = users.find(u => u.userId === userId || u.id === userId);
-        return user ? user.firstName.charAt(0).toUpperCase() : '?';
+        const user = getUserById(userId);
+        const firstName = user?.firstName || user?.first_name || '';
+        return firstName ? firstName.charAt(0).toUpperCase() : '?';
+    };
+
+    const getShortUserName = (userId) => {
+        const fullName = getUserName(userId);
+        return fullName.split(' ')[0] || fullName;
     };
 
     const getStatusIcon = (status) => {
@@ -207,7 +266,11 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
     const handleDeleteTask = async () => {
         try {
             setSubmitting(true);
-            await delegationService.deleteDelegation(taskId);
+            if (apiMode === 'delegation') {
+                await delegationService.softDeleteDelegation(taskId);
+            } else {
+                await taskService.softDeleteTask(taskId);
+            }
             toast.success('Task deleted successfully');
             setShowDeleteConfirm(false);
             onClose();
@@ -225,9 +288,23 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         return storedUser?.user?.id || storedUser?.id;
     };
 
-    const isAssigner = () => task?.assignerId === getCurrentUserId();
-    const isDoer = () => task?.doerId === getCurrentUserId();
-    const isAssignerOrDoer = () => task?.assignerId === getCurrentUserId() || task?.doerId === getCurrentUserId();
+    const getAssignerId = () => task?.assignerId ?? task?.delegatorId ?? task?.delegator_id;
+    const getDoerId = () => task?.doerId ?? task?.doer_id;
+
+    const isAssigner = () => String(getAssignerId() ?? '') === String(getCurrentUserId() ?? '');
+    const isDoer = () => String(getDoerId() ?? '') === String(getCurrentUserId() ?? '');
+    const isAssignerOrDoer = () => isAssigner() || isDoer();
+    const canEditTask = can('task', 'update') && (isAssigner() || isDoer());
+    const editLabel = isDoer() && !isAssigner() ? 'Update' : 'Edit';
+    const revisionHistory = Array.isArray(task?.revision_history)
+        ? task.revision_history
+        : (Array.isArray(task?.revisionHistory)
+            ? task.revisionHistory
+            : (Array.isArray(task?.revision_history_detail) ? task.revision_history_detail : []));
+    const remarkHistory = Array.isArray(task?.remarks)
+        ? task.remarks
+        : (Array.isArray(task?.remarks_detail) ? task.remarks_detail : []);
+    const isVerificationRequired = [true, 'true', 1, '1'].includes(task?.verificationRequired ?? task?.verification_required);
 
     const getLoopIds = () => typeof task?.inLoopIds === 'string' ? JSON.parse(task?.inLoopIds) : (task?.inLoopIds || []);
     const isSubscribed = () => {
@@ -253,7 +330,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
             loopIds = [...loopIds, currentUserId];
 
-            await delegationService.updateDelegation(taskId, { inLoopIds: loopIds });
+            await updateCurrentRecord(taskId, { inLoopIds: loopIds });
             await fetchTaskDetails();
             toast.success('Subscribed to task!');
             if (onSuccess) onSuccess();
@@ -271,7 +348,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
             const storedUser = JSON.parse(localStorage.getItem('user'));
             const userId = storedUser?.user?.id || storedUser?.id;
 
-            await delegationService.updateDelegation(subtaskId, {
+            await updateCurrentRecord(subtaskId, {
                 status: newStatus,
                 changedBy: userId,
                 reason: `Subtask status updated to ${newStatus}`
@@ -293,7 +370,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
             const storedUser = JSON.parse(localStorage.getItem('user'));
             const userId = storedUser?.user?.id || storedUser?.id;
 
-            await delegationService.updateDelegation(taskId, {
+            await updateCurrentRecord(taskId, {
                 reminders: reminders,
                 changedBy: userId,
                 reason: 'Task reminders updated'
@@ -442,6 +519,15 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                 <span className="text-xs font-black text-slate-700 dark:text-slate-200">{task.evidenceRequired ? 'Required' : 'Optional'}</span>
                                             </div>
                                         </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Verification</label>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`p-1.5 rounded-lg ${isVerificationRequired ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500' : 'bg-slate-50 dark:bg-slate-800 text-slate-400'}`}>
+                                                    <ShieldCheck size={13} />
+                                                </div>
+                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">{isVerificationRequired ? 'Required' : 'Not Required'}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                     {(() => {
                                         let parsedTags = [];
@@ -572,7 +658,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                             </div>
                                                             <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
                                                                 <User size={10} />
-                                                                {getUserName(sub.doerId).split(' ')[0]}
+                                                                {getShortUserName(sub.doerId)}
                                                             </div>
                                                         </div>
                                                         <div className="flex flex-wrap gap-2 mt-4">
@@ -664,12 +750,12 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                             >
                                                 <Layers size={14} /> Sub Task
                                             </button>
-                                            {isAssigner() && (
+                                            {canEditTask && (
                                                 <button
                                                     onClick={() => setIsEditModalOpen(true)}
                                                     className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-purple-100 dark:border-purple-900/30 transition-all font-black text-[10px] uppercase tracking-widest bg-white dark:bg-slate-900 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 shadow-sm active:scale-95"
                                                 >
-                                                    <Pencil size={14} /> Edit
+                                                    <Pencil size={14} /> {editLabel}
                                                 </button>
                                             )}
                                         </div>
@@ -901,36 +987,42 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                         </div>
                                         <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Revision History</h2>
                                     </div>
-                                    <div className="space-y-4 relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-100 dark:before:bg-slate-800">
-                                        {task.revision_history && task.revision_history.length > 0 ? (
-                                            task.revision_history.map((rev, i) => (
+                                    <div className={`space-y-4 ${revisionHistory.length > 0 ? 'relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-100 dark:before:bg-slate-800' : ''}`}>
+                                        {revisionHistory.length > 0 ? (
+                                            revisionHistory.map((rev, i) => {
+                                                const newStatus = rev.newStatus || rev.new_status || rev.status || 'Updated';
+                                                const oldStatus = rev.oldStatus || rev.old_status || 'N/A';
+                                                const changedBy = rev.changedBy || rev.changed_by;
+                                                const createdAt = rev.createdAt || rev.created_at;
+                                                const reason = rev.reason;
+                                                return (
                                                 <div key={i} className="relative pl-7 group">
                                                     <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border-2 border-purple-500 z-10 shadow-sm transition-transform group-hover:scale-110" />
                                                     <div className="p-3 bg-slate-50/50 dark:bg-slate-950/50 rounded-xl border border-slate-50 dark:border-slate-800 shadow-sm">
                                                         <div className="flex justify-between items-center mb-1.5">
                                                             <div className="flex items-center gap-2">
-                                                                <div className={`px-2 py-0.5 text-[9px] font-black rounded-lg uppercase border ${rev.newStatus === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                                    rev.newStatus === 'In Progress' ? 'bg-orange-50 text-orange-600 border-orange-100' :
-                                                                        rev.newStatus === 'Need Revision' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                                <div className={`px-2 py-0.5 text-[9px] font-black rounded-lg uppercase border ${newStatus === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                                    newStatus === 'In Progress' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                                                                        newStatus === 'Need Revision' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                                                                             'bg-slate-50 text-slate-600 border-slate-100'
                                                                     }`}>
-                                                                    {rev.newStatus}
+                                                                    {newStatus}
                                                                 </div>
                                                                 <span className="text-[9px] font-black text-slate-400">
-                                                                    {new Date(rev.createdAt).toLocaleString()}
+                                                                    {createdAt ? new Date(createdAt).toLocaleString() : '-'}
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        {rev.reason && (
-                                                            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 italic mb-2">"{rev.reason}"</p>
+                                                        {reason && (
+                                                            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 italic mb-2">"{reason}"</p>
                                                         )}
                                                         <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                                            <span>BY: {getUserName(rev.changedBy).split(' ')[0]}</span>
-                                                            <span className="line-through">OLD: {rev.oldStatus}</span>
+                                                            <span>BY: {getShortUserName(changedBy)}</span>
+                                                            <span className="line-through">OLD: {oldStatus}</span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))
+                                            )})
                                         ) : (
                                             <div className="text-center py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No revisions logged</p>
@@ -946,25 +1038,29 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                         </div>
                                         <h2 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest opacity-80">Remark History</h2>
                                     </div>
-                                    <div className="space-y-4 relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-100 dark:before:bg-slate-800">
-                                        {task.remarks && task.remarks.length > 0 ? (
-                                            task.remarks.map((r, i) => (
+                                    <div className={`space-y-4 ${remarkHistory.length > 0 ? 'relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-100 dark:before:bg-slate-800' : ''}`}>
+                                        {remarkHistory.length > 0 ? (
+                                            remarkHistory.map((r, i) => {
+                                                const userId = r.userId || r.user_id;
+                                                const remarkText = r.remark || '';
+                                                const createdAt = r.createdAt || r.created_at;
+                                                return (
                                                 <div key={i} className="relative pl-7 group">
                                                     <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border-2 border-blue-500 z-10 shadow-sm transition-transform group-hover:scale-110" />
                                                     <div className="p-3 bg-slate-50/50 dark:bg-slate-950/50 rounded-xl border border-slate-50 dark:border-slate-800 shadow-sm flex gap-3.5">
                                                         <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-[10px] font-black text-slate-500 shadow-sm shrink-0">
-                                                            {getUserInitial(r.userId)}
+                                                            {getUserInitial(userId)}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex justify-between items-center mb-1">
-                                                                <span className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{getUserName(r.userId).split(' ')[0]}</span>
-                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(r.createdAt).toLocaleDateString()}</span>
+                                                                <span className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{getShortUserName(userId)}</span>
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{createdAt ? new Date(createdAt).toLocaleDateString() : '-'}</span>
                                                             </div>
-                                                            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed italic">"{r.remark}"</p>
+                                                            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed italic">"{remarkText}"</p>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))
+                                            )})
                                         ) : (
                                             <div className="text-center py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No remarks yet</p>
@@ -983,11 +1079,11 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
                                     <div className="flex items-center gap-3.5 group">
                                         <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-sm transition-transform group-hover:scale-105 shadow-sm border border-indigo-100 dark:border-indigo-900/30">
-                                            {getUserInitial(task.assignerId)}
+                                            {getUserInitial(getAssignerId())}
                                         </div>
                                         <div className="space-y-0.5">
                                             <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Assigned By</label>
-                                            <p className="text-xs font-black text-slate-700 dark:text-slate-200">{getUserName(task.assignerId)}</p>
+                                            <p className="text-xs font-black text-slate-700 dark:text-slate-200">{getUserName(getAssignerId())}</p>
                                         </div>
                                     </div>
 
@@ -995,11 +1091,11 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
                                     <div className="flex items-center gap-3.5 group">
                                         <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-500 font-black text-sm transition-transform group-hover:scale-105 shadow-sm border border-amber-100 dark:border-amber-900/30">
-                                            {getUserInitial(task.doerId)}
+                                            {getUserInitial(getDoerId())}
                                         </div>
                                         <div className="space-y-0.5">
                                             <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Assigned To</label>
-                                            <p className="text-xs font-black text-slate-700 dark:text-slate-200">{getUserName(task.doerId)}</p>
+                                            <p className="text-xs font-black text-slate-700 dark:text-slate-200">{getUserName(getDoerId())}</p>
                                         </div>
                                     </div>
 
@@ -1014,7 +1110,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                             <div className="w-6 h-6 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-500 dark:text-indigo-400 font-black text-[9px] border border-slate-100 dark:border-slate-800 shadow-sm">
                                                                 {getUserInitial(userId)}
                                                             </div>
-                                                            <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-tight">{getUserName(userId).split(' ')[0]}</span>
+                                                            <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-tight">{getShortUserName(userId)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -1054,6 +1150,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                     isOpen={isSubtaskModalOpen}
                     onClose={() => setIsSubtaskModalOpen(false)}
                     onSuccess={fetchTaskDetails}
+                    apiMode={apiMode}
                     parentId={taskId}
                     initialData={{
                         groupId: task?.groupId,
@@ -1066,6 +1163,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                 <TaskCreationForm
                     isOpen={isEditModalOpen}
                     onClose={() => setIsEditModalOpen(false)}
+                    apiMode={apiMode}
                     onSuccess={() => {
                         fetchTaskDetails();
                         onSuccess?.();
@@ -1078,6 +1176,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                 <CompleteTaskModal
                     task={task}
                     isOpen={showCompleteModal}
+                    apiMode={apiMode}
                     onClose={() => setShowCompleteModal(false)}
                     onSuccess={() => {
                         setShowCompleteModal(false);

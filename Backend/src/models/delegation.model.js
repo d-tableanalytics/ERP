@@ -15,10 +15,11 @@ const createDelegationTables = async () => {
         category VARCHAR(100),
         tags JSONB DEFAULT '[]',
         checklist JSONB DEFAULT '[]',
-        status VARCHAR(50) CHECK (status IN ('Pending', 'NEED CLARITY', 'APPROVAL WAITING', 'COMPLETED', 'NEED REVISION', 'HOLD', 'Pending', 'In Progress', 'Overdue', 'Hold')) DEFAULT 'Pending',
+        status VARCHAR(50) CHECK (status IN ('Pending', 'pending', 'NEED CLARITY', 'need clarity', 'APPROVAL WAITING', 'approval waiting', 'COMPLETED', 'Completed', 'completed', 'NEED REVISION', 'need revision', 'HOLD', 'Hold', 'hold', 'In Progress', 'in progress', 'Overdue', 'overdue')) DEFAULT 'Pending',
         due_date TIMESTAMPTZ NOT NULL,
         voice_note_url TEXT,
         reference_docs TEXT[],
+        evidence_url TEXT,
         evidence_required BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMPTZ,
@@ -73,10 +74,12 @@ const createDelegationTables = async () => {
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS category VARCHAR(100)`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]'`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS evidence_url TEXT`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS repeat_settings JSONB DEFAULT '{}'`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS in_loop_ids INTEGER[] DEFAULT '{}'`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS group_id INTEGER`);
         await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS parent_id INTEGER`);
+        await pool.query(`ALTER TABLE delegation ADD COLUMN IF NOT EXISTS record_source VARCHAR(50) DEFAULT 'delegation'`);
         
         // Update CHECK constraints for existing tables
         try {
@@ -86,7 +89,7 @@ const createDelegationTables = async () => {
             
             // Re-add updated constraints
             await pool.query(`ALTER TABLE delegation ADD CONSTRAINT delegation_priority_check CHECK (priority IN ('Low', 'Medium', 'High', 'Urgent', 'low', 'medium', 'high', 'urgent'))`);
-            await pool.query(`ALTER TABLE delegation ADD CONSTRAINT delegation_status_check CHECK (status IN ('Pending', 'NEED CLARITY', 'APPROVAL WAITING', 'COMPLETED', 'NEED REVISION', 'HOLD', 'In Progress', 'Overdue', 'Hold'))`);
+            await pool.query(`ALTER TABLE delegation ADD CONSTRAINT delegation_status_check CHECK (status IN ('Pending', 'pending', 'NEED CLARITY', 'need clarity', 'APPROVAL WAITING', 'approval waiting', 'COMPLETED', 'Completed', 'completed', 'NEED REVISION', 'need revision', 'HOLD', 'Hold', 'hold', 'In Progress', 'in progress', 'Overdue', 'overdue'))`);
         } catch (e) {
             console.log('Constraints already updated or could not be updated:', e.message);
         }

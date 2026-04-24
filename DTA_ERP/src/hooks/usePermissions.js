@@ -18,8 +18,10 @@ const usePermissions = () => {
 
     const can = (category, action) => {
         if (isAdmin) return true;
-        // Default permit everything for now in the simplified ERP version
-        // unless you want to implement specific checks.
+        if (category === 'task') {
+            if (action === 'create' || action === 'delete' || action === 'trash') return false;
+            return true;
+        }
         return true;
     };
 

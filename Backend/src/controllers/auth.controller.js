@@ -69,7 +69,7 @@ exports.login = async (req, res) => {
         }
 
         // Find employee
-        const result = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1', [email]);
+        const result = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1 AND deleted_at IS NULL', [email]);
         if (result.rows.length === 0) {
             return res.status(400).json({ success: false, message: 'Invalid credentials' });
         }
@@ -126,7 +126,7 @@ exports.updateTheme = async (req, res) => {
 // Get All Users
 exports.getUsers = async (req, res) => {
     try {
-        const result = await db.query('SELECT user_id, first_name, last_name, work_email, role, designation, department FROM employees');
+        const result = await db.query('SELECT user_id, first_name, last_name, work_email, role, designation, department FROM employees WHERE deleted_at IS NULL');
         // Normalize names for frontend
         const users = result.rows.map(u => ({
             ...u,

@@ -18,11 +18,11 @@
 
 @layer base {
   :root {
-    --main-bg: #f6f7f8;
+    --main-bg: #f8fafc; /* Slightly cooler Slate 50 */
     --card-bg: #ffffff;
-    --main-text: #101922;
+    --main-text: #0f172a; /* Slate 900 */
     --muted-text: #64748b;
-    --main-border: #e2e8f0;
+    --main-border: #f1f5f9; /* Slate 100 */
     
     /* Priority Colors (Light Mode) */
     --priority-high: #ef4444;       /* Red 500 */
@@ -60,5 +60,30 @@
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .glass-panel-light {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  }
+
+  .premium-shadow {
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  }
+
+  .premium-shadow-hover:hover {
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.03);
+    transform: translateY(-1px);
+  }
+
+  @keyframes progress {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(0); }
+  }
+
+  .animate-progress {
+    animation: progress 2s ease-in-out infinite;
   }
 }

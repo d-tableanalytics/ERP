@@ -14,9 +14,9 @@ const KanbanColumn = ({ title, tasks, color, icon: Icon, onTaskClick }) => {
                         <Icon size={16} />
                     </div>
                     <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">{title}</span>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-black text-slate-500 uppercase">{tasks.length}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">{tasks.length}</span>
                 </div>
-                <button className="text-slate-400 hover:text-slate-600 transition-colors">
+                <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                     <MoreVertical size={16} />
                 </button>
             </div>
@@ -28,10 +28,10 @@ const KanbanColumn = ({ title, tasks, color, icon: Icon, onTaskClick }) => {
                         onClick={() => onTaskClick?.(task)}
                         className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all group cursor-pointer border-l-4 border-l-transparent hover:border-l-[#137fec]">
                         <div className="flex justify-between items-start mb-2">
-                            <h4 className="text-[13px] font-black text-slate-800 dark:text-white leading-tight group-hover:text-[#137fec] transition-colors">{task.taskTitle}</h4>
+                            <h4 className="text-[13px] font-black text-slate-800 dark:text-white leading-tight group-hover:text-[#137fec] dark:group-hover:text-blue-400 transition-colors">{task.taskTitle}</h4>
                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase ${
-                                task.priority === 'High' ? 'bg-red-50 text-red-500' : 
-                                task.priority === 'Medium' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'
+                                task.priority === 'High' ? 'bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400' : 
+                                task.priority === 'Medium' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-500 dark:text-orange-400' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-500 dark:text-blue-400'
                             }`}>
                                 {task.priority || 'Low'}
                             </span>
@@ -55,16 +55,16 @@ const KanbanColumn = ({ title, tasks, color, icon: Icon, onTaskClick }) => {
 
                         <div className="flex items-center justify-between pt-3 border-t border-slate-50 dark:border-slate-700/50">
                             <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-[10px] font-black text-[#137fec] border border-white dark:border-slate-800">
+                                <div className="w-6 h-6 rounded-full bg-sky-100 dark:bg-blue-900/30 flex items-center justify-center text-[10px] font-black text-[#137fec] dark:text-blue-400 border border-white dark:border-slate-800">
                                     {(task.doerFirstName || task.doerName || 'U').substring(0, 2).toUpperCase()}
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-400">{task.doerFirstName ? `${task.doerFirstName} ${task.doerLastName}` : task.doerName || 'Unassigned'}</span>
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{task.doerFirstName ? `${task.doerFirstName} ${task.doerLastName}` : task.doerName || 'Unassigned'}</span>
                                 <div className="flex items-center gap-1.5 ml-2">
                                     {task.voiceNoteUrl && <Mic size={10} className="text-[#137fec]" />}
                                     {task.referenceDocs && <Paperclip size={10} className="text-orange-500" />}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5 text-slate-400">
+                            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500">
                                 <Calendar size={12} />
                                 <span className="text-[10px] font-black">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</span>
                             </div>

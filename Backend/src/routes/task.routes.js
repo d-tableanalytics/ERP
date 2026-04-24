@@ -30,6 +30,53 @@ router.get('/all', taskController.getAllTasks);
 // GET /api/tasks/deleted - View tasks in the recycle bin
 router.get('/deleted', taskController.getDeletedTasks);
 
+// GET /api/tasks/:id - Task detail
+router.get('/:id', taskController.getTaskById);
+
+// POST /api/tasks/:id/remarks - Add remark to task
+router.post('/:id/remarks', taskController.addTaskRemark);
+
+// PATCH /api/tasks/:id/subscribe - Subscribe to task
+router.patch('/:id/subscribe', taskController.subscribeToTask);
+
+// PATCH /api/tasks/:id - Partial update task
+router.patch(
+    '/:id',
+    authorize('SuperAdmin', 'Admin', 'Employee'),
+    upload.fields([
+        { name: 'voice_note', maxCount: 1 },
+        { name: 'reference_docs', maxCount: 20 },
+        { name: 'evidence_files', maxCount: 20 }
+    ]),
+    taskController.updateTask
+);
+
+// PUT /api/tasks/:id - Full update task
+router.put(
+    '/:id',
+    authorize('SuperAdmin', 'Admin', 'Employee'),
+    upload.fields([
+        { name: 'voice_note', maxCount: 1 },
+        { name: 'reference_docs', maxCount: 20 },
+        { name: 'evidence_files', maxCount: 20 }
+    ]),
+    taskController.updateTask
+);
+
+// PATCH /api/tasks/:id/trash - Soft delete a task
+router.patch(
+    '/:id/trash',
+    authorize('SuperAdmin', 'Admin'),
+    taskController.softDeleteTask
+);
+
+// PATCH /api/tasks/:id/restore - Restore a deleted task
+router.patch(
+    '/:id/restore',
+    authorize('SuperAdmin', 'Admin'),
+    taskController.restoreTask
+);
+
 // POST /api/tasks - Create new task(s)
 router.post('/',
     authorize('SuperAdmin', 'Admin', 'Employee'),

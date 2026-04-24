@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar as CalendarIcon, Users, AlignLeft, Flag, CheckSquare, Paperclip, Mic, Upload, Plus, ChevronDown, Search, Pencil, ChevronLeft, ChevronRight, Save, Trash2, Clock, Globe, Image as ImageIcon, Tag, Check, AlertCircle } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Users, AlignLeft, Flag, CheckSquare, Paperclip, Mic, Upload, Plus, ChevronDown, Search, Pencil, ChevronLeft, ChevronRight, Save, Trash2, Clock, Globe, Image as ImageIcon, Check, AlertCircle, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchDepartments } from '../../store/slices/masterSlice';
 import teamService from '../../services/teamService';
 import delegationService from '../../services/delegationService';
 import taskService from '../../services/taskService';
@@ -9,12 +11,43 @@ import notificationService from '../../services/notificationService';
 
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+const normalizeIdArray = (value) => {
+    if (value === undefined || value === null || value === '' || value === 'undefined' || value === 'null') return [];
+    if (Array.isArray(value)) {
+        return value.map(v => parseInt(v)).filter(v => !isNaN(v));
+    }
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) return parsed.map(v => parseInt(v)).filter(v => !isNaN(v));
+        } catch {
+            return value.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
+        }
+    }
+    const parsed = parseInt(value);
+    return isNaN(parsed) ? [] : [parsed];
+};
 
-const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, parentId, isMyTask }) => {
+const normalizeTaskForForm = (data = {}) => ({
+    taskTitle: data.taskTitle || data.delegation_name || data.title || '',
+    description: data.description || '',
+    doerId: normalizeIdArray(data.doerId ?? data.doer_id),
+    department: data.department || '',
+    category: data.category || '',
+    priority: data.priority || 'Low',
+    dueDate: data.dueDate || data.due_date ? new Date(data.dueDate || data.due_date) : null,
+    evidenceRequired: data.evidenceRequired ?? data.evidence_required ?? false,
+    inLoopIds: normalizeIdArray(data.inLoopIds ?? data.in_loop_ids),
+});
+
+const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, parentId, isMyTask, apiMode = 'task' }) => {
+    const dispatch = useDispatch();
+    const { departments, isLoading: isMasterLoading } = useSelector((state) => state.master);
     const [formData, setFormData] = useState({
         taskTitle: '',
         description: '',
         doerId: [],
+        department: '',
         category: '',
         priority: 'Low',
         dueDate: null,
@@ -37,6 +70,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
     // Dropdown Searches & Data
     const [userSearch, setUserSearch] = useState('');
     const [loopSearch, setLoopSearch] = useState('');
+    const [departmentSearch, setDepartmentSearch] = useState('');
     const [categorySearch, setCategorySearch] = useState('');
     const [categories, setCategories] = useState([]);
     const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -83,20 +117,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
     const [links, setLinks] = useState([]);
     const [newLinkText, setNewLinkText] = useState('');
 
-    // Tags
-    const [tags, setTags] = useState([]); // selected tags
-    const [availableTags, setAvailableTags] = useState([]);
-    const [isLoadingTags, setIsLoadingTags] = useState(false);
-    const [isCreateTagModalOpen, setIsCreateTagModalOpen] = useState(false);
-    const [newTagData, setNewTagData] = useState({ text: '', color: '#10b981' });
-
-    // Tag Creation Colors (Based on reference image)
-    const presetTagColors = [
-        '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#42a5f5', '#64b5f6',
-        '#4dd0e1', '#26a69a', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800',
-        '#607d8b', '#455a64'
-    ];
-
     // Repeat Task
     const [isRepeat, setIsRepeat] = useState(false);
     const [repeatMode, setRepeatMode] = useState('Daily');
@@ -140,23 +160,14 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
         if (isOpen) {
             fetchUsers();
             fetchCategories();
-            fetchTags();
             fetchNotificationSettings();
 
             if (initialData) {
                 // Determine if this is an "edit" (has ID) or "template" (no ID)
                 const isEdit = !!initialData.id;
+                const normalized = normalizeTaskForForm(initialData);
 
-                setFormData({
-                    taskTitle: initialData.taskTitle || initialData.title || '',
-                    description: initialData.description || '',
-                    doerId: Array.isArray(initialData.doerId) ? initialData.doerId : [initialData.doerId].filter(Boolean),
-                    category: initialData.category || '',
-                    priority: initialData.priority || 'Low',
-                    dueDate: initialData.dueDate ? new Date(initialData.dueDate) : null,
-                    evidenceRequired: initialData.evidenceRequired || false,
-                    inLoopIds: Array.isArray(initialData.inLoopIds) ? initialData.inLoopIds : (typeof initialData.inLoopIds === 'string' ? JSON.parse(initialData.inLoopIds || '[]') : []),
-                });
+                setFormData(normalized);
 
                 // Handle checklist
                 if (initialData.checklistItems) {
@@ -172,12 +183,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     setChecklistExpanded(parsed.length > 0);
                 }
 
-                // Handle Tags
-                if (initialData.tags) {
-                    const parsedTags = typeof initialData.tags === 'string' ? JSON.parse(initialData.tags) : initialData.tags;
-                    setTags(Array.isArray(parsedTags) ? parsedTags : []);
-                }
-
                 // Handle Reminders
                 if (initialData.reminders) {
                     const parsedReminders = typeof initialData.reminders === 'string' ? JSON.parse(initialData.reminders) : initialData.reminders;
@@ -191,8 +196,12 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                 // Handle Attachments (referenceDocs is often a comma-separated string)
                 if (initialData.referenceDocs && typeof initialData.referenceDocs === 'string') {
                     setLinks(initialData.referenceDocs.split(',').filter(Boolean));
+                } else if (initialData.reference_docs && typeof initialData.reference_docs === 'string') {
+                    setLinks(initialData.reference_docs.split(',').filter(Boolean));
                 } else if (Array.isArray(initialData.referenceDocs)) {
                     setLinks(initialData.referenceDocs);
+                } else if (Array.isArray(initialData.reference_docs)) {
+                    setLinks(initialData.reference_docs);
                 }
             } else {
                 const storedUser = JSON.parse(localStorage.getItem('user'));
@@ -201,6 +210,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     taskTitle: '',
                     description: '',
                     doerId: isMyTask && currentId ? [currentId] : [],
+                    department: '',
                     category: '',
                     priority: 'Low',
                     dueDate: null,
@@ -215,14 +225,12 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             setActiveDropdown(null);
             setActiveModal(null);
             setLinks([]);
-            setTags([]);
             setNewLinkText('');
-            setNewTagData({ text: '', color: '#10b981' });
-            setIsCreateTagModalOpen(false);
             setRepeatMode('Daily');
             setRepeatEndDate('');
             setRepeatStartDate(new Date().toISOString().split('T')[0]);
             fetchHolidays();
+            setDepartmentSearch('');
             setRepeatIntervalDays('1');
             setOccurEveryMode('Week');
             setCustomOccurValue('1');
@@ -236,6 +244,12 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             audioChunksRef.current = [];
         }
     }, [isOpen, initialData, isMyTask]);
+
+    useEffect(() => {
+        if (isOpen && departments.length === 0) {
+            dispatch(fetchDepartments());
+        }
+    }, [isOpen, departments.length, dispatch]);
 
     const fetchUsers = async () => {
         try {
@@ -274,49 +288,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             }
         } catch (err) {
             console.error('Failed to fetch notification settings:', err);
-        }
-    };
-
-    const fetchTags = async () => {
-        try {
-            setIsLoadingTags(true);
-            const data = await delegationService.getTagsList();
-            setAvailableTags(data);
-        } catch (err) {
-            console.error('Failed to fetch tags:', err);
-        } finally {
-            setIsLoadingTags(false);
-        }
-    };
-
-    const handleSaveTag = async () => {
-        if (!newTagData.text.trim()) return;
-        try {
-            const storedUser = JSON.parse(localStorage.getItem('user'));
-            const userId = storedUser?.user?.id || storedUser?.id;
-
-            const newTag = await delegationService.createTag({
-                name: newTagData.text.trim(),
-                color: newTagData.color,
-                createdBy: userId
-            });
-
-            setAvailableTags([newTag, ...availableTags]);
-            setTags(prev => [...prev, { text: newTag.name, color: newTag.color, id: newTag.id }]);
-            setIsCreateTagModalOpen(false);
-            setNewTagData({ text: '', color: '#10b981' });
-        } catch (err) {
-            console.error('Failed to create tag:', err);
-            toast.error('Failed to create tag');
-        }
-    };
-
-    const toggleTag = (tag) => {
-        const isSelected = tags.some(t => t.id === tag.id || (t.text === tag.name && t.color === tag.color));
-        if (isSelected) {
-            setTags(prev => prev.filter(t => t.id !== tag.id && (t.text !== tag.name || t.color !== tag.color)));
-        } else {
-            setTags(prev => [...prev, { text: tag.name, color: tag.color, id: tag.id }]);
         }
     };
 
@@ -536,6 +507,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             formDataToSend.append('description', formData.description);
             formDataToSend.append('assignerId', assignerId);
             formDataToSend.append('assignerName', storedUser?.user?.name || storedUser?.name || 'Unknown');
+            formDataToSend.append('department', formData.department || '');
             formDataToSend.append('priority', formData.priority);
             formDataToSend.append('dueDate', submissionDueDate || '');
             formDataToSend.append('evidenceRequired', formData.evidenceRequired);
@@ -544,7 +516,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             formDataToSend.append('parentId', parentId || '');
 
             // Append complex objects as JSON strings
-            formDataToSend.append('tags', JSON.stringify(tags || []));
             formDataToSend.append('checklistItems', JSON.stringify(checklistItems.map(item => ({ itemName: item.text, completed: item.completed }))));
             formDataToSend.append('inLoopIds', JSON.stringify(formData.inLoopIds || []));
             formDataToSend.append('repeatSettings', JSON.stringify({
@@ -586,10 +557,18 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
 
             try {
                 if (isEdit) {
-                    await delegationService.updateDelegation(initialData.id, formDataToSend);
+                    if (apiMode === 'delegation') {
+                        await delegationService.updateDelegation(initialData.id, formDataToSend);
+                    } else {
+                        await taskService.updateTask(initialData.id, formDataToSend);
+                    }
                     toast.success('Task updated successfully!');
                 } else {
-                    await taskService.createTask(formDataToSend);
+                    if (apiMode === 'delegation') {
+                        await delegationService.createDelegation(formDataToSend);
+                    } else {
+                        await taskService.createTask(formDataToSend);
+                    }
                     toast.success('Task created and assigned successfully!');
                 }
 
@@ -636,6 +615,9 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
     const filteredCategories = Array.isArray(categories) ? categories.filter(c =>
         (c && c.name && typeof c.name === 'string' ? c.name : '').toLowerCase().includes((categorySearch || '').toLowerCase())
     ) : [];
+    const filteredDepartments = Array.isArray(departments) ? departments.filter(d =>
+        (d && d.name && typeof d.name === 'string' ? d.name : '').toLowerCase().includes((departmentSearch || '').toLowerCase())
+    ) : [];
 
     const isSameDate = (d1, d2) => d1 && d2 && d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
 
@@ -653,8 +635,8 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             <Plus size={16} className="text-white" strokeWidth={3} />
                         </div>
                         <div>
-                            <h2 className="text-xs font-bold text-slate-800 leading-tight">{initialData?.id ? 'Edit Task' : (isMyTask ? 'Add New Task' : 'Assign New Task')}</h2>
-                            <p className="text-[8px] text-emerald-600 font-bold uppercase tracking-widest opacity-80">{initialData?.id ? (isMyTask ? 'Modify Task' : 'Modify Delegation') : (isMyTask ? 'PERSONAL TASK' : 'NEW DELEGATION')}</p>
+                            <h2 className="text-xs font-bold text-slate-800 leading-tight">{initialData?.id ? 'Update Task' : (isMyTask ? 'Add New Task' : 'Assign New Task')}</h2>
+                            <p className="text-[8px] text-emerald-600 font-bold uppercase tracking-widest opacity-80">{initialData?.id ? (isMyTask ? 'Update Task' : 'Update Delegation') : (isMyTask ? 'PERSONAL TASK' : 'NEW DELEGATION')}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all">
@@ -775,7 +757,19 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             </button>
                         </div>
 
-                        {/* 3. Priority */}
+                        {/* 3. Department */}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => toggleModal('department')}
+                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.department ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30'}`}
+                            >
+                                <Building2 size={14} className={formData.department ? "text-emerald-500" : "text-slate-300"} />
+                                {formData.department || 'Department'}
+                            </button>
+                        </div>
+
+                        {/* 4. Priority */}
                         <div className="relative">
                             <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(prev => prev === 'priority' ? null : 'priority'); }} className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border-2 text-[8px] font-bold transition-all shadow-sm uppercase tracking-wide ${formData.priority === 'High' ? 'border-red-500 bg-red-50 text-red-600' : formData.priority === 'Medium' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-emerald-500 bg-emerald-50 text-emerald-600'}`}>
                                 <Flag size={14} className={formData.priority === 'High' ? 'text-red-500' : formData.priority === 'Medium' ? 'text-orange-500' : 'text-emerald-500'} />
@@ -792,7 +786,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             )}
                         </div>
 
-                        {/* 4. Category */}
+                        {/* 5. Category */}
                         <div className="relative">
                             <button 
                                 type="button"
@@ -804,7 +798,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             </button>
                         </div>
 
-                        {/* 5. In Loop */}
+                        {/* 6. In Loop */}
                         <div className="relative">
                             <button 
                                 type="button"
@@ -819,7 +813,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             </button>
                         </div>
 
-                        {/* 6. Evidence Required */}
+                        {/* 7. Evidence Required */}
                         <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg border-2 border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30 transition-all shadow-sm">
                             <label className="flex items-center gap-1.5 cursor-pointer group">
                                 <div className="relative flex items-center">
@@ -1004,22 +998,8 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                         )}
                     </div>
 
-                    {/* Tags, Links & Attachments Display Container */}
+                    {/* Links & Attachments Display Container */}
                     <div className="flex flex-col gap-3 px-6 pb-6 animate-in fade-in duration-300">
-                        {tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                                {tags.map((tag, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-[11px] font-black border uppercase tracking-wider shadow-sm"
-                                        style={{ backgroundColor: `${tag.color}08`, borderColor: `${tag.color}30`, color: tag.color }}
-                                    >
-                                        <Tag size={12} strokeWidth={3} /> {tag.text}
-                                        <button onClick={() => setTags(prev => prev.filter((_, idx) => idx !== i))} className="hover:opacity-70 transition-colors ml-1.5"><X size={12} strokeWidth={4} /></button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                         {links.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                                 {links.map((link, i) => (
@@ -1111,9 +1091,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                     </button>
                                     <button onClick={() => { setActiveDropdown(null); imageInputRef.current?.click(); }} className="flex items-center justify-between px-3.5 py-2 hover:bg-emerald-50/50 text-[11px] font-bold text-slate-700 hover:text-emerald-600 transition-all">
                                         <span className="flex items-center gap-2.5"><ImageIcon size={14} className="text-slate-300" strokeWidth={2.5} /> Upload Image</span>
-                                    </button>
-                                    <button onClick={() => openModal('tags')} className="flex items-center justify-between px-3.5 py-2 hover:bg-emerald-50/50 text-[11px] font-bold text-slate-700 hover:text-emerald-600 transition-all">
-                                        <span className="flex items-center gap-2.5"><Tag size={14} className="text-slate-300" strokeWidth={2.5} /> Add Tags {tags.length > 0 && <span className="bg-emerald-500 text-white w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px]">{tags.length}</span>}</span>
                                     </button>
                                 </div>
                             )}
@@ -1420,6 +1397,36 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                         })}
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </ActionModal>
+                )}
+
+                {/* Department Selection Modal */}
+                {activeModal === 'department' && (
+                    <ActionModal
+                        title="Select Department"
+                        onClose={() => setActiveModal(null)}
+                        onSave={() => setActiveModal(null)}
+                    >
+                        <div className="flex flex-col gap-4">
+                            <div className="p-1 border-b border-slate-50">
+                                <div className="flex items-center gap-3 bg-white px-4 py-2.5 border-2 border-slate-100 rounded-2xl focus-within:border-emerald-500/30 transition-all shadow-sm">
+                                    <Search size={18} className="text-slate-300" />
+                                    <input type="text" placeholder="Find department..." value={departmentSearch} onChange={e => setDepartmentSearch(e.target.value)} className="flex-1 bg-transparent px-1 text-[14px] font-bold text-slate-700 placeholder:text-slate-300 outline-none" autoFocus />
+                                </div>
+                            </div>
+                            <div className="max-h-[50vh] overflow-y-auto p-1 flex flex-col gap-2 custom-scrollbar">
+                                {isMasterLoading ? (
+                                    <div className="py-6 text-center text-[13px] font-bold text-slate-400">Loading departments...</div>
+                                ) : filteredDepartments.length === 0 ? (
+                                    <div className="py-6 text-center text-[13px] font-bold text-slate-400">No departments found</div>
+                                ) : filteredDepartments.map((dept) => (
+                                    <button key={dept.id} onClick={() => { setFormData(prev => ({ ...prev, department: dept.name })); setActiveModal(null); }} className={`text-left px-5 py-4 rounded-2xl text-[14px] font-black transition-all flex items-center gap-5 border-2 ${formData.department === dept.name ? 'text-emerald-700 bg-emerald-50 border-emerald-100 shadow-sm' : 'text-slate-600 hover:bg-emerald-50/50 border-transparent'}`}>
+                                        <Building2 size={16} className={formData.department === dept.name ? 'text-emerald-500' : 'text-slate-300'} />
+                                        {dept.name}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </ActionModal>
@@ -1748,115 +1755,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     </ActionModal>
                 )}
 
-                {/* Tags Modal */}
-                {activeModal === 'tags' && (
-                    <ActionModal
-                        title="Task Tags"
-                        onClose={() => setActiveModal(null)}
-                        onSave={() => setActiveModal(null)}
-                        saveText="Done"
-                        showAdd={true}
-                        onAdd={() => setIsCreateTagModalOpen(true)}
-                    >
-                        <div className="flex flex-col gap-6">
-                            <div className="flex flex-wrap gap-3 mt-4">
-                                {availableTags.map((tag) => {
-                                    const isSelected = tags.some(t => t.id === tag.id || (t.text === tag.name && t.color === tag.color));
-                                    return (
-                                        <button
-                                            key={tag.id}
-                                            onClick={() => toggleTag(tag)}
-                                            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-2xl border-2 uppercase text-[11px] font-black tracking-widest shadow-sm transition-all hover:scale-105 ${isSelected ? 'shadow-md scale-105 border-emerald-500 bg-emerald-50/50 text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-500/30'}`}
-                                            style={{
-                                                backgroundColor: isSelected ? `${tag.color}15` : 'transparent',
-                                                borderColor: isSelected ? tag.color : '#e2e8f0',
-                                                color: isSelected ? tag.color : '#94a3b8'
-                                            }}
-                                        >
-                                            <Tag size={12} strokeWidth={3} className="shrink-0" />
-                                            <span>{tag.name}</span>
-                                            {isSelected && (
-                                                <div className="w-4 h-4 rounded-full flex items-center justify-center bg-white shadow-sm ml-1">
-                                                    <Check size={10} strokeWidth={4} style={{ color: tag.color }} />
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                                {availableTags.length === 0 && (
-                                    <div className="w-full text-center py-10 bg-slate-50/50 border-2 border-dashed border-slate-100 rounded-3xl">
-                                        <Tag size={32} className="text-slate-200 mx-auto mb-4" />
-                                        <div className="text-slate-400 text-[13px] font-black uppercase tracking-widest">No tags found. <br /> Click "Add New" to create tags.</div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </ActionModal>
-                )}
-
-
-                {/* Create Custom Tag Popup */}
-                {isCreateTagModalOpen && (
-                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-                        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setIsCreateTagModalOpen(false)} />
-                        <div className="relative w-full max-w-[420px] bg-white rounded-[40px] shadow-[0_30px_100px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
-                            <div className="flex items-center justify-between p-7 border-b border-slate-50 bg-emerald-50/20">
-                                <h3 className="text-[17px] font-black text-slate-800 uppercase tracking-widest">Create Tag</h3>
-                                <button onClick={() => setIsCreateTagModalOpen(false)} className="w-10 h-10 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all">
-                                    <X size={24} strokeWidth={2.5} />
-                                </button>
-                            </div>
-                            <div className="p-10 flex flex-col gap-10">
-                                <div className="space-y-3">
-                                    <div className="flex items-start gap-4">
-                                        <div className="flex-1 relative">
-                                            <input
-                                                type="text"
-                                                value={newTagData.text}
-                                                onChange={(e) => setNewTagData({ ...newTagData, text: e.target.value })}
-                                                placeholder="Tag Name"
-                                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-[15px] font-black text-slate-800 outline-none focus:border-emerald-500/30 transition-all placeholder:text-slate-300 uppercase tracking-wide"
-                                                autoFocus
-                                                maxLength={25}
-                                            />
-                                            <div className="absolute right-4 bottom-[-24px] text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">{newTagData.text.length} / 25</div>
-                                        </div>
-                                        <button
-                                            onClick={handleSaveTag}
-                                            disabled={!newTagData.text.trim()}
-                                            className="px-8 py-4 bg-gradient-to-br from-[#00d094] to-[#00b882] disabled:opacity-30 text-white font-black rounded-2xl text-[14px] transition-all flex items-center gap-2.5 shadow-xl shadow-emerald-500/20 active:scale-95 uppercase tracking-widest"
-                                        >
-                                            <Save size={18} strokeWidth={3} /> Save
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-5">
-                                    <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] text-center">Pick a color pulse</div>
-                                    <div className="grid grid-cols-7 gap-4 px-2 justify-items-center">
-                                        {presetTagColors.map(color => (
-                                            <button
-                                                key={color}
-                                                onClick={() => setNewTagData({ ...newTagData, color })}
-                                                className={`w-9 h-9 rounded-2xl transition-all hover:scale-110 active:scale-95 flex items-center justify-center relative ${newTagData.color === color ? 'shadow-[0_8px_20px_-4px_rgba(0,0,0,0.15)] ring-4 ring-offset-4' : 'hover:shadow-lg'}`}
-                                                style={{
-                                                    backgroundColor: color,
-                                                    '--tw-ring-color': `${color}40`,
-                                                    '--tw-ring-offset-width': '2px'
-                                                }}
-                                            >
-                                                {newTagData.color === color && (
-                                                    <div className="w-2 h-2 bg-white rounded-full shadow-sm animate-ping" />
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* Add Category Modal */}
                 {isAddCategoryModalOpen && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
@@ -1955,3 +1853,5 @@ const ActionModal = ({ title, children, showFooter = true, onClose, onSave, save
 );
 
 export default TaskCreationForm;
+
+

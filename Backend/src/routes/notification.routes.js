@@ -6,9 +6,10 @@ const { verifyToken } = require('../middlewares/auth.middleware');
 router.use(verifyToken);
 
 router.get('/', notificationController.getNotifications);
-router.put('/:id/read', notificationController.markAsRead);
 router.put('/read-all', notificationController.markAllAsRead);
-router.delete('/:id', notificationController.deleteNotification);
 router.delete('/clear-all', notificationController.clearAll);
+router.post('/test-email', notificationController.sendTestEmail);
+router.put('/:id/read', notificationController.markAsRead);
+router.delete('/:id', notificationController.deleteNotification);
 
 module.exports = router;

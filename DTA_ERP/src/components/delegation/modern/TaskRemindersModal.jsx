@@ -86,19 +86,21 @@ const TaskRemindersModal = ({ isOpen, onClose, onSave, initialReminders = [] }) 
                                         type="number"
                                         value={reminder.timeValue}
                                         onChange={(e) => updateReminder(index, { timeValue: e.target.value })}
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg p-2 font-black text-center text-[11px] focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none transition-all"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg p-2 font-black text-center text-[11px] focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none transition-all text-slate-800 dark:text-slate-100"
+                                        style={{ colorScheme: 'dark' }}
                                     />
                                 </div>
                                 <div className="flex-1">
                                     <select 
                                         value={reminder.timeUnit}
                                         onChange={(e) => updateReminder(index, { timeUnit: e.target.value })}
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg p-2 font-black text-[10px] appearance-none cursor-pointer focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none text-center transition-all"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg p-2 font-black text-[10px] appearance-none cursor-pointer focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 outline-none text-center transition-all text-slate-800 dark:text-slate-100"
+                                        style={{ colorScheme: 'dark' }}
                                     >
-                                        <option value="minutes">MINUTES</option>
-                                        <option value="hours">HOURS</option>
-                                        <option value="days">DAYS</option>
-                                    </select>
+                                        <option value="minutes" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">MINUTES</option>
+                                        <option value="hours" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">HOURS</option>
+                                        <option value="days" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">DAYS</option>
+                                     </select>
                                 </div>
                                 <div className="flex bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-100 dark:border-slate-800 gap-1">
                                     {['before', 'after'].map((type) => (

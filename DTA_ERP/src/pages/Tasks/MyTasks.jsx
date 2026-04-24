@@ -15,6 +15,7 @@ import TaskDetailsDrawer from '../../components/delegation/TaskDetailsDrawer';
 import TaskCreationForm from '../../components/delegation/TaskCreationForm';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
+import { useSelector } from 'react-redux';
 
 // ── Date range helper ───────────────────────────────────────────────────────────
 const getDateRangeFilter = (taskDate, range, customStart, customEnd) => {
@@ -56,7 +57,7 @@ const getDateRangeFilter = (taskDate, range, customStart, customEnd) => {
 
 // ── Filter Chip ─────────────────────────────────────────────────────────────────
 const FilterChip = ({ label, onRemove }) => (
-    <div className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#137fec]/40 text-[#137fec] rounded-full text-[11px] font-bold">
+    <div className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-800 border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
         {label}
         <button onClick={onRemove} className="hover:text-red-500 transition-colors ml-0.5">
             <X size={12} strokeWidth={3} />
@@ -90,6 +91,8 @@ const MyTasks = () => {
     const [selectedTaskId, setSelectedTaskId] = useState(null);
     const [showDetails, setShowDetails] = useState(false);
     const [showDelegationDrawer, setShowDelegationDrawer] = useState(false);
+    const currentRole = useSelector((state) => state.auth.user?.role || state.auth.user?.Role || '');
+    const canCreateTask = ['admin', 'superadmin'].includes((currentRole || '').toLowerCase());
 
     // Sort
     const [sortBy, setSortBy] = useState('Target Date');
@@ -224,11 +227,11 @@ const MyTasks = () => {
 
     // Quick stats for the top mini-cards
     const quickStats = [
-        { label: 'Total', value: myTasks.length, color: 'text-slate-600', bg: 'bg-white', dot: 'bg-slate-400' },
-        { label: 'Overdue', value: getStatusCount('Overdue'), color: 'text-red-600', bg: 'bg-red-50', dot: 'bg-red-500' },
-        { label: 'Pending', value: getStatusCount('Pending'), color: 'text-slate-500', bg: 'bg-slate-50', dot: 'border-2 border-slate-400' },
-        { label: 'In Progress', value: getStatusCount('In Progress'), color: 'text-orange-600', bg: 'bg-orange-50', dot: 'bg-orange-500' },
-        { label: 'Completed', value: getStatusCount('Completed'), color: 'text-emerald-600', bg: 'bg-emerald-50', dot: 'bg-blue-500' },
+        { label: 'Total', value: myTasks.length, dot: 'bg-slate-400', bg: 'bg-white dark:bg-slate-900', color: 'text-slate-700 dark:text-slate-100' },
+        { label: 'Overdue', value: getStatusCount('Overdue'), dot: 'bg-red-500', bg: 'bg-red-50 dark:bg-red-900/10', color: 'text-red-600 dark:text-red-400' },
+        { label: 'Pending', value: getStatusCount('Pending'), dot: 'border-2 border-slate-400 bg-transparent', bg: 'bg-slate-50 dark:bg-slate-800/40', color: 'text-slate-600 dark:text-slate-300' },
+        { label: 'In Progress', value: getStatusCount('In Progress'), dot: 'bg-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/10', color: 'text-orange-600 dark:text-orange-400' },
+        { label: 'Completed', value: getStatusCount('Completed'), dot: 'bg-blue-500', bg: 'bg-emerald-50 dark:bg-emerald-900/10', color: 'text-emerald-600 dark:text-emerald-400' },
     ];
 
     return (
@@ -241,7 +244,7 @@ const MyTasks = () => {
                         <ListTodo size={22} className="text-white" strokeWidth={2.5} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black text-slate-800 leading-none">My Tasks</h1>
+                        <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-none">My Tasks</h1>
                         <p className="text-xs font-bold text-slate-400 mt-0.5">Tasks assigned to you</p>
                     </div>
                 </div>
@@ -249,7 +252,7 @@ const MyTasks = () => {
                 {/* ── Quick Stats ── */}
                 <div className="flex flex-wrap gap-3 mb-8">
                     {quickStats.map((s, i) => (
-                        <div key={i} className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl ${s.bg} border border-white shadow-sm flex-1 min-w-[100px]`}>
+                        <div key={i} className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl ${s.bg} border border-slate-100 dark:border-slate-800 premium-shadow flex-1 min-w-[100px]`}>
                             <div className={`w-3 h-3 rounded-full shrink-0 ${s.dot}`} />
                             <div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{s.label}</p>
@@ -263,12 +266,14 @@ const MyTasks = () => {
                 <div className="flex flex-wrap items-end gap-3 mb-8">
 
                     {/* Assign Task Button */}
-                    <button
-                        onClick={() => setShowDelegationDrawer(true)}
-                        className="flex items-center gap-2 px-5 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm self-end"
-                    >
-                        <FilePlus size={18} strokeWidth={2.5} /> Assign Task
-                    </button>
+                    {canCreateTask && (
+                        <button
+                            onClick={() => setShowDelegationDrawer(true)}
+                            className="flex items-center gap-2 px-5 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm self-end active:scale-95"
+                        >
+                            <FilePlus size={18} strokeWidth={2.5} /> Assign Task
+                        </button>
+                    )}
 
                     {/* Date Range */}
                     <div className="flex flex-col gap-1">
@@ -277,7 +282,8 @@ const MyTasks = () => {
                             <select
                                 value={dateRange}
                                 onChange={(e) => setDateRange(e.target.value)}
-                                className="w-full h-11 bg-white border border-[#137fec] rounded-lg pl-3 pr-8 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer shadow-sm"
+                                style={{ colorScheme: 'dark' }}
+                                className="w-full h-11 bg-white dark:bg-slate-900 border border-[#137fec] dark:border-slate-800 rounded-lg pl-3 pr-8 text-sm font-bold text-slate-700 dark:text-slate-100 outline-none appearance-none cursor-pointer shadow-sm"
                             >
                                 <option value="All Time">All Time</option>
                                 <option value="Today">Today</option>
@@ -298,30 +304,32 @@ const MyTasks = () => {
                         <>
                             <div className="flex flex-col gap-1">
                                 <span className="text-[10px] font-black text-slate-400 uppercase ml-1">Start Date</span>
-                                <div className="relative border border-[#137fec] rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-white min-w-[130px]">
+                                <div className="relative border border-[#137fec] dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-white dark:bg-slate-900 min-w-[130px]">
                                     <CalendarIcon size={14} className="text-[#137fec] shrink-0" />
-                                    <div className="flex flex-col">
+                                    <div className="flex flex-col flex-1">
                                         <span className="text-[8px] font-bold text-slate-400 leading-none">Start</span>
                                         <input
                                             type="date"
                                             value={customStartDate}
                                             onChange={(e) => setCustomStartDate(e.target.value)}
-                                            className="bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 w-full"
+                                            style={{ colorScheme: 'dark' }}
+                                            className="bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 dark:text-slate-100 w-full"
                                         />
                                     </div>
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-[10px] font-black text-slate-400 uppercase ml-1">End Date</span>
-                                <div className="relative border border-[#137fec] rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-white min-w-[130px]">
+                                <div className="relative border border-[#137fec] dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-white dark:bg-slate-900 min-w-[130px]">
                                     <CalendarIcon size={14} className="text-[#137fec] shrink-0" />
-                                    <div className="flex flex-col">
+                                    <div className="flex flex-col flex-1">
                                         <span className="text-[8px] font-bold text-slate-400 leading-none">End</span>
                                         <input
                                             type="date"
                                             value={customEndDate}
                                             onChange={(e) => setCustomEndDate(e.target.value)}
-                                            className="bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 w-full"
+                                            style={{ colorScheme: 'dark' }}
+                                            className="bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 dark:text-slate-100 w-full"
                                         />
                                     </div>
                                 </div>
@@ -334,27 +342,27 @@ const MyTasks = () => {
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 invisible select-none">_</span>
                         <button
                             onClick={() => setShowFilters(v => !v)}
-                            className={`flex items-center gap-2 px-5 h-11 rounded-lg font-bold text-sm transition-all shadow-sm ${showFilters ? 'bg-slate-800 text-white' : 'bg-[#137fec] hover:bg-[#106bc7] text-white'}`}
+                            className={`flex items-center gap-2 px-5 h-11 rounded-lg font-bold text-sm transition-all shadow-sm ${showFilters ? 'bg-slate-800 dark:bg-slate-700 text-white' : 'bg-[#137fec] hover:bg-[#106bc7] text-white'}`}
                         >
                             <Filter size={18} />
                             Filter
                             {activeFilterCount > 0 && (
-                                <span className="bg-white text-[#137fec] text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+                                <span className="bg-white text-[#137fec] text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center border border-white dark:border-slate-700/50 shadow-sm">
                                     {activeFilterCount}
                                 </span>
                             )}
                         </button>
 
                         {showFilters && (
-                            <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-white border border-slate-200 rounded-xl shadow-2xl p-4 flex flex-col gap-4 min-w-[240px] animate-in slide-in-from-top-2 duration-200">
+                            <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-4 min-w-[240px] animate-in slide-in-from-top-2 duration-200">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filters</span>
+                                    <span className="text-xs font-black text-slate-700 dark:text-slate-100 uppercase tracking-widest">Filters</span>
                                     <button onClick={handleClearFilters} className="text-[10px] font-bold text-[#137fec] hover:underline">Clear All</button>
                                 </div>
 
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase">Assigned By</label>
-                                    <select value={assignedBy} onChange={e => setAssignedBy(e.target.value)} className="bg-slate-50 border border-slate-100 p-2 rounded-lg text-xs font-bold outline-none">
+                                    <select value={assignedBy} onChange={e => setAssignedBy(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
                                         <option value="All">Anyone</option>
                                         {users.map(u => <option key={u.userId || u.id} value={u.userId || u.id}>{u.firstName} {u.lastName}</option>)}
                                     </select>
@@ -362,7 +370,7 @@ const MyTasks = () => {
 
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase">Priority</label>
-                                    <select value={priority} onChange={e => setPriority(e.target.value)} className="bg-slate-50 border border-slate-100 p-2 rounded-lg text-xs font-bold outline-none">
+                                    <select value={priority} onChange={e => setPriority(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
                                         <option value="All">All Priority</option>
                                         <option value="Urgent">Urgent</option>
                                         <option value="High">High</option>
@@ -373,7 +381,7 @@ const MyTasks = () => {
 
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase">Category</label>
-                                    <select value={category} onChange={e => setCategory(e.target.value)} className="bg-slate-50 border border-slate-100 p-2 rounded-lg text-xs font-bold outline-none">
+                                    <select value={category} onChange={e => setCategory(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
                                         <option value="All">All Categories</option>
                                         {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                     </select>
@@ -381,7 +389,7 @@ const MyTasks = () => {
 
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase">Tag</label>
-                                    <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} className="bg-slate-50 border border-slate-100 p-2 rounded-lg text-xs font-bold outline-none">
+                                    <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={{ colorScheme: 'dark' }} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-2 rounded-lg text-xs font-bold outline-none text-slate-700 dark:text-slate-100">
                                         <option value="All">All Tags</option>
                                         {allTags.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
@@ -400,7 +408,7 @@ const MyTasks = () => {
                                 placeholder="Search my tasks..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="w-full h-11 pl-10 pr-4 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#137fec]/20"
+                                className="w-full h-11 pl-10 pr-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#137fec]/20 text-slate-700 dark:text-slate-100"
                             />
                         </div>
                     </div>
@@ -409,19 +417,19 @@ const MyTasks = () => {
                     <button
                         onClick={handleClearFilters}
                         title="Clear Filters"
-                        className="h-11 w-11 flex items-center justify-center bg-[#137fec] text-white rounded-lg hover:bg-[#106bc7] transition-all shadow-sm self-end"
+                        className="h-11 w-11 flex items-center justify-center bg-[#137fec] text-white rounded-lg hover:bg-[#106bc7] transition-all shadow-sm self-end active:scale-95"
                     >
                         <RotateCcw size={18} strokeWidth={3} />
                     </button>
 
                     {/* Export */}
-                    <button className="flex items-center gap-2 px-4 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm self-end">
+                    <button className="flex items-center gap-2 px-4 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm self-end active:scale-95">
                         <FileUp size={18} />
                         Export
                     </button>
 
                     {/* View Mode */}
-                    <div className="flex bg-white rounded-lg p-1 border border-slate-200 h-11 items-center self-end">
+                    <div className="flex bg-white dark:bg-slate-900 rounded-lg p-1 border border-slate-200 dark:border-slate-800 h-11 items-center self-end">
                         {[
                             { mode: 'List', icon: List },
                             { mode: 'Kanban', icon: Layout },
@@ -430,7 +438,7 @@ const MyTasks = () => {
                             <button
                                 key={mode}
                                 onClick={() => setViewMode(mode)}
-                                className={`p-2 rounded-md transition-all ${viewMode === mode ? 'bg-[#137fec] text-white shadow-sm' : 'text-slate-400 hover:bg-slate-50'}`}
+                                className={`p-2 rounded-md transition-all ${viewMode === mode ? 'bg-[#137fec] text-white shadow-sm' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                             >
                                 <Icon size={18} />
                             </button>
@@ -445,7 +453,8 @@ const MyTasks = () => {
                                 <select
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
-                                    className="w-full h-11 bg-white border border-slate-200 rounded-lg pl-3 pr-8 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer shadow-sm focus:border-[#137fec]"
+                                    className="w-full h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 text-sm font-bold text-slate-700 dark:text-slate-100 outline-none appearance-none cursor-pointer shadow-sm focus:border-[#137fec]"
+                                    style={{ colorScheme: 'dark' }}
                                 >
                                     <option value="Target Date">Target Date</option>
                                     <option value="Created At">Created At</option>
@@ -456,7 +465,7 @@ const MyTasks = () => {
                             </div>
                             <button
                                 onClick={() => setSortDesc(!sortDesc)}
-                                className="h-11 w-11 flex justify-center items-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-800 transition-colors shadow-sm focus:border-[#137fec]"
+                                className="h-11 w-11 flex justify-center items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm focus:border-[#137fec] active:scale-95"
                                 title={sortDesc ? 'Descending' : 'Ascending'}
                             >
                                 <ArrowUpDown size={18} className={sortDesc ? '' : 'rotate-180 transform transition-transform'} />
@@ -466,28 +475,26 @@ const MyTasks = () => {
                 </div>
 
                 {/* ── Status Tabs ── */}
-                <div className="flex justify-center mb-8 border-b border-white/20 relative">
-                    <div className="flex gap-6 overflow-x-auto">
+                <div className="flex justify-center mb-8 border-b border-slate-200 dark:border-slate-800 relative">
+                    <div className="flex gap-6 overflow-x-auto no-scrollbar">
                         {[
                             { label: 'All', dotClass: 'bg-slate-400', key: 'All' },
                             { label: 'Overdue', dotClass: 'bg-red-500', key: 'Overdue' },
                             { label: 'Pending', dotClass: 'border-2 border-slate-400 bg-transparent', key: 'Pending' },
                             { label: 'In Progress', dotClass: 'bg-orange-500', key: 'In Progress' },
-                            { label: 'Completed', dotClass: 'bg-blue-500', key: 'Completed' },
+                            { label: 'Completed', dotClass: 'bg-emerald-500', key: 'Completed' },
                         ].map((tab) => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setStatusFilter(tab.key)}
-                                className={`flex items-center gap-2 pb-4 px-2 transition-all relative whitespace-nowrap ${statusFilter === tab.key ? 'text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                <div className={`w-3 h-3 rounded-full shrink-0 ${tab.dotClass}`} />
-                                <span className="text-sm font-bold uppercase tracking-wide">
-                                    {tab.label} — {getStatusCount(tab.key)}
-                                </span>
-                                {statusFilter === tab.key && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#137fec] rounded-t-full" />
-                                )}
-                            </button>
+                             <button
+                                 key={tab.key}
+                                 onClick={() => setStatusFilter(tab.key)}
+                                 className={`flex items-center gap-2 pb-4 px-2 transition-all relative whitespace-nowrap ${statusFilter === tab.key ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                             >
+                                 <div className={`w-3 h-3 rounded-full shrink-0 ${tab.dotClass} ${statusFilter === tab.key ? 'ring-2 ring-primary/20 shadow-sm' : ''}`} />
+                                 <span className="text-sm font-bold uppercase tracking-wide">
+                                     {tab.label} — <span className={`${statusFilter === tab.key ? 'text-primary dark:text-blue-400 font-black' : 'text-slate-500 dark:text-slate-500 font-bold'} transition-colors`}>{getStatusCount(tab.key)}</span>
+                                 </span>
+                                 {statusFilter === tab.key && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full shadow-[0_-2px_10px_rgba(19,127,236,0.4)]" />}
+                             </button>
                         ))}
                     </div>
                 </div>
@@ -510,11 +517,11 @@ const MyTasks = () => {
                             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Loading My Tasks...</p>
                         </div>
                     ) : filteredTasks.length === 0 ? (
-                        <div className="bg-white/40 border-2 border-dashed border-white/60 rounded-3xl p-20 flex flex-col items-center justify-center text-center">
-                            <div className="w-20 h-20 bg-white/60 rounded-full flex items-center justify-center mb-6">
-                                <CheckSquare size={40} className="text-slate-300" />
+                        <div className="bg-white/40 dark:bg-slate-900/40 border-2 border-dashed border-white/60 dark:border-slate-800 rounded-3xl p-20 flex flex-col items-center justify-center text-center">
+                            <div className="w-20 h-20 bg-white/60 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                                <CheckSquare size={40} className="text-slate-300 dark:text-slate-600" />
                             </div>
-                            <h3 className="text-xl font-black text-slate-700 mb-2">
+                            <h3 className="text-xl font-black text-slate-700 dark:text-slate-200 mb-2">
                                 {myTasks.length === 0 ? 'No Tasks Assigned to You' : 'No Tasks Match Filters'}
                             </h3>
                             <p className="text-slate-500 font-medium">
@@ -523,7 +530,7 @@ const MyTasks = () => {
                                     : 'Try changing your filters or date range.'}
                             </p>
                             {activeFilterCount > 0 && (
-                                <button onClick={handleClearFilters} className="mt-4 px-4 py-2 bg-[#137fec] text-white rounded-lg text-sm font-bold hover:bg-[#106bc7] transition-all">
+                                <button onClick={handleClearFilters} className="mt-4 px-4 py-2 bg-[#137fec] text-white rounded-lg text-sm font-bold hover:bg-[#106bc7] transition-all shadow-sm active:scale-95">
                                     Clear Filters
                                 </button>
                             )}
@@ -532,7 +539,7 @@ const MyTasks = () => {
                         sortedTasks.map((task) => (
                             <div
                                 key={task.id}
-                                className={`bg-white rounded-xl border border-white shadow-sm transition-all duration-300 ${expandedTasks.has(task.id) ? 'ring-2 ring-[#137fec]/30' : 'hover:shadow-md'}`}
+                                className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 premium-shadow premium-shadow-hover transition-all duration-300 ${expandedTasks.has(task.id) ? 'ring-2 ring-primary/20 shadow-md' : ''}`}
                             >
                                 <div
                                     className="p-4 flex items-center gap-4 cursor-pointer"
@@ -541,9 +548,9 @@ const MyTasks = () => {
                                     <input type="checkbox" className="w-5 h-5 rounded border-slate-300 accent-[#137fec]" onClick={e => e.stopPropagation()} />
 
                                     {/* Assigner avatar */}
-                                    <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold relative shrink-0"
+                                    <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold relative shrink-0"
                                         title={`Assigned by ${task.assignerFirstName || ''} ${task.assignerLastName || ''}`}>
-                                        <div className="absolute inset-0 rounded-full border-2 border-purple-300 opacity-60" />
+                                        <div className="absolute inset-0 rounded-full border-2 border-purple-300 dark:border-purple-800 opacity-60" />
                                         {`${task.assignerFirstName?.[0] || ''}${task.assignerLastName?.[0] || ''}`.toUpperCase() || '?'}
                                     </div>
 
@@ -552,7 +559,7 @@ const MyTasks = () => {
                                             <span className="text-xs font-bold text-slate-400 whitespace-nowrap hidden sm:block">
                                                 From: {task.assignerFirstName} {task.assignerLastName}
                                             </span>
-                                            <span className="text-base font-black text-slate-800 truncate">{task.taskTitle}</span>
+                                            <span className="text-base font-black text-slate-800 dark:text-slate-100 truncate">{task.taskTitle}</span>
                                             <div className="flex items-center gap-1 ml-1 scale-75 origin-left shrink-0">
                                                 {task.voiceNoteUrl && <Mic size={14} className="text-blue-500" strokeWidth={3} />}
                                                 {task.referenceDocs && <Paperclip size={14} className="text-orange-500" strokeWidth={3} />}
@@ -560,11 +567,11 @@ const MyTasks = () => {
                                         </div>
                                         <div className="ml-auto flex items-center gap-3 shrink-0">
                                             {/* Status badge */}
-                                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase border whitespace-nowrap hidden md:inline-flex ${task.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                                                    task.status === 'In Progress' ? 'bg-orange-50 text-orange-600 border-orange-200' :
-                                                        task.status === 'Overdue' ? 'bg-red-50 text-red-600 border-red-200' :
-                                                            task.status === 'Hold' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                                                'bg-slate-50 text-slate-500 border-slate-200'
+                                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase border whitespace-nowrap hidden md:inline-flex ${task.status === 'Completed' ? 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
+                                                    task.status === 'In Progress' ? 'bg-orange-50 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800' :
+                                                        task.status === 'Overdue' ? 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800' :
+                                                            task.status === 'Hold' ? 'bg-amber-50 dark:bg-amber-900/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800' :
+                                                                'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                                                 }`}>{task.status}</span>
 
                                             {/* Due date */}
@@ -585,7 +592,7 @@ const MyTasks = () => {
 
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setSelectedTaskId(task.id); setShowDetails(true); }}
-                                                className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-[#137fec] transition-all"
+                                                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-[#137fec] dark:hover:text-blue-400 transition-all"
                                                 title="View Details"
                                             >
                                                 <MoreVertical size={18} />
@@ -596,9 +603,9 @@ const MyTasks = () => {
 
                                 {/* Expanded */}
                                 {expandedTasks.has(task.id) && (
-                                    <div className="px-6 pb-5 pt-2 border-t border-slate-50 animate-in slide-in-from-top-2 duration-300 space-y-3">
+                                    <div className="px-6 pb-5 pt-2 border-t border-slate-50 dark:border-slate-800 animate-in slide-in-from-top-2 duration-300 space-y-3">
                                         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-slate-400 pt-2">
-                                            <div className="flex items-center gap-1.5 text-slate-500">
+                                            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                                                 <Clock size={14} className="text-red-400" />
                                                 Due: {task.dueDate
                                                     ? new Date(task.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -606,7 +613,7 @@ const MyTasks = () => {
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <User size={14} className="text-purple-400" />
-                                                Assigned by: <span className="text-slate-600">{task.assignerFirstName} {task.assignerLastName}</span>
+                                                Assigned by: <span className="text-slate-600 dark:text-slate-300">{task.assignerFirstName} {task.assignerLastName}</span>
                                             </div>
                                             {task.category && (
                                                 <div className="flex items-center gap-1.5">
@@ -615,7 +622,7 @@ const MyTasks = () => {
                                                 </div>
                                             )}
                                             {task.priority && (
-                                                <div className={`flex items-center gap-1.5 ${task.priority === 'Urgent' ? 'text-red-500' : task.priority === 'High' ? 'text-orange-500' : 'text-slate-500'}`}>
+                                                <div className={`flex items-center gap-1.5 ${task.priority === 'Urgent' ? 'text-red-500' : task.priority === 'High' ? 'text-orange-500' : 'text-slate-500 dark:text-slate-400'}`}>
                                                     <Flag size={14} fill="currentColor" />
                                                     {task.priority}
                                                 </div>
@@ -624,7 +631,7 @@ const MyTasks = () => {
 
                                         {/* Description snippet */}
                                         {task.description && (
-                                            <p className="text-xs text-slate-500 font-medium leading-relaxed line-clamp-2 border-l-2 border-[#137fec]/30 pl-3">
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed line-clamp-2 border-l-2 border-[#137fec]/30 pl-3">
                                                 {task.description}
                                             </p>
                                         )}
@@ -655,7 +662,7 @@ const MyTasks = () => {
                                         <div className="pt-1">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setSelectedTaskId(task.id); setShowDetails(true); }}
-                                                className="flex items-center gap-1.5 px-4 py-2 bg-[#137fec]/10 hover:bg-[#137fec]/20 text-[#137fec] rounded-lg text-[11px] font-black uppercase tracking-widest transition-all"
+                                                className="flex items-center gap-1.5 px-4 py-2 bg-[#137fec]/10 dark:bg-blue-900/10 hover:bg-[#137fec]/20 dark:hover:bg-blue-900/20 text-[#137fec] dark:text-blue-400 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all"
                                             >
                                                 <CheckSquare size={14} strokeWidth={3} />
                                                 Update Status

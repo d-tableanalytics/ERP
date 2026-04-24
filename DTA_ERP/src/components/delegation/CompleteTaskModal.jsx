@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, CheckCircle2, Paperclip, Loader2, UploadCloud } from 'lucide-react';
 import delegationService from '../../services/delegationService';
+import taskService from '../../services/taskService';
 
 const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,7 +63,7 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
                 evidenceUrls = [...evidenceUrls, ...newUrls];
             }
 
-            await delegationService.updateDelegation(task.id, {
+            await taskService.updateTask(task.id, {
                 status: 'Completed',
                 evidenceUrl: JSON.stringify(evidenceUrls)
             });

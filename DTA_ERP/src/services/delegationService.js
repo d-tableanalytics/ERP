@@ -30,6 +30,10 @@ const delegationService = {
         const response = await api.delete(`/delegations/${id}`, { data: payload });
         return response.data.data;
     },
+    softDeleteDelegation: async (id) => {
+        const response = await api.patch(`/delegations/${id}/trash`);
+        return response.data.data;
+    },
     getDeletedDelegations: async (filters = {}) => {
         const cleanFilters = Object.fromEntries(
             Object.entries(filters).filter(([_, v]) => v != null && v !== '')

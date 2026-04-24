@@ -31,6 +31,45 @@ const taskService = {
         return response.data.data;
     },
 
+    // 5a. Get Task by Id
+    getTaskById: async (id) => {
+        const response = await api.get(`/tasks/${id}`);
+        return response.data.data;
+    },
+
+    // 5b. Update Task
+    updateTask: async (id, updates) => {
+        const isFormData = typeof FormData !== 'undefined' && updates instanceof FormData;
+        const response = await api.patch(`/tasks/${id}`, updates, isFormData
+            ? { headers: { 'Content-Type': 'multipart/form-data' } }
+            : undefined);
+        return response.data.data;
+    },
+
+    // 5c. Add Remark
+    addRemark: async (id, remarkData) => {
+        const response = await api.post(`/tasks/${id}/remarks`, remarkData);
+        return response.data.data;
+    },
+
+    // 5d. Subscribe Task
+    subscribeTask: async (id) => {
+        const response = await api.patch(`/tasks/${id}/subscribe`);
+        return response.data.data;
+    },
+
+    // 6a. Soft Delete Task
+    softDeleteTask: async (id) => {
+        const response = await api.patch(`/tasks/${id}/trash`);
+        return response.data.data;
+    },
+
+    // 6b. Restore Task
+    restoreTask: async (id) => {
+        const response = await api.patch(`/tasks/${id}/restore`);
+        return response.data.data;
+    },
+
     // 6. Create Task
     createTask: async (formData) => {
         const response = await api.post('/tasks', formData, {

@@ -24,12 +24,17 @@ const { createHelpTicketTables } = require("./src/models/helpTicket.model");
 const { createTodoTables } = require("./src/models/todo.model");
 const { createLocationTable } = require("./src/models/location.model");
 const { createDelegationExtrasTables } = require("./src/models/delegationExtras.model");
+const { createTaskTable } = require("./src/models/task.model");
 const {
   createHelpTicketConfigTable,
 } = require("./src/models/helpTicketConfig.model");
 const {
   startChecklistCron,
 } = require("./src/controllers/checklist.controller");
+const {
+  startTaskAutomationCron,
+} = require("./src/utils/taskAutomation");
+const { initReminderJob } = require("./src/jobs/reminderJob");
 const { createAttendanceTable } = require("./src/models/attendance.model");
 const { createAdvanceTable } = require("./src/models/advance.model");
 const {
@@ -47,6 +52,7 @@ const {
 const { createO2DTables } = require("./src/models/o2d.model");
 const { createScoreTable } = require("./src/models/score.model");
 const { createChatbotConversationsTable } = require("./src/models/chatbot.model");
+const { createNotificationsTable } = require("./src/models/notification.model");
 
 const onboardingRoutes = require("./src/routes/onboarding.routes");
 const authRoutes = require("./src/routes/auth.routes");
@@ -123,10 +129,14 @@ Promise.all([
   createScoreTable(),
   createChatbotConversationsTable(),
   createDelegationExtrasTables(),
+  createTaskTable(),
+  createNotificationsTable(),
 ])
   .then(() => {
     console.log("Database synchronization complete");
     startChecklistCron();
+    startTaskAutomationCron();
+    initReminderJob();
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server is running on port ${PORT}`);

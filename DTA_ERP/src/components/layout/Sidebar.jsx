@@ -17,6 +17,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
     () => [
       { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
       { icon: "assignment_ind", label: "Delegation", path: "/delegation" },
+      { icon: "check_box", label: "Checklist", path: "/checklist" },
       {
         icon: "task_alt",
         label: "Tasks",
@@ -28,7 +29,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
           { icon: "delete_sweep",           label: "Deleted Tasks",    path: "/tasks/deleted-tasks"    },
         ],
       },
-      { icon: "check_box", label: "Checklist", path: "/checklist" },
+     
       { icon: "checklist", label: "TODO", path: "/todo" },
       {
         icon: "score",

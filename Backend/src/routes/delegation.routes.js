@@ -32,7 +32,10 @@ router.get('/deleted-tasks',    delegationController.getDeletedTasks);
 router.patch('/:id/subscribe',  delegationController.subscribeToDelegation);
 
 // ── Soft Delete / Restore ─────────────────────────────────────────────────────
-router.patch('/:id/trash',      delegationController.softDeleteDelegation);
+router.patch('/:id/trash',
+    authorize('SuperAdmin', 'Admin'),
+    delegationController.softDeleteDelegation
+);
 router.patch('/:id/restore',    delegationController.restoreDelegation);
 
 // ── Standard CRUD ─────────────────────────────────────────────────────────────
@@ -60,7 +63,19 @@ router.put('/:id',
     authorize('SuperAdmin', 'Admin', 'Employee'),
     upload.fields([
         { name: 'voice_note', maxCount: 1 },
-        { name: 'reference_docs', maxCount: 20 }
+        { name: 'reference_docs', maxCount: 20 },
+        { name: 'evidence_files', maxCount: 20 }
+    ]),
+    delegationController.updateDelegation
+);
+
+// PATCH /api/delegations/:id - Partial update delegation
+router.patch('/:id',
+    authorize('SuperAdmin', 'Admin', 'Employee'),
+    upload.fields([
+        { name: 'voice_note', maxCount: 1 },
+        { name: 'reference_docs', maxCount: 20 },
+        { name: 'evidence_files', maxCount: 20 }
     ]),
     delegationController.updateDelegation
 );
