@@ -128,46 +128,63 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
             </div>
 
             {viewType === 'Month' ? (
-                <div className="grid grid-cols-7 gap-px bg-bg-main border border-border-main rounded-xl overflow-hidden">
+                <div className="grid grid-cols-7 gap-px bg-slate-100 dark:bg-slate-800 border border-border-main rounded-xl overflow-hidden shadow-sm">
                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-                        <div key={d} className="bg-slate-50 dark:bg-slate-900 py-3 text-center text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{d}</div>
+                        <div key={d} className="bg-slate-50 dark:bg-slate-900/50 py-3 text-center text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-border-main">{d}</div>
                     ))}
-                    {Array.from({ length: 35 }).map((_, i) => {
-                        const day = new Date(startOfWeek);
-                        day.setDate(startOfWeek.getDate() + i);
-                        const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                        const dayTasks = tasks.filter(t => {
-                            const dateStr = t.dueDate || t.createdAt;
-                            if (!dateStr) return false;
-                            const d = new Date(dateStr);
-                            return d.getDate() === day.getDate() && 
-                                   d.getMonth() === day.getMonth() && 
-                                   d.getFullYear() === day.getFullYear();
-                        });
+                    {(() => {
+                        const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+                        const startDay = startOfMonth.getDay();
+                        const offset = (startDay === 0 ? 6 : startDay - 1);
+                        const startGrid = new Date(startOfMonth);
+                        startGrid.setDate(startOfMonth.getDate() - offset);
 
-                        return (
-                            <div key={i} className={`min-h-[100px] p-2 bg-bg-card ${!isCurrentMonth ? 'opacity-30' : ''} hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all relative`}>
-                                <span className={`text-xs font-black ${isToday(day) ? 'bg-[#137fec] text-white w-6 h-6 flex items-center justify-center rounded-full shadow-lg shadow-blue-500/20' : 'text-slate-400 dark:text-slate-500'}`}>
-                                    {day.getDate()}
-                                </span>
-                                <div className="mt-1 space-y-1">
-                                    {dayTasks.slice(0, 3).map((t, idx) => (
-                                        <div 
-                                            key={t.id || idx} 
-                                            onClick={() => onTaskClick?.(t)}
-                                            className="text-[9px] font-bold bg-[#137fec]/10 text-[#137fec] dark:text-blue-400 px-1.5 py-0.5 rounded border border-[#137fec]/20 dark:border-blue-900/30 truncate cursor-pointer hover:bg-[#137fec]/20 dark:hover:bg-blue-900/40 transition-colors flex items-center gap-1"
-                                        >
-                                            {(t.voiceNoteUrl || t.referenceDocs) && <div className="flex gap-0.5"><Paperclip size={6} strokeWidth={3} /></div>}
-                                            {t.taskTitle}
-                                        </div>
-                                    ))}
-                                    {dayTasks.length > 3 && (
-                                        <div className="text-[8px] font-black text-slate-400 dark:text-slate-500 pl-1">+{dayTasks.length - 3} more</div>
-                                    )}
+                        return Array.from({ length: 42 }).map((_, i) => {
+                            const day = new Date(startGrid);
+                            day.setDate(startGrid.getDate() + i);
+                            const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                            const dayTasks = tasks.filter(t => {
+                                const dateStr = t.dueDate || t.createdAt;
+                                if (!dateStr) return false;
+                                const d = new Date(dateStr);
+                                return d.getDate() === day.getDate() && 
+                                       d.getMonth() === day.getMonth() && 
+                                       d.getFullYear() === day.getFullYear();
+                            });
+
+                            return (
+                                <div key={i} className={`min-h-[110px] p-2 bg-bg-card ${!isCurrentMonth ? 'bg-slate-50/30 dark:bg-slate-950/20' : ''} hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all relative border-b border-r border-border-main/50 last:border-r-0`}>
+                                    <div className="flex justify-between items-start">
+                                        <span className={`text-[11px] font-black flex items-center justify-center rounded-lg transition-all ${isToday(day) ? 'bg-[#137fec] text-white w-7 h-7 shadow-lg shadow-blue-500/20' : isCurrentMonth ? 'text-text-main w-7 h-7 hover:bg-slate-100 dark:hover:bg-slate-800' : 'text-slate-300 dark:text-slate-600 w-7 h-7'}`}>
+                                            {day.getDate()}
+                                        </span>
+                                        {dayTasks.length > 0 && isCurrentMonth && (
+                                            <div className="flex -space-x-1">
+                                                {dayTasks.slice(0, 3).map((t, idx) => (
+                                                    <div key={idx} className="w-1.5 h-1.5 rounded-full bg-[#137fec] ring-2 ring-bg-card" />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-2 space-y-1">
+                                        {isCurrentMonth && dayTasks.slice(0, 3).map((t, idx) => (
+                                            <div 
+                                                key={t.id || idx} 
+                                                onClick={() => onTaskClick?.(t)}
+                                                className="text-[9px] font-bold bg-[#137fec]/5 dark:bg-[#137fec]/10 text-[#137fec] dark:text-blue-400 px-2 py-1 rounded-lg border border-[#137fec]/10 dark:border-blue-900/30 truncate cursor-pointer hover:bg-[#137fec]/10 dark:hover:bg-blue-900/40 transition-all flex items-center gap-1.5 group"
+                                            >
+                                                <div className="w-1 h-1 rounded-full bg-[#137fec] group-hover:scale-150 transition-transform" />
+                                                {t.taskTitle}
+                                            </div>
+                                        ))}
+                                        {isCurrentMonth && dayTasks.length > 3 && (
+                                            <div className="text-[8px] font-black text-slate-400 dark:text-slate-500 pl-1.5 pt-0.5">+ {dayTasks.length - 3} more</div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        });
+                    })()}
                 </div>
             ) : (
                 <div className="flex flex-col flex-1 overflow-hidden border border-border-main rounded-xl">

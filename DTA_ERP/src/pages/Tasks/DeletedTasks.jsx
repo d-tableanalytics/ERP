@@ -10,58 +10,14 @@ import delegationService from '../../services/delegationService';
 import taskService from '../../services/taskService';
 import teamService from '../../services/teamService';
 import MainLayout from '../../components/layout/MainLayout';
+import FilterChip from '../../components/tasks/FilterChip';
+import { getDateRangeFilter } from '../../utils/taskFilters';
+import { exportTasksToCSV, formatDate } from '../../utils/formatters';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// fmt: short date alias used in the task list JSX
+const fmt = (d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' });
 
-const getDateRangeFilter = (taskDate, range, customStart, customEnd) => {
-    if (!taskDate) return false;
-    const d = new Date(taskDate);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    switch (range) {
-        case 'Today': return d >= today;
-        case 'Yesterday': {
-            const y = new Date(today); y.setDate(y.getDate() - 1);
-            return d >= y && d < today;
-        }
-        case 'This Week': {
-            const s = new Date(today);
-            s.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-            return d >= s;
-        }
-        case 'Next Week': {
-            const s = new Date(today);
-            s.setDate(today.getDate() - today.getDay() + 7);
-            const e = new Date(s); e.setDate(s.getDate() + 6);
-            return d >= s && d <= e;
-        }
-        case 'This Month': return d >= new Date(now.getFullYear(), now.getMonth(), 1);
-        case 'Next Month': {
-            const s = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-            const e = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-            return d >= s && d <= e;
-        }
-        case 'Custom': {
-            if (!customStart || !customEnd) return true;
-            return d >= new Date(customStart) && d <= new Date(customEnd + 'T23:59:59');
-        }
-        default: return true; // All Time
-    }
-};
-
-const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-
-// ── FilterChip ───────────────────────────────────────────────────────────────
-
-const FilterChip = ({ label, onRemove }) => (
-    <div className="flex items-center gap-1.5 px-3 py-1 bg-bg-card border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
-        {label}
-        <button onClick={onRemove} className="hover:text-red-500 transition-colors ml-0.5">
-            <X size={12} strokeWidth={3} />
-        </button>
-    </div>
-);
+// ── Date range helper and FilterChip imported from shared modules ────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -72,6 +28,7 @@ const DeletedTasks = () => {
     const [allDepartments, setAllDepartments] = useState([]);
     const [loading, setLoading]     = useState(true);
     const [restoringId, setRestoringId] = useState(null);
+    const [confirmTask, setConfirmTask] = useState(null); // task pending restore confirm
 
     // Filters — same set as MyTasks
     const [search, setSearch]               = useState('');
@@ -92,9 +49,9 @@ const DeletedTasks = () => {
 
     const filterPanelRef = useRef(null);
 
-    // ADMIN guard
-    const storedUser   = JSON.parse(localStorage.getItem('user') || '{}');
-    const currentUser  = storedUser?.user || storedUser;
+    // ADMIN guard — read from Redux (safe) with localStorage fallback
+    const authUser = (() => { try { const s = localStorage.getItem('user'); return s ? JSON.parse(s) : {}; } catch { return {}; } })();
+    const currentUser  = authUser?.user || authUser;
     const isAdmin      = ['admin', 'superadmin'].includes(currentUser?.role?.toLowerCase());
 
     useEffect(() => {
@@ -145,7 +102,7 @@ const DeletedTasks = () => {
     };
 
     const handleRestore = async (id) => {
-        if (!window.confirm('Restore this task? It will become active again.')) return;
+        setConfirmTask(null);
         try {
             setRestoringId(id);
             await taskService.restoreTask(id);
@@ -157,6 +114,9 @@ const DeletedTasks = () => {
             setRestoringId(null);
         }
     };
+
+    const openRestoreConfirm = (task) => setConfirmTask(task);
+    const closeRestoreConfirm = () => setConfirmTask(null);
 
     const isOverdue = (t) => t.status !== 'Completed' && t.dueDate && new Date(t.dueDate) < new Date();
     const getStatus = (t) => isOverdue(t) ? 'OverDue' : t.status;
@@ -236,7 +196,8 @@ const DeletedTasks = () => {
     }
 
     return (
-        <MainLayout title="Deleted Tasks">
+        <>
+            <MainLayout title="Deleted Tasks">
             <div className="animate-in fade-in duration-500">
 
             {/* ── Page Title ── */}
@@ -578,7 +539,7 @@ const DeletedTasks = () => {
 
                                 {/* Restore */}
                                 <button
-                                    onClick={() => handleRestore(task.id)}
+                                    onClick={() => openRestoreConfirm(task)}
                                     disabled={restoringId === task.id}
                                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-border-main hover:border-[#137fec] text-text-muted hover:text-[#137fec] dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 font-bold text-sm transition-all active:scale-95 disabled:opacity-50 shrink-0"
                                 >
@@ -596,10 +557,58 @@ const DeletedTasks = () => {
             </div>
             </div>
         </MainLayout>
+
+        {/* ── Restore Confirmation Modal ── */}
+        {confirmTask && (
+            <div className="fixed inset-0 z-[999] flex items-center justify-center p-4" onClick={closeRestoreConfirm}>
+                {/* Backdrop */}
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" />
+
+                {/* Modal */}
+                <div
+                    className="relative bg-bg-card rounded-2xl shadow-2xl border border-border-main w-full max-w-sm p-6 animate-in zoom-in-95 duration-200"
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Icon */}
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mx-auto mb-4">
+                        <RotateCcw size={26} className="text-emerald-500" strokeWidth={2.5} />
+                    </div>
+
+                    {/* Heading */}
+                    <h3 className="text-lg font-black text-text-main text-center mb-1">Restore Task?</h3>
+                    <p className="text-sm font-medium text-slate-500 text-center mb-1">
+                        <span className="font-bold text-text-main">&ldquo;{confirmTask.taskTitle}&rdquo;</span>
+                    </p>
+                    <p className="text-xs text-slate-400 text-center mb-6">It will become active again and visible to all assignees.</p>
+
+                    {/* Actions */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={closeRestoreConfirm}
+                            className="flex-1 h-11 rounded-xl border-2 border-border-main text-text-muted font-bold text-sm hover:border-slate-300 hover:text-text-main transition-all active:scale-95"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => handleRestore(confirmTask.id)}
+                            disabled={restoringId === confirmTask.id}
+                            className="flex-1 h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-60 shadow-lg shadow-emerald-500/20"
+                        >
+                            {restoringId === confirmTask.id ? (
+                                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <RotateCcw size={15} strokeWidth={2.5} />
+                            )}
+                            Restore
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 
 export default DeletedTasks;
-
 
 

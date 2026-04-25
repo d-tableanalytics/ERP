@@ -48,11 +48,13 @@ import delegationService from "../../services/delegationService";
 import teamService from "../../services/teamService";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import CreateDelegationModal from "./CreateDelegationModal";
+import { getRelativeTime } from "../../utils/timeUtils";
 import TaskRemindersModal from "./TaskRemindersModal";
 import CompleteTaskModal from "./CompleteTaskModal";
 import TaskCreationForm from "./TaskCreationForm";
 
 import usePermissions from "../../hooks/usePermissions";
+import DateTimePickerModal from "./DateTimePickerModal";
 
 const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuccess }) => {
   const { can, userId: loggedInUserId } = usePermissions();
@@ -70,6 +72,8 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
   const [isRemindersModalOpen, setIsRemindersModalOpen] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [subtasksExpanded, setSubtasksExpanded] = useState(true);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [revisedDueDate, setRevisedDueDate] = useState(null);
 
   const [selectedReferenceFiles, setSelectedReferenceFiles] = useState([]);
   const [selectedEvidenceFiles, setSelectedEvidenceFiles] = useState([]);
@@ -194,7 +198,13 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
         return;
       }
     }
-    setStatus(action);
+
+    let finalStatus = action;
+    if (action === "Need Revision") {
+      finalStatus = "NEED REVISION";
+    }
+    
+    setStatus(finalStatus);
   };
 
   const handleToggleChecklistItem = async (index) => {
@@ -317,6 +327,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
           if (selectedVoiceNote) {
             formData.append("voice_note", selectedVoiceNote, "voice-note.webm");
           }
+          if (revisedDueDate) {
+            formData.append("dueDate", revisedDueDate);
+          }
           if (taskSource === 'delegation') {
             await delegationService.updateDelegation(taskId, formData);
           } else {
@@ -328,6 +341,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
             changedBy: userId,
             reason: remark.trim() || `Status updated to ${status}`,
           };
+          if (revisedDueDate) {
+            updates.dueDate = revisedDueDate;
+          }
           if (taskSource === 'delegation') {
             await delegationService.updateDelegation(taskId, updates);
           } else {
@@ -370,6 +386,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
       setSelectedReferenceFiles([]);
       setSelectedEvidenceFiles([]);
       setSelectedVoiceNote(null);
+      setRevisedDueDate(null);
       setVoiceState('idle');
       setShowRecorder(false);
       setRecordingTime(0);
@@ -649,12 +666,15 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div
-              className={`px-2.5 py-1 bg-bg-main/50 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-lg border border-border-main uppercase flex items-center gap-1.5 shadow-sm`}
-            >
-              {getStatusIcon(task?.status)}
-              {task?.status}
-            </div>
+            <div className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest shadow-sm border ${
+                task?.status?.toLowerCase() === 'need revision' ? 'bg-rose-500 text-white border-rose-600' :
+                task?.status === 'Hold' ? 'bg-amber-500 text-white border-amber-600' :
+                task?.status === 'In Progress' ? 'bg-orange-500 text-white border-orange-600' :
+                task?.status === 'Completed' ? 'bg-emerald-500 text-white border-emerald-600' :
+                'bg-slate-500 text-white border-slate-600'
+              }`}>
+                {task?.status?.toLowerCase() === 'need revision' ? 'Need Revision' : task?.status}
+              </div>
             {can("task", "delete") && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
@@ -910,7 +930,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                     <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">
                       Quick Actions
                     </h2>
-                    <div className="flex flex-wrap gap-2.5">
+                    <div className="flex flex-wrap gap-4">
                       {isDoer() && (
                         <>
                           <button
@@ -927,6 +947,22 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                           </button>
                         </>
                       )}
+                      {isAssignerOrDoer() && (
+                        <>
+                          <button
+                            onClick={() => handleQuickAction("Hold")}
+                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all font-black text-[10px] uppercase tracking-widest shadow-sm ${status === "Hold" ? "bg-amber-500 text-white border-amber-600" : "bg-bg-card text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30 hover:bg-amber-50 dark:hover:bg-amber-900/10"}`}
+                          >
+                            <Pause size={14} /> Hold
+                          </button>
+                          <button
+                            onClick={() => setIsDatePickerOpen(true)}
+                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all font-black text-[10px] uppercase tracking-widest shadow-sm ${status?.toLowerCase() === "need revision" ? "bg-rose-500 text-white border-rose-600" : "bg-bg-card text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/30 hover:bg-rose-50 dark:hover:bg-rose-900/10"}`}
+                          >
+                            <MessageSquare size={14} /> Need Revision
+                          </button>
+                        </>
+                      )}
                       <button
                         onClick={() => setIsRemindersModalOpen(true)}
                         className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border-main text-text-muted font-black text-[10px] uppercase tracking-widest bg-bg-card hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
@@ -935,49 +971,93 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                       </button>
                     </div>
 
-                    <div className="space-y-3 mt-4">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                        Quick Remark
-                      </label>
-                      <textarea
-                        value={remark}
-                        onChange={(e) => setRemark(e.target.value)}
-                        placeholder="Focus on specific details or updates..."
-                        rows={2}
-                        className="w-full bg-bg-card border border-border-main rounded-2xl p-4 text-[13px] text-text-main focus:ring-4 focus:ring-[#137fec]/5 focus:border-[#137fec]/30 dark:focus:border-blue-500/50 outline-none transition-all resize-none font-medium"
-                      />
+                    {isAssignerOrDoer() && (
+                      <div className="bg-bg-card rounded-2xl border border-border-main p-5 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80 flex items-center gap-2">
+                            <MessageSquare size={12} className="text-[#137fec]" /> Quick Remark & Update
+                          </h2>
 
-                      {isDoer() && (
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                            Assignee Uploads
-                          </label>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => evidenceFilesInputRef.current?.click()}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-100 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 text-[10px] font-black uppercase tracking-widest transition-all"
-                            >
-                              <ImageIcon size={12} /> Image / File
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => referenceDocsInputRef.current?.click()}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/30 text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 text-[10px] font-black uppercase tracking-widest transition-all"
-                            >
-                              <Paperclip size={12} /> Reference Files
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowRecorder(!showRecorder)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all ${showRecorder ? "border-purple-600 bg-purple-600 text-white" : "border-purple-100 dark:border-purple-900/30 text-purple-600 dark:text-purple-400 bg-purple-50/60 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20"}`}
-                            >
-                              <Mic size={12} /> {showRecorder ? "Close Recorder" : "Voice Note"}
-                            </button>
+                          {revisedDueDate && (
+                            <div className="flex items-center gap-2 px-2.5 py-1 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/30 rounded-lg animate-in fade-in zoom-in-95">
+                              <div className="flex flex-col items-end">
+                                <span className="text-[7px] font-black text-rose-400 uppercase tracking-widest leading-none">Revised Due</span>
+                                <span className="text-[9px] font-black text-rose-600 dark:text-rose-400">
+                                  {new Date(revisedDueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <button 
+                                onClick={() => {
+                                  setRevisedDueDate(null);
+                                  if (status?.toLowerCase() === "need revision") setStatus(task.status);
+                                }}
+                                className="p-1 hover:bg-white dark:hover:bg-slate-800 rounded-md text-rose-400 hover:text-rose-600 transition-all"
+                              >
+                                <X size={10} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-4">
+                          {(task?.remarks_detail?.length > 0 || task?.remarks_list?.length > 0) && (
+                            <div className="bg-bg-main/40 p-3 rounded-xl border border-border-main/50 animate-in fade-in slide-in-from-top-1">
+                              <div className="flex justify-between items-center mb-1.5">
+                                <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                                  <MessageSquare size={8} /> Last Remark by {getUserInfo((task.remarks_detail || task.remarks_list)[(task.remarks_detail || task.remarks_list).length - 1].userId || (task.remarks_detail || task.remarks_list)[(task.remarks_detail || task.remarks_list).length - 1].user_id).name}
+                                </span>
+                                <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                  {getRelativeTime((task.remarks_detail || task.remarks_list)[(task.remarks_detail || task.remarks_list).length - 1].createdAt || (task.remarks_detail || task.remarks_list)[(task.remarks_detail || task.remarks_list).length - 1].created_at)}
+                                </span>
+                              </div>
+                              <p className="text-[10px] font-bold text-text-main/70 italic line-clamp-2 leading-relaxed">
+                                "{(task.remarks_detail || task.remarks_list)[(task.remarks_detail || task.remarks_list).length - 1].remark}"
+                              </p>
+                            </div>
+                          )}
+                          <div className="space-y-3">
+                            <div className="relative group">
+                              <textarea
+                                placeholder="Add a remark, update status, or attach evidence..."
+                                value={remark}
+                                onChange={(e) => setRemark(e.target.value)}
+                                className="w-full min-h-[120px] p-4 bg-bg-main border border-border-main rounded-2xl text-[13px] font-medium text-text-main placeholder:text-text-muted/50 focus:outline-none focus:ring-4 focus:ring-[#137fec]/5 focus:border-[#137fec]/30 transition-all resize-none shadow-inner"
+                              />
+                              
+                              {/* Inner Actions Toolbar */}
+                              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+                                <div className="flex items-center gap-1.5 pointer-events-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => evidenceFilesInputRef.current?.click()}
+                                    className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all shadow-sm"
+                                    title="Add Image / Evidence"
+                                  >
+                                    <ImageIcon size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => referenceDocsInputRef.current?.click()}
+                                    className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all shadow-sm"
+                                    title="Add Reference Files"
+                                  >
+                                    <Paperclip size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowRecorder(!showRecorder)}
+                                    className={`p-2 rounded-lg transition-all shadow-sm ${showRecorder ? "bg-purple-600 text-white" : "bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30"}`}
+                                    title="Add Voice Note"
+                                  >
+                                    <Mic size={16} />
+                                  </button>
+                                </div>
+
+                            </div>
                           </div>
 
                           {showRecorder && (
-                            <div className="mt-2 p-4 bg-bg-card border border-purple-100 dark:border-purple-900/30 rounded-2xl flex flex-col items-center gap-4 animate-in slide-in-from-top-2 duration-300 shadow-sm">
+                            <div className="p-4 bg-bg-main border border-purple-100 dark:border-purple-900/30 rounded-2xl flex flex-col items-center gap-4 animate-in slide-in-from-top-2 duration-300 shadow-sm">
                               {voiceState === 'idle' && (
                                 <button
                                   type="button"
@@ -989,7 +1069,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                               )}
                               {voiceState === 'recording' && (
                                 <div className="flex flex-col items-center gap-3 w-full">
-                                  <div className="flex items-center gap-3 px-4 py-2 bg-bg-main rounded-xl border border-red-100 animate-pulse">
+                                  <div className="flex items-center gap-3 px-4 py-2 bg-bg-card rounded-xl border border-red-100 animate-pulse">
                                     <div className="w-2 h-2 bg-red-500 rounded-full" />
                                     <span className="text-[20px] font-black text-text-main tabular-nums">
                                       {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
@@ -1006,7 +1086,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                               )}
                               {voiceState === 'recorded' && (
                                 <div className="flex items-center gap-3 w-full">
-                                  <div className="flex-1 flex items-center gap-2 p-2.5 bg-bg-main border border-border-main rounded-xl">
+                                  <div className="flex-1 flex items-center gap-2 p-2.5 bg-bg-card border border-border-main rounded-xl">
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1031,7 +1111,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                                   </button>
                                 </div>
                               )}
-                              <div className="flex items-center gap-3 w-full">
+                              <div className="flex items-center gap-3 w-full px-10">
                                 <div className="flex-1 h-px bg-border-main" />
                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Or</span>
                                 <div className="flex-1 h-px bg-border-main" />
@@ -1046,59 +1126,13 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                             </div>
                           )}
 
-                          <input
-                            ref={evidenceFilesInputRef}
-                            type="file"
-                            className="hidden"
-                            multiple
-                            onChange={(e) => {
-                              appendValidFiles(e.target.files, setSelectedEvidenceFiles);
-                              e.target.value = "";
-                            }}
-                          />
-                          <input
-                            ref={referenceDocsInputRef}
-                            type="file"
-                            className="hidden"
-                            multiple
-                            onChange={(e) => {
-                              appendValidFiles(e.target.files, setSelectedReferenceFiles);
-                              e.target.value = "";
-                            }}
-                          />
-                          <input
-                            ref={voiceNoteInputRef}
-                            type="file"
-                            accept="audio/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const [file] = Array.from(e.target.files || []);
-                              if (!file) return;
-                              if (!file.type?.startsWith("audio/")) {
-                                toast.error("Please upload a valid audio file.");
-                                e.target.value = "";
-                                return;
-                              }
-                              if (file.size > MAX_UPLOAD_SIZE) {
-                                toast.error(`File "${file.name}" exceeds the 50MB limit.`);
-                                e.target.value = "";
-                                return;
-                              }
-                              setSelectedVoiceNote(new File([file], `voice_note_${new Date().getTime()}.webm`, { type: file.type }));
-                              setVoiceState('recorded');
-                              setShowRecorder(true);
-                              e.target.value = "";
-                            }}
-                          />
-
-                          {(selectedEvidenceFiles.length > 0 ||
-                            selectedReferenceFiles.length > 0 ||
-                            selectedVoiceNote) && (
-                            <div className="space-y-2">
+                          {/* File Preview List */}
+                          {(selectedEvidenceFiles.length > 0 || selectedReferenceFiles.length > 0 || selectedVoiceNote) && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 animate-in fade-in duration-300">
                               {selectedEvidenceFiles.map((file, index) => (
                                 <div
                                   key={`evidence-${file.name}-${index}`}
-                                  className="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30"
+                                  className="flex items-center justify-between gap-2 p-2 rounded-xl bg-emerald-50/70 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30"
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     <ImageIcon size={12} className="text-emerald-500 shrink-0" />
@@ -1121,7 +1155,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                               {selectedReferenceFiles.map((file, index) => (
                                 <div
                                   key={`reference-${file.name}-${index}`}
-                                  className="flex items-center justify-between gap-2 p-2 rounded-lg bg-blue-50/70 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30"
+                                  className="flex items-center justify-between gap-2 p-2 rounded-xl bg-blue-50/70 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30"
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     <Paperclip size={12} className="text-blue-500 shrink-0" />
@@ -1142,7 +1176,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                               ))}
 
                               {selectedVoiceNote && (
-                                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-purple-50/70 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30">
+                                <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-purple-50/70 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <Mic size={12} className="text-purple-500 shrink-0" />
                                     <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 truncate">
@@ -1161,25 +1195,80 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                             </div>
                           )}
                         </div>
-                      )}
 
-                      <div className="flex justify-end mt-2">
-                        <button
-                          onClick={handleSubmitUpdate}
-                          disabled={
-                            submitting ||
-                            (!remark.trim() &&
-                              status === task?.status &&
-                              selectedReferenceFiles.length === 0 &&
-                              selectedEvidenceFiles.length === 0 &&
-                              !selectedVoiceNote)
-                          }
-                          className={`py-2 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${remark.trim() || status !== task?.status || selectedReferenceFiles.length > 0 || selectedEvidenceFiles.length > 0 || selectedVoiceNote ? "bg-[#137fec] text-white shadow-[#137fec]/20" : "bg-bg-main text-slate-400 dark:text-slate-600 cursor-not-allowed"}`}
-                        >
-                          {submitting ? "SUBMITTING..." : "SUBMIT UPDATE"}
-                        </button>
+                        <div className="flex justify-end pt-2 border-t border-border-main/50">
+                          <button
+                            onClick={handleSubmitUpdate}
+                            disabled={
+                              submitting ||
+                              (!remark.trim() &&
+                                status === task?.status &&
+                                selectedReferenceFiles.length === 0 &&
+                                selectedEvidenceFiles.length === 0 &&
+                                !selectedVoiceNote)
+                            }
+                            className={`group relative flex items-center gap-2 py-3 px-8 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 ${remark.trim() || status !== task?.status || selectedReferenceFiles.length > 0 || selectedEvidenceFiles.length > 0 || selectedVoiceNote ? "bg-[#137fec] text-white shadow-[#137fec]/25 hover:bg-blue-600 hover:-translate-y-0.5" : "bg-bg-main text-slate-400 dark:text-slate-600 cursor-not-allowed border border-border-main"}`}
+                          >
+                            {submitting ? (
+                              <>
+                                <div className="size-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                SENDING...
+                              </>
+                            ) : (
+                              <>
+                                SUBMIT UPDATE
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    <input
+                      ref={evidenceFilesInputRef}
+                      type="file"
+                      className="hidden"
+                      multiple
+                      onChange={(e) => {
+                        appendValidFiles(e.target.files, setSelectedEvidenceFiles);
+                        e.target.value = "";
+                      }}
+                    />
+                    <input
+                      ref={referenceDocsInputRef}
+                      type="file"
+                      className="hidden"
+                      multiple
+                      onChange={(e) => {
+                        appendValidFiles(e.target.files, setSelectedReferenceFiles);
+                        e.target.value = "";
+                      }}
+                    />
+                    <input
+                      ref={voiceNoteInputRef}
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const [file] = Array.from(e.target.files || []);
+                        if (!file) return;
+                        if (!file.type?.startsWith("audio/")) {
+                          toast.error("Please upload a valid audio file.");
+                          e.target.value = "";
+                          return;
+                        }
+                        if (file.size > MAX_UPLOAD_SIZE) {
+                          toast.error(`File "${file.name}" exceeds the 50MB limit.`);
+                          e.target.value = "";
+                          return;
+                        }
+                        setSelectedVoiceNote(new File([file], `voice_note_${new Date().getTime()}.webm`, { type: file.type }));
+                        setVoiceState('recorded');
+                        setShowRecorder(true);
+                        e.target.value = "";
+                      }}
+                    />
                   </div>
                 )}
               </div>
@@ -1211,6 +1300,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                                 {info.designation}
                               </p>
                             )}
+                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
+                              <Clock size={10} /> Created: {task.createdAt ? new Date(task.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A'}
+                            </p>
                           </div>
                         </div>
                       );
@@ -1236,6 +1328,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                                 {info.designation}
                               </p>
                             )}
+                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
+                              <Clock size={10} /> Assigned: {getRelativeTime(task.createdAt)}
+                            </p>
                           </div>
                         </div>
                       );
@@ -1344,22 +1439,30 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                 })()}
 
                 {/* Remarks Section */}
-                {task?.remarks_detail?.length > 0 && (
+                {(task?.remarks_detail?.length > 0 || task?.remarks_list?.length > 0) && (
                   <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
                     <h3 className="text-[10px] font-black text-text-main uppercase tracking-widest mb-4 opacity-80 flex items-center gap-2">
                       <MessageSquare size={12} /> Remarks History
                     </h3>
                     <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                      {task.remarks_detail.map((rmk, idx) => (
+                      {(task.remarks_detail || task.remarks_list || []).map((rmk, idx) => (
                         <div key={idx} className="flex gap-3">
                           <div className="w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-800/30">
-                            <span className="text-[8px] font-black uppercase">{rmk.username?.substring(0, 2)}</span>
+                            <span className="text-[8px] font-black uppercase">{getUserInfo(rmk.userId || rmk.user_id).initials}</span>
                           </div>
                           <div className="flex-1 bg-bg-main/50 p-3 rounded-tr-xl rounded-b-xl border border-border-main">
-                            <div className="flex justify-between items-start mb-1 gap-2">
-                              <span className="text-[10px] font-black text-text-main truncate">{rmk.username}</span>
+                            <div className="flex justify-between  items-start mb-1 gap-2">
+                              <h2 className="text-[10px] font-black text-text-main">
+                                {getUserInfo(rmk.userId || rmk.user_id).name}
+                              </h2>
+                             
                               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0 text-right">
-                                {new Date(typeof rmk.createdAt === 'string' && !rmk.createdAt.endsWith('Z') ? rmk.createdAt + 'Z' : rmk.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                {(() => {
+                                  const rawDate = rmk.createdAt || rmk.created_at;
+                                  if (!rawDate) return 'N/A';
+                                  const d = typeof rawDate === 'string' && !rawDate.endsWith('Z') ? new Date(rawDate + 'Z') : new Date(rawDate);
+                                  return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+                                })()}
                               </span>
                             </div>
                             <p className="text-xs font-medium text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{rmk.remark}</p>
@@ -1418,6 +1521,16 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
           }}
         />
       )}
+      <DateTimePickerModal
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        value={revisedDueDate || task?.dueDate}
+        onChange={(date) => {
+          setRevisedDueDate(date);
+          setStatus("NEED REVISION");
+          setIsDatePickerOpen(false);
+        }}
+      />
     </div>
   );
 };

@@ -110,10 +110,13 @@ exports.softDeleteTask = async (req, res) => {
     const { id } = req.params;
     const deletedBy = req.user.email || req.user.name || req.user.role || 'System';
     try {
-        const task = await Task.softDelete(id, deletedBy);
-        if (!task) {
+        const deleted = await Task.softDelete(id, deletedBy);
+        if (!deleted) {
             return res.status(404).json({ success: false, message: 'Task not found' });
         }
+
+        // Re-fetch with BASE_QUERY to get properly aliased camelCase fields (taskTitle, assignerId, doerId …)
+        const task = await Task.findById(id).catch(() => deleted);
 
         // Trigger notification
         await notifyUser('TASK_DELETED', {

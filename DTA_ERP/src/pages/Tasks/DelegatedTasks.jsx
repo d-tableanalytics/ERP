@@ -15,55 +15,11 @@ import TaskDetailsDrawer from '../../components/delegation/TaskDetailsDrawer';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import { useSelector } from 'react-redux';
+import FilterChip from '../../components/tasks/FilterChip';
+import { getDateRangeFilter } from '../../utils/taskFilters';
+import { exportTasksToCSV } from '../../utils/formatters';
 
-// ── Date range helper (same as GroupTasks) ─────────────────────────────────────
-const getDateRangeFilter = (taskDate, range, customStart, customEnd) => {
-    if (!taskDate) return false;
-    const d = new Date(taskDate);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    switch (range) {
-        case 'Today': return d >= today;
-        case 'Yesterday': {
-            const y = new Date(today); y.setDate(y.getDate() - 1);
-            return d >= y && d < today;
-        }
-        case 'This Week': {
-            const s = new Date(today); s.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-            return d >= s;
-        }
-        case 'Last Week': {
-            const s = new Date(today); s.setDate(today.getDate() - today.getDay() - 6);
-            const e = new Date(s); e.setDate(s.getDate() + 6);
-            return d >= s && d <= e;
-        }
-        case 'This Month': return d >= new Date(now.getFullYear(), now.getMonth(), 1);
-        case 'Last Month': {
-            const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            const e = new Date(now.getFullYear(), now.getMonth(), 0);
-            return d >= s && d <= e;
-        }
-        case 'This Year': return d >= new Date(now.getFullYear(), 0, 1);
-        case 'Custom': {
-            if (!customStart || !customEnd) return true;
-            return d >= new Date(customStart) && d <= new Date(customEnd + 'T23:59:59');
-        }
-        case 'All Time':
-        default:
-            return true;
-    }
-};
-
-// ── Filter Chip ─────────────────────────────────────────────────────────────────
-const FilterChip = ({ label, onRemove }) => (
-    <div className="flex items-center gap-1.5 px-3 py-1 bg-bg-card border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
-        {label}
-        <button onClick={onRemove} className="hover:text-red-500 transition-colors">
-            <X size={12} strokeWidth={3} />
-        </button>
-    </div>
-);
+// ── Date range helper and FilterChip imported from shared modules ──────────
 
 // ── Main Component ──────────────────────────────────────────────────────────────
 const DelegatedTasks = () => {
@@ -95,8 +51,8 @@ const DelegatedTasks = () => {
     const [showDetails, setShowDetails] = useState(false);
 
     const filterPanelRef = useRef(null);
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    const currentUserId = storedUser?.user?.id || storedUser?.id;
+    const currentUser = useSelector((state) => state.auth.user);
+    const currentUserId = currentUser?.id;
 
     useEffect(() => {
         fetchAllData();
@@ -358,7 +314,13 @@ const DelegatedTasks = () => {
                 </button>
 
                 {/* Export */}
-                <button className="flex items-center gap-2 px-4 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm active:scale-95">
+                <button
+                    onClick={() => {
+                        exportTasksToCSV(filteredTasks, 'delegated-tasks', (msg) => toast.error(msg));
+                        if (filteredTasks.length > 0) toast.success(`Exported ${filteredTasks.length} tasks`);
+                    }}
+                    className="flex items-center gap-2 px-4 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm active:scale-95"
+                >
                     <FileUp size={18} />
                     Export
                 </button>

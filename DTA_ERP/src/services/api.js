@@ -11,27 +11,33 @@ const api = axios.create({
 // Add interceptor for auth token
 api.interceptors.request.use(
     (config) => {
-        const authString = localStorage.getItem('auth');
-        const directToken = localStorage.getItem('token');
-        
-        if (directToken) {
-            config.headers.Authorization = `Bearer ${directToken}`;
-        } else if (authString) {
-            const auth = JSON.parse(authString);
-            if (auth && auth.token) {
-                config.headers.Authorization = `Bearer ${auth.token}`;
+        try {
+            const directToken = localStorage.getItem('token');
+            if (directToken) {
+                config.headers.Authorization = `Bearer ${directToken}`;
+                return config;
             }
-        } else {
-            // Try 'user' as well since some projects use different keys
+
+            const authString = localStorage.getItem('auth');
+            if (authString) {
+                const auth = JSON.parse(authString);
+                if (auth?.token) {
+                    config.headers.Authorization = `Bearer ${auth.token}`;
+                    return config;
+                }
+            }
+
+            // Fallback: read from 'user' key (legacy support)
             const userString = localStorage.getItem('user');
             if (userString) {
                 const user = JSON.parse(userString);
-                if (user && user.token) {
-                    config.headers.Authorization = `Bearer ${user.token}`;
-                } else if (user && user.user && user.user.token) {
-                     config.headers.Authorization = `Bearer ${user.user.token}`;
+                const token = user?.token || user?.user?.token;
+                if (token) {
+                    config.headers.Authorization = `Bearer ${token}`;
                 }
             }
+        } catch (e) {
+            // Corrupted localStorage — skip auth header, server will 401
         }
         return config;
     },
@@ -43,11 +49,11 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            console.error('Unauthorized request - clearing auth and redirecting to login');
+            // Clear all auth data and redirect to login
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            localStorage.removeItem('auth');
             localStorage.removeItem('loginTime');
-            // We can't use dispatch here easily, so we use window.location
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }

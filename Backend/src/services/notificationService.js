@@ -28,7 +28,7 @@ const notifyUser = async (eventType, taskData) => {
             changedBy
         } = taskData;
 
-        const title = taskTitle || delegation_name;
+        const title = taskTitle || taskData.task_title || delegation_name || 'Untitled Task';
         const recipients = [];
 
         // Determine recipients
@@ -75,7 +75,7 @@ const notifyUser = async (eventType, taskData) => {
 };
 
 const getNotificationContent = (eventType, taskData, role) => {
-    const title = taskData.taskTitle || taskData.delegation_name;
+    const title = taskData.taskTitle || taskData.task_title || taskData.delegation_name || 'Untitled Task';
     const actor = taskData.changedBy || 'Someone';
 
     switch (eventType) {
@@ -152,8 +152,6 @@ const sendEmailNotification = async (recipientId, eventType, taskData, content) 
 
 const generateTaskEmailTemplate = (eventType, taskData, recipient, content) => {
     const {
-        delegation_name,
-        taskTitle,
         description,
         doer_name,
         delegator_name,
@@ -162,16 +160,72 @@ const generateTaskEmailTemplate = (eventType, taskData, recipient, content) => {
         updatedFields
     } = taskData;
 
-    const title = taskTitle || delegation_name;
-    const formattedDueDate = due_date ? new Date(due_date).toLocaleString() : 'Not Set';
+    // Support both snake_case (from DB/RETURNING) and camelCase (from aliased queries)
+    const voiceNoteUrl = taskData.voiceNoteUrl || taskData.voice_note_url;
+    const referenceDocs = taskData.referenceDocs || taskData.reference_docs;
+    const evidenceUrl = taskData.evidenceUrl || taskData.evidence_url;
+
+    const title = taskData.taskTitle || taskData.task_title || taskData.delegation_name || 'Untitled Task';
+    const formattedDueDate = due_date ? new Date(due_date).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Not Set';
     
     let changesHtml = '';
     if (updatedFields && Object.keys(updatedFields).length > 0) {
-        changesHtml = '<h3>Changes:</h3><ul>';
+        changesHtml = '<div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">';
+        changesHtml += '<h3 style="font-size: 14px; color: #4f46e5; text-transform: uppercase; letter-spacing: 1px;">Update Details:</h3><ul style="padding-left: 20px;">';
         for (const [field, value] of Object.entries(updatedFields)) {
-            changesHtml += `<li><strong>${field}:</strong> ${value}</li>`;
+            changesHtml += `<li style="margin-bottom: 5px;"><strong>${field}:</strong> ${value}</li>`;
         }
-        changesHtml += '</ul>';
+        changesHtml += '</ul></div>';
+    }
+
+    // Attachments Logic
+    let attachmentsHtml = '';
+    const hasVoice = !!voiceNoteUrl;
+    const hasDocs = Array.isArray(referenceDocs) ? referenceDocs.length > 0 : !!referenceDocs;
+    const hasEvidence = Array.isArray(evidenceUrl) ? evidenceUrl.length > 0 : !!evidenceUrl;
+
+    if (hasVoice || hasDocs || hasEvidence) {
+        attachmentsHtml = '<div style="margin-top: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px;">';
+        attachmentsHtml += '<h3 style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">📎 Attachments</h3>';
+        
+        if (hasVoice) {
+            attachmentsHtml += `
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 12px; font-weight: 600; color: #475569;">🎤 Voice Note: </span>
+                    <a href="${voiceNoteUrl}" style="margin-left: 8px; font-size: 12px; color: #4f46e5; text-decoration: none; font-weight: bold;">Listen to Recording</a>
+                </div>`;
+        }
+
+        if (hasDocs) {
+            const docs = Array.isArray(referenceDocs) ? referenceDocs : [referenceDocs];
+            attachmentsHtml += '<div style="margin-bottom: 10px;"><span style="font-size: 12px; font-weight: 600; color: #475569;">📄 Reference Files:</span>';
+            docs.forEach((doc, idx) => {
+                const docUrl = typeof doc === 'string' ? doc : doc.url || doc;
+                const docName = typeof doc === 'object' ? doc.name : `File ${idx + 1}`;
+                attachmentsHtml += `<div style="margin-top: 4px; padding-left: 10px;"><a href="${docUrl}" style="font-size: 12px; color: #4f46e5; text-decoration: none;">• ${docName}</a></div>`;
+            });
+            attachmentsHtml += '</div>';
+        }
+
+        if (hasEvidence) {
+            const evidence = Array.isArray(evidenceUrl) ? evidenceUrl : [evidenceUrl];
+            attachmentsHtml += '<div style="margin-bottom: 5px;"><span style="font-size: 12px; font-weight: 600; color: #475569;">📸 Task Evidence / Images:</span>';
+            evidence.forEach((ev, idx) => {
+                const evUrl = typeof ev === 'string' ? ev : ev.url || ev;
+                const isImage = evUrl.match(/\.(jpeg|jpg|gif|png)$/i);
+                if (isImage) {
+                    attachmentsHtml += `
+                        <div style="margin-top: 8px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+                            <a href="${evUrl}"><img src="${evUrl}" style="max-width: 100%; display: block;" alt="Evidence ${idx + 1}" /></a>
+                        </div>`;
+                } else {
+                    attachmentsHtml += `<div style="margin-top: 4px; padding-left: 10px;"><a href="${evUrl}" style="font-size: 12px; color: #4f46e5; text-decoration: none;">• Evidence File ${idx + 1}</a></div>`;
+                }
+            });
+            attachmentsHtml += '</div>';
+        }
+        
+        attachmentsHtml += '</div>';
     }
 
     return `
@@ -179,45 +233,68 @@ const generateTaskEmailTemplate = (eventType, taskData, recipient, content) => {
         <html>
         <head>
             <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; }
-                .header { background: #4f46e5; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }
-                .content { padding: 20px; }
-                .footer { text-align: center; font-size: 12px; color: #777; margin-top: 20px; }
-                .button { display: inline-block; padding: 10px 20px; background: #4f46e5; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-                .details { background: #f9fafb; padding: 15px; border-radius: 8px; margin: 15px 0; }
-                .detail-item { margin-bottom: 8px; }
-                .label { font-weight: bold; color: #4b5563; }
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f1f5f9; }
+                .wrapper { background-color: #f1f5f9; padding: 40px 20px; }
+                .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+                .header { background: #4f46e5; color: #ffffff; padding: 30px; text-align: center; }
+                .header h1 { margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
+                .content { padding: 30px; }
+                .footer { text-align: center; font-size: 11px; color: #64748b; padding: 20px; border-top: 1px solid #f1f5f9; }
+                .button { 
+                    display: inline-block; 
+                    padding: 14px 28px; 
+                    background-color: #4f46e5; 
+                    color: #ffffff !important; 
+                    font-weight: 800; 
+                    text-decoration: none; 
+                    border-radius: 12px; 
+                    margin-top: 25px;
+                    text-transform: uppercase;
+                    font-size: 11px;
+                    letter-spacing: 1px;
+                    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+                }
+                .details { background: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid #f1f5f9; }
+                .detail-item { margin-bottom: 12px; display: flex; align-items: baseline; }
+                .label { font-weight: 800; color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; min-width: 100px; }
+                .value { color: #1e293b; font-weight: 600; font-size: 13px; }
+                .description-box { margin-top: 20px; border-left: 4px solid #e2e8f0; padding-left: 15px; color: #475569; font-style: italic; }
             </style>
         </head>
         <body>
-            <div class="container">
-                <div class="header">
-                    <h1>Task Management System</h1>
-                </div>
-                <div class="content">
-                    <h2>Hello ${recipient.first_name || 'User'},</h2>
-                    <p>${content.message}</p>
-                    
-                    <div class="details">
-                        <div class="detail-item"><span class="label">Task:</span> ${title}</div>
-                        <div class="detail-item"><span class="label">Status:</span> ${status || 'N/A'}</div>
-                        <div class="detail-item"><span class="label">Assigned To:</span> ${doer_name}</div>
-                        <div class="detail-item"><span class="label">Created By:</span> ${delegator_name}</div>
-                        <div class="detail-item"><span class="label">Due Date:</span> ${formattedDueDate}</div>
+            <div class="wrapper">
+                <div class="container">
+                    <div class="header">
+                        <h1>ERP TASK SYSTEM</h1>
                     </div>
+                    <div class="content">
+                        <h2 style="font-size: 18px; font-weight: 800; color: #1e293b; margin-top: 0;">Hello ${recipient.first_name || 'User'},</h2>
+                        <p style="color: #475569; font-size: 14px; margin-bottom: 25px;">${content.message}</p>
+                        
+                        <div class="details">
+                            <div class="detail-item"><span class="label">Task:</span> <span class="value">${title}</span></div>
+                            <div class="detail-item"><span class="label">Status:</span> <span class="value" style="color: #4f46e5;">${status || 'N/A'}</span></div>
+                            <div class="detail-item"><span class="label">Assigned To:</span> <span class="value">${doer_name}</span></div>
+                            <div class="detail-item"><span class="label">Created By:</span> <span class="value">${delegator_name}</span></div>
+                            <div class="detail-item"><span class="label">Due Date:</span> <span class="value">${formattedDueDate}</span></div>
+                        </div>
 
-                    ${description ? `<div class="detail-item"><span class="label">Description:</span> <p>${description}</p></div>` : ''}
-                    
-                    ${changesHtml}
+                        ${description ? `<div class="description-box"><span class="label" style="display:block; margin-bottom: 5px;">Description</span> <p style="margin: 0; font-size: 13px;">${description}</p></div>` : ''}
+                        
+                        ${attachmentsHtml}
+                        
+                        ${changesHtml}
 
-                    <p>Timestamp: ${new Date().toLocaleString()}</p>
-                    
-                    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/delegations" class="button">View Task Details</a>
-                </div>
-                <div class="footer">
-                    <p>This is an automated notification. Please do not reply.</p>
-                    <p>&copy; ${new Date().getFullYear()} DTA ERP Task Management System</p>
+                        <p style="font-size: 11px; color: #94a3b8; margin-top: 30px;">Sent at: ${new Date().toLocaleString()}</p>
+                        
+                        <div style="text-align: center;">
+                            <a href="https://erp.dtableanalytics.com" class="button">View Task Details</a>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <p>This is an automated notification from DTA ERP.<br/>Please do not reply to this email.</p>
+                        <p>&copy; ${new Date().getFullYear()} DTA ERP Task Management System</p>
+                    </div>
                 </div>
             </div>
         </body>

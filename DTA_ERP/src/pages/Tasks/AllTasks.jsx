@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Search, FileUp, List, Layout,
@@ -16,35 +16,11 @@ import TaskCreationForm from '../../components/delegation/TaskCreationForm';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import { useSelector } from 'react-redux';
+import FilterChip from '../../components/tasks/FilterChip';
+import { getDateRangeFilter } from '../../utils/taskFilters';
+import { formatTimeAgo, formatDate, getStatusBadgeClass, exportTasksToCSV } from '../../utils/formatters';
 
-// ── Date range helper ────────────────────────────────────────────────────────
-const getDateRangeFilter = (taskDate, range, customStart, customEnd) => {
-    if (!taskDate) return false;
-    const d = new Date(taskDate);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    switch (range) {
-        case 'Today': return d >= today;
-        case 'Yesterday': { const y = new Date(today); y.setDate(y.getDate() - 1); return d >= y && d < today; }
-        case 'This Week': { const s = new Date(today); s.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); return d >= s; }
-        case 'Last Week': { const s = new Date(today); s.setDate(today.getDate() - today.getDay() - 6); const e = new Date(s); e.setDate(s.getDate() + 6); return d >= s && d <= e; }
-        case 'This Month': return d >= new Date(now.getFullYear(), now.getMonth(), 1);
-        case 'Last Month': { const s = new Date(now.getFullYear(), now.getMonth() - 1, 1); const e = new Date(now.getFullYear(), now.getMonth(), 0); return d >= s && d <= e; }
-        case 'This Year': return d >= new Date(now.getFullYear(), 0, 1);
-        case 'Custom': { if (!customStart || !customEnd) return true; return d >= new Date(customStart) && d <= new Date(customEnd + 'T23:59:59'); }
-        default: return true;
-    }
-};
-
-// ── Filter Chip ──────────────────────────────────────────────────────────────
-const FilterChip = ({ label, onRemove }) => (
-    <div className="flex items-center gap-1.5 px-3 py-1 bg-bg-card border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
-        {label}
-        <button onClick={onRemove} className="hover:text-red-500 transition-colors ml-0.5">
-            <X size={12} strokeWidth={3} />
-        </button>
-    </div>
-);
+// ── Date range helper and FilterChip are imported from shared modules ─────────
 
 // ── Main Component ───────────────────────────────────────────────────────────
 const AllTasks = () => {
@@ -192,65 +168,14 @@ const AllTasks = () => {
         setDepartmentFilter('All');
     };
 
-    const exportToCSV = (exportTasks = filteredTasks, nameOverrides = {}) => {
-        if (exportTasks.length === 0) {
-            toast.error('No tasks to export with current filters');
-            return;
-        }
-
-        const cell = (val) => {
-            if (val === null || val === undefined) return '';
-            const str = String(val).replace(/"/g, '""');
-            return `"${str}"`;
-        };
-
-        const headers = [
-            'Task Title', 'Status', 'Priority', 'Category',
-            'Assigned By', 'Assigned To',
-            'Due Date', 'Created At', 'Tags', 'Description'
-        ];
-
-        const rows = exportTasks.map(t => {
-            let tagStr = '';
-            try {
-                const parsed = typeof t.tags === 'string' ? JSON.parse(t.tags) : (t.tags || []);
-                tagStr = Array.isArray(parsed) ? parsed.map(tag => tag?.text || tag).join(', ') : '';
-            } catch (e) { tagStr = ''; }
-
-            const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
-
-            return [
-                cell(t.taskTitle),
-                cell(t.status),
-                cell(t.priority),
-                cell(t.category || ''),
-                cell(`${t.assignerFirstName || ''} ${t.assignerLastName || ''}`.trim()),
-                cell(`${t.doerFirstName || ''} ${t.doerLastName || ''}`.trim()),
-                cell(fmtDate(t.dueDate)),
-                cell(fmtDate(t.createdAt)),
-                cell(tagStr),
-                cell(t.description || ''),
-            ].join(',');
-        });
-
-        const parts = ['all-tasks'];
-        const filename = `${parts.join('_')}_${new Date().toLocaleDateString('en-CA')}.csv`;
-        const csvContent = [headers.join(','), ...rows].join('\n');
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        toast.success(`Exported ${exportTasks.length} task${exportTasks.length !== 1 ? 's' : ''}`);
+    const exportToCSV = (exportTasks = filteredTasks) => {
+        exportTasksToCSV(exportTasks, 'all-tasks', (msg) => toast.error(msg));
+        if (exportTasks.length > 0) toast.success(`Exported ${exportTasks.length} task${exportTasks.length !== 1 ? 's' : ''}`);
     };
 
-    const filteredTasks = tasks.filter(t => {
-        if (search && !(t.taskTitle || '').toLowerCase().includes((search || '')?.toLowerCase())) return false;
+
+    const filteredTasks = useMemo(() => tasks.filter(t => {
+        if (search && !(t.taskTitle || '').toLowerCase().includes(search.toLowerCase())) return false;
         if (statusFilter !== 'All' && t.status !== statusFilter) return false;
         if (priority !== 'All' && t.priority !== priority) return false;
         if (category !== 'All' && t.category !== category) return false;
@@ -258,7 +183,7 @@ const AllTasks = () => {
         if (assignedBy !== 'All' && t.assignerId !== assignedBy) return false;
         if (departmentFilter !== 'All' && t.department !== departmentFilter) return false;
         return getDateRangeFilter(t.dueDate || t.createdAt, dateRange, customStartDate, customEndDate);
-    });
+    }), [tasks, search, statusFilter, priority, category, assignedTo, assignedBy, departmentFilter, dateRange, customStartDate, customEndDate]);
 
     const getTasksForExport = (opts) => {
         const { range = 'All Time', start = '', end = '', aTo = [], aBy = [], cat = 'All', types = [] } = opts;
@@ -276,25 +201,20 @@ const AllTasks = () => {
     };
 
     const getStatusCount = (status) => status === 'All' ? tasks.length : tasks.filter(t => t.status === status).length;
-    const formatTimeAgo = (d) => {
-        const diff = Math.floor((new Date() - new Date(d)) / 3600000);
-        if (diff < 1) return 'Just now';
-        if (diff < 24) return `${diff}h ago`;
-        return `${Math.floor(diff / 24)}d ago`;
-    };
+    // formatTimeAgo is imported from shared formatters
     const getUserName = (userId) => {
         const u = users.find(u => u.userId === userId || u.id === userId);
         return u ? `${u.firstName} ${u.lastName}` : 'Unknown';
     };
     const activeFilterCount = [priority !== 'All', category !== 'All', assignedTo !== 'All', assignedBy !== 'All', departmentFilter !== 'All'].filter(Boolean).length;
 
-    const quickStats = [
+    const quickStats = useMemo(() => [
         { label: 'Total', value: tasks.length, dot: 'bg-slate-400', bg: 'bg-bg-card', border: 'border-border-main', color: 'text-text-main' },
         { label: 'Overdue', value: getStatusCount('Overdue'), dot: 'bg-red-500', bg: 'bg-red-50 dark:bg-red-900/10', border: 'border-red-100 dark:border-red-900/20', color: 'text-red-600 dark:text-red-400' },
         { label: 'Pending', value: getStatusCount('Pending'), dot: 'border-2 border-slate-400 bg-transparent', bg: 'bg-bg-main', border: 'border-border-main', color: 'text-text-muted' },
         { label: 'In Progress', value: getStatusCount('In Progress'), dot: 'bg-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/10', border: 'border-orange-100 dark:border-orange-900/20', color: 'text-orange-600 dark:text-orange-400' },
-        { label: 'Completed', value: getStatusCount('Completed'), dot: 'bg-[#137fec]', bg: 'bg-blue-50 dark:bg-blue-900/10', border: 'border-blue-100 dark:border-blue-900/20', color: 'text-blue-600 dark:text-blue-400' },
-    ];
+        { label: 'Completed', value: getStatusCount('Completed'), dot: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/10', border: 'border-emerald-100 dark:border-emerald-900/20', color: 'text-emerald-600 dark:text-emerald-400' },
+    ], [tasks, statusFilter]);
 
     return (
         <MainLayout title="All Tasks">

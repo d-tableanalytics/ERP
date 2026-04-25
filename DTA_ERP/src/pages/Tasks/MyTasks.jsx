@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     Search, FileUp, List, Layout,
     Calendar as CalendarIcon, ChevronDown, Clock,
@@ -16,54 +16,12 @@ import TaskCreationForm from '../../components/delegation/TaskCreationForm';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import { useSelector } from 'react-redux';
+import FilterChip from '../../components/tasks/FilterChip';
+import { getDateRangeFilter } from '../../utils/taskFilters';
+import { formatTimeAgo, exportTasksToCSV } from '../../utils/formatters';
 
-// ── Date range helper ───────────────────────────────────────────────────────────
-const getDateRangeFilter = (taskDate, range, customStart, customEnd) => {
-    if (!taskDate) return false;
-    const d = new Date(taskDate);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+// ── Date range helper and FilterChip imported from shared modules ─────────────
 
-    switch (range) {
-        case 'Today': return d >= today;
-        case 'Yesterday': {
-            const y = new Date(today); y.setDate(y.getDate() - 1);
-            return d >= y && d < today;
-        }
-        case 'This Week': {
-            const s = new Date(today);
-            s.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-            return d >= s;
-        }
-        case 'Last Week': {
-            const s = new Date(today); s.setDate(today.getDate() - today.getDay() - 6);
-            const e = new Date(s); e.setDate(s.getDate() + 6);
-            return d >= s && d <= e;
-        }
-        case 'This Month': return d >= new Date(now.getFullYear(), now.getMonth(), 1);
-        case 'Last Month': {
-            const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            const e = new Date(now.getFullYear(), now.getMonth(), 0);
-            return d >= s && d <= e;
-        }
-        case 'This Year': return d >= new Date(now.getFullYear(), 0, 1);
-        case 'Custom': {
-            if (!customStart || !customEnd) return true;
-            return d >= new Date(customStart) && d <= new Date(customEnd + 'T23:59:59');
-        }
-        default: return true; // All Time
-    }
-};
-
-// ── Filter Chip ─────────────────────────────────────────────────────────────────
-const FilterChip = ({ label, onRemove }) => (
-    <div className="flex items-center gap-1.5 px-3 py-1 bg-bg-card border border-[#137fec]/40 dark:border-[#137fec]/20 text-[#137fec] rounded-full text-[11px] font-bold">
-        {label}
-        <button onClick={onRemove} className="hover:text-red-500 transition-colors ml-0.5">
-            <X size={12} strokeWidth={3} />
-        </button>
-    </div>
-);
 
 // ── Main Component ──────────────────────────────────────────────────────────────
 const MyTasks = () => {
@@ -99,8 +57,8 @@ const MyTasks = () => {
     const [sortDesc, setSortDesc] = useState(true);
 
     const filterPanelRef = useRef(null);
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    const currentUserId = storedUser?.user?.id || storedUser?.id;
+    const currentUser = useSelector((state) => state.auth.user);
+    const currentUserId = currentUser?.id;
 
     useEffect(() => { fetchAllData(); }, []);
 
@@ -196,12 +154,7 @@ const MyTasks = () => {
     const getStatusCount = (status) =>
         status === 'All' ? myTasks.length : myTasks.filter(t => t.status === status).length;
 
-    const formatTimeAgo = (d) => {
-        const diff = Math.floor((new Date() - new Date(d)) / 3600000);
-        if (diff < 1) return 'Just now';
-        if (diff < 24) return `${diff}h ago`;
-        return `${Math.floor(diff / 24)}d ago`;
-    };
+    // formatTimeAgo imported from shared formatters
 
     const getInitials = (f, l) => `${f?.[0] || ''}${l?.[0] || ''}`.toUpperCase();
 
@@ -215,13 +168,13 @@ const MyTasks = () => {
     ].filter(Boolean).length;
 
     // Quick stats for the top mini-cards
-    const quickStats = [
+    const quickStats = useMemo(() => [
         { label: 'Total', value: myTasks.length, dot: 'bg-slate-400', bg: 'bg-bg-card', border: 'border-border-main', color: 'text-text-main' },
         { label: 'Overdue', value: getStatusCount('Overdue'), dot: 'bg-red-500', bg: 'bg-red-50 dark:bg-red-900/10', border: 'border-red-100 dark:border-red-900/20', color: 'text-red-600 dark:text-red-400' },
         { label: 'Pending', value: getStatusCount('Pending'), dot: 'border-2 border-slate-400 bg-transparent', bg: 'bg-bg-main', border: 'border-border-main', color: 'text-text-muted' },
         { label: 'In Progress', value: getStatusCount('In Progress'), dot: 'bg-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/10', border: 'border-orange-100 dark:border-orange-900/20', color: 'text-orange-600 dark:text-orange-400' },
         { label: 'Completed', value: getStatusCount('Completed'), dot: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/10', border: 'border-emerald-100 dark:border-emerald-900/20', color: 'text-emerald-600 dark:text-emerald-400' },
-    ];
+    ], [myTasks]);
 
     return (
         <MainLayout title="My Tasks">
@@ -411,7 +364,13 @@ const MyTasks = () => {
                     </button>
 
                     {/* Export */}
-                    <button className="flex items-center gap-2 px-4 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm self-end active:scale-95">
+                    <button
+                        onClick={() => {
+                            exportTasksToCSV(filteredTasks, 'my-tasks', (msg) => toast.error(msg));
+                            if (filteredTasks.length > 0) toast.success(`Exported ${filteredTasks.length} tasks`);
+                        }}
+                        className="flex items-center gap-2 px-4 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm self-end active:scale-95"
+                    >
                         <FileUp size={18} />
                         Export
                     </button>

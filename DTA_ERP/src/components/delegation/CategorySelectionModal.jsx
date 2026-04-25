@@ -14,9 +14,9 @@ const NewCategoryModal = ({ isOpen, onClose, onCreate }) => {
   return (
     <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white w-full max-w-[400px] rounded-[32px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-200">
+      <div className="relative bg-bg-card w-full max-w-[400px] rounded-[32px] shadow-2xl overflow-hidden border border-border-main flex flex-col animate-in zoom-in-95 duration-200">
         <div className="p-6 flex items-center justify-between border-b border-slate-50">
-          <h3 className="text-[14px] font-black text-[#1e3a8a] uppercase tracking-widest">New Category</h3>
+          <h3 className="text-[14px] font-black text-[#137fec] uppercase tracking-widest">New Category</h3>
           <button onClick={onClose} className="text-slate-300 hover:text-slate-500 transition-colors">
             <span className="material-symbols-outlined text-xl">close</span>
           </button>
@@ -31,7 +31,7 @@ const NewCategoryModal = ({ isOpen, onClose, onCreate }) => {
              <div className="relative">
                 <input 
                   autoFocus
-                  className="w-full bg-blue-50/30 border-2 border-blue-50 rounded-2xl py-4 px-6 text-[15px] font-bold text-slate-600 placeholder:text-slate-300 outline-none focus:border-blue-200/50 transition-all shadow-sm"
+                  className="w-full bg-bg-main border-2 border-border-main rounded-2xl py-4 px-6 text-[15px] font-bold text-text-main placeholder:text-text-muted outline-none focus:border-[#137fec]/30 transition-all shadow-sm"
                   placeholder="EX: MARKETING STRATEGY"
                   value={name}
                   onChange={(e) => setName(e.target.value.substring(0, 50))}
@@ -84,9 +84,9 @@ const CategorySelectionModal = ({ isOpen, onClose, onSelect, categories = [] }) 
     <>
       <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative bg-white w-full max-w-[430px] rounded-[32px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-200">
+        <div className="relative bg-bg-card w-full max-w-[430px] rounded-[32px] shadow-2xl overflow-hidden border border-border-main flex flex-col animate-in zoom-in-95 duration-200">
           <div className="p-7 pb-4 flex items-center justify-between">
-            <h3 className="text-[15px] font-black text-[#1e3a8a] uppercase tracking-widest pl-2">Select Category</h3>
+            <h3 className="text-[15px] font-black text-[#137fec] uppercase tracking-widest pl-2">Select Category</h3>
             <button onClick={onClose} className="text-slate-300 hover:text-slate-500 transition-colors pr-1">
               <span className="material-symbols-outlined text-2xl font-light">close</span>
             </button>
@@ -97,7 +97,7 @@ const CategorySelectionModal = ({ isOpen, onClose, onSelect, categories = [] }) 
               <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 text-2xl font-light">search</span>
               <input 
                 autoFocus
-                className="w-full bg-white border-2 border-slate-100 rounded-[28px] py-4.5 pl-14 pr-6 text-[16px] font-bold text-slate-500 placeholder:text-slate-300 outline-none focus:border-[#137fec]/30 transition-all shadow-sm"
+                className="w-full bg-bg-main border-2 border-border-main rounded-[28px] py-4.5 pl-14 pr-6 text-[16px] font-bold text-text-main placeholder:text-text-muted outline-none focus:border-[#137fec]/30 transition-all shadow-sm"
                 placeholder="Find category..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -111,7 +111,7 @@ const CategorySelectionModal = ({ isOpen, onClose, onSelect, categories = [] }) 
                   onClick={() => onSelect(cat)}
                   className="w-full flex items-center justify-between p-4 px-6 rounded-2xl hover:bg-slate-50/50 transition-colors group"
                  >
-                   <span className="text-[15px] font-extrabold text-slate-700 tracking-tight">{cat}</span>
+                   <span className="text-[15px] font-extrabold text-text-main tracking-tight">{cat}</span>
                    <div className="size-6 rounded-full border-2 border-slate-100 flex items-center justify-center group-hover:border-[#137fec]/30 transition-all">
                       <span className={`material-symbols-outlined text-[18px] transition-colors ${cat === 'Category' ? 'text-[#137fec]' : 'text-slate-100 group-hover:text-slate-200'}`}>check_circle</span>
                    </div>
@@ -129,7 +129,7 @@ const CategorySelectionModal = ({ isOpen, onClose, onSelect, categories = [] }) 
             </button>
             <button 
               onClick={() => setIsNewOpen(true)}
-              className="flex-1 py-4.5 px-4 bg-white border border-blue-50 rounded-2xl text-[13px] font-black text-[#137fec] uppercase tracking-widest hover:bg-blue-50/50 transition-all shadow-sm shadow-blue-100/20 flex items-center gap-2 justify-center"
+              className="flex-1 py-4.5 px-4 bg-bg-card border border-border-main rounded-2xl text-[13px] font-black text-[#137fec] uppercase tracking-widest hover:bg-bg-main transition-all shadow-sm flex items-center gap-2 justify-center"
             >
               <span className="material-symbols-outlined text-xl font-bold">add</span>
               Add More

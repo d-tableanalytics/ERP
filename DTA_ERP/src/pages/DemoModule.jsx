@@ -1,5 +1,6 @@
 import MainLayout from "../components/layout/MainLayout";
 import StatCard from "../components/dashboard/StatCard";
+import DeleteModal from "../components/common/DeleteModal";
 import { getModuleConfig, formatTime12h } from "./dummyData";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -81,6 +82,13 @@ const DemoModule = ({ type }) => {
     }
   });
   const [notificationLoading, setNotificationLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [deleteModalConfig, setDeleteModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     if (
@@ -164,14 +172,20 @@ const DemoModule = ({ type }) => {
   };
 
   const handleDeleteHoliday = async (id) => {
-    if (!window.confirm("Delete this holiday?")) return;
-
-    try {
-      await dispatch(removeHoliday(id)).unwrap();
-      toast.success("Holiday removed");
-    } catch {
-      toast.error("Failed to remove holiday");
-    }
+    setDeleteModalConfig({
+      isOpen: true,
+      title: "Delete Holiday?",
+      message: "Are you sure you want to delete this holiday? This will affect SLA and TAT calculations.",
+      onConfirm: async () => {
+        try {
+          await dispatch(removeHoliday(id)).unwrap();
+          toast.success("Holiday removed");
+          dispatch(fetchHelpTicketConfig());
+        } catch {
+          toast.error("Failed to remove holiday");
+        }
+      }
+    });
   };
 
   const fetchNotificationSettings = async () => {
@@ -301,43 +315,50 @@ const DemoModule = ({ type }) => {
   };
 
   const handleDeleteDepartment = async (department) => {
-    if (!window.confirm(`Delete department "${department.name}"?`)) return;
+    setDeleteModalConfig({
+      isOpen: true,
+      title: "Delete Department?",
+      message: `Are you sure you want to delete department "${department.name}"? This will clear the department for all assigned employees.`,
+      onConfirm: async () => {
+        try {
+          await dispatch(deleteDepartment(department.id)).unwrap();
+          toast.success("Department deleted successfully");
 
-    try {
-      await dispatch(deleteDepartment(department.id)).unwrap();
-      toast.success("Department deleted successfully");
+          setRegisterForm((prev) =>
+            prev.Department === department.name ? { ...prev, Department: "" } : prev
+          );
 
-      setRegisterForm((prev) =>
-        prev.Department === department.name
-          ? { ...prev, Department: "" }
-          : prev,
-      );
-
-      if (editingDepartmentId === department.id) {
-        resetDepartmentForm();
+          if (editingDepartmentId === department.id) {
+            resetDepartmentForm();
+          }
+        } catch (err) {
+          toast.error(err || "Failed to delete department");
+        }
       }
-    } catch (err) {
-      toast.error(err || "Failed to delete department");
-    }
+    });
   };
 
   const handleDeleteEmployee = async (emp) => {
-    if (!window.confirm(`Are you sure you want to delete ${emp.First_Name} ${emp.Last_Name}?`)) {
-      return;
-    }
-
-    try {
-      await dispatch(deleteEmployee(emp.id)).unwrap();
-      toast.success("Employee deleted successfully");
-    } catch (err) {
-      toast.error(err || "Failed to delete employee");
-    }
+    setDeleteModalConfig({
+      isOpen: true,
+      title: "Delete Member?",
+      message: `Are you sure you want to delete ${emp.First_Name} ${emp.Last_Name}? This action cannot be undone and they will lose all system access.`,
+      onConfirm: async () => {
+        try {
+          await dispatch(deleteEmployee(emp.id)).unwrap();
+          toast.success("Employee deleted successfully");
+        } catch (err) {
+          toast.error(err || "Failed to delete employee");
+        }
+      }
+    });
   };
 
   // Profile Layout
   if (type === "profile") {
     return (
-      <MainLayout title="User Profile">
+      <>
+        <MainLayout title="User Profile">
         <div className="flex flex-col gap-6 max-w-5xl mx-auto">
           {/* Header Card */}
           <div className="bg-bg-card border border-border-main rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
@@ -433,6 +454,14 @@ const DemoModule = ({ type }) => {
           </div>
         </div>
       </MainLayout>
+      <DeleteModal
+        isOpen={deleteModalConfig.isOpen}
+        onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={deleteModalConfig.onConfirm}
+        title={deleteModalConfig.title}
+        message={deleteModalConfig.message}
+      />
+      </>
     );
   }
 
@@ -466,7 +495,8 @@ const DemoModule = ({ type }) => {
     ];
 
     return (
-      <MainLayout title="Application Settings">
+      <>
+        <MainLayout title="Application Settings">
         <div className="max-w-4xl mx-auto bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-4 min-h-[600px]">
             {/* ================= Sidebar ================= */}
@@ -843,7 +873,7 @@ const DemoModule = ({ type }) => {
 
                   <div className="space-y-6 max-w-md">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
+                      <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-bold text-text-main">
                           First Name
                         </label>
@@ -856,7 +886,7 @@ const DemoModule = ({ type }) => {
                           className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
                         />
                       </div>
-                      <div className="grid gap-2">
+                      <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-bold text-text-main">
                           Last Name
                         </label>
@@ -871,7 +901,7 @@ const DemoModule = ({ type }) => {
                       </div>
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-bold text-text-main">
                         Email Address
                       </label>
@@ -885,21 +915,32 @@ const DemoModule = ({ type }) => {
                       />
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-bold text-text-main">
                         Password
                       </label>
-                      <input
-                        type="password"
-                        name="Password"
-                        value={registerForm.Password}
-                        onChange={handleRegisterChange}
-                        placeholder="••••••••"
-                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          name="Password"
+                          value={registerForm.Password}
+                          onChange={handleRegisterChange}
+                          placeholder="••••••••"
+                          className="w-full px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-lg">
+                            {showPassword ? "visibility" : "visibility_off"}
+                          </span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-bold text-text-main">
                         Designation
                       </label>
@@ -913,7 +954,7 @@ const DemoModule = ({ type }) => {
                       />
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between gap-3">
                         <label className="text-sm font-bold text-text-main">
                           Department
@@ -1342,195 +1383,222 @@ const DemoModule = ({ type }) => {
           </div>
         </div>
       </MainLayout>
+      <DeleteModal
+        isOpen={deleteModalConfig.isOpen}
+        onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={deleteModalConfig.onConfirm}
+        title={deleteModalConfig.title}
+        message={deleteModalConfig.message}
+      />
+      </>
     );
   }
 
   // Notifications Layout
   if (type === "notifications") {
     return (
-      <MainLayout title="Notifications">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
-              <button className="px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-full">
-                All
-              </button>
-              <button className="px-4 py-1.5 bg-bg-card border border-border-main text-text-muted text-xs font-bold rounded-full hover:bg-bg-main">
-                Unread
-              </button>
-              <button className="px-4 py-1.5 bg-bg-card border border-border-main text-text-muted text-xs font-bold rounded-full hover:bg-bg-main">
-                Mentioned
+      <>
+        <MainLayout title="Notifications">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div className="flex justify-between items-center">
+              <div className="flex gap-2">
+                <button className="px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-full">
+                  All
+                </button>
+                <button className="px-4 py-1.5 bg-bg-card border border-border-main text-text-muted text-xs font-bold rounded-full hover:bg-bg-main">
+                  Unread
+                </button>
+                <button className="px-4 py-1.5 bg-bg-card border border-border-main text-text-muted text-xs font-bold rounded-full hover:bg-bg-main">
+                  Mentioned
+                </button>
+              </div>
+              <button className="text-primary text-xs font-bold hover:underline">
+                Mark all as read
               </button>
             </div>
-            <button className="text-primary text-xs font-bold hover:underline">
-              Mark all as read
-            </button>
-          </div>
 
-          <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
-            {[
-              {
-                title: "New leave request",
-                desc: "John Doe requested sick leave for tomorrow.",
-                time: "10 mins ago",
-                icon: "event_busy",
-                color: "bg-orange-100 text-orange-600",
-              },
-              {
-                title: "Project Milestone",
-                desc: "Design phase completed for Client X.",
-                time: "2 hours ago",
-                icon: "flag",
-                color: "bg-green-100 text-green-600",
-              },
-              {
-                title: "System Update",
-                desc: "Server maintenance scheduled for Sunday.",
-                time: "5 hours ago",
-                icon: "dns",
-                color: "bg-blue-100 text-blue-600",
-              },
-              {
-                title: "New Comment",
-                desc: "Sarah replied to your task in Marketing.",
-                time: "1 day ago",
-                icon: "chat",
-                color: "bg-purple-100 text-purple-600",
-              },
-            ].map((n, i) => (
-              <div
-                key={i}
-                className="flex gap-4 p-4 border-b border-border-main last:border-0 hover:bg-bg-main/50 transition-colors cursor-pointer group"
-              >
+            <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
+              {[
+                {
+                  title: "New leave request",
+                  desc: "John Doe requested sick leave for tomorrow.",
+                  time: "10 mins ago",
+                  icon: "event_busy",
+                  color: "bg-orange-100 text-orange-600",
+                },
+                {
+                  title: "Project Milestone",
+                  desc: "Design phase completed for Client X.",
+                  time: "2 hours ago",
+                  icon: "flag",
+                  color: "bg-green-100 text-green-600",
+                },
+                {
+                  title: "System Update",
+                  desc: "Server maintenance scheduled for Sunday.",
+                  time: "5 hours ago",
+                  icon: "dns",
+                  color: "bg-blue-100 text-blue-600",
+                },
+                {
+                  title: "New Comment",
+                  desc: "Sarah replied to your task in Marketing.",
+                  time: "1 day ago",
+                  icon: "chat",
+                  color: "bg-purple-100 text-purple-600",
+                },
+              ].map((n, i) => (
                 <div
-                  className={`size-10 rounded-full flex items-center justify-center shrink-0 ${n.color}`}
+                  key={i}
+                  className="flex gap-4 p-4 border-b border-border-main last:border-0 hover:bg-bg-main/50 transition-colors cursor-pointer group"
                 >
-                  <span className="material-symbols-outlined text-lg">
-                    {n.icon}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h4 className="text-sm font-bold text-text-main group-hover:text-primary transition-colors">
-                      {n.title}
-                    </h4>
-                    <span className="text-[10px] text-text-muted">
-                      {n.time}
+                  <div
+                    className={`size-10 rounded-full flex items-center justify-center shrink-0 ${n.color}`}
+                  >
+                    <span className="material-symbols-outlined text-lg">
+                      {n.icon}
                     </span>
                   </div>
-                  <p className="text-sm text-text-muted mt-0.5">{n.desc}</p>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <h4 className="text-sm font-bold text-text-main group-hover:text-primary transition-colors">
+                        {n.title}
+                      </h4>
+                      <span className="text-[10px] text-text-muted">
+                        {n.time}
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-muted mt-0.5">{n.desc}</p>
+                  </div>
+                  <div className="size-2 rounded-full bg-primary mt-2"></div>
                 </div>
-                <div className="size-2 rounded-full bg-primary mt-2"></div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </MainLayout>
+        </MainLayout>
+        <DeleteModal
+          isOpen={deleteModalConfig.isOpen}
+          onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={deleteModalConfig.onConfirm}
+          title={deleteModalConfig.title}
+          message={deleteModalConfig.message}
+        />
+      </>
     );
   }
 
   // Internal Help Layout
   if (type === "help") {
     return (
-      <MainLayout title="Internal Help Desk">
-        <div className="max-w-5xl mx-auto space-y-8">
-          {/* Search Hero */}
-          <div className="bg-gradient-to-r from-blue-600 to-primary rounded-2xl p-10 text-center text-white shadow-lg">
-            <h2 className="text-3xl font-bold mb-2">
-              How can we help you, Sanchit?
-            </h2>
-            <p className="text-blue-100 mb-6">
-              Search our knowledge base or contact IT support.
-            </p>
-            <div className="bg-white rounded-xl p-2 max-w-xl mx-auto flex items-center shadow-md">
-              <span className="material-symbols-outlined text-slate-400 ml-2">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Search for guides, errors, or policies..."
-                className="flex-1 p-2 text-slate-900 outline-none placeholder:text-slate-400"
-              />
-              <button className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90">
-                Search
-              </button>
+      <>
+        <MainLayout title="Internal Help Desk">
+          <div className="max-w-5xl mx-auto space-y-8">
+            {/* Search Hero */}
+            <div className="bg-gradient-to-r from-blue-600 to-primary rounded-2xl p-10 text-center text-white shadow-lg">
+              <h2 className="text-3xl font-bold mb-2">
+                How can we help you, Sanchit?
+              </h2>
+              <p className="text-blue-100 mb-6">
+                Search our knowledge base or contact IT support.
+              </p>
+              <div className="bg-white rounded-xl p-2 max-w-xl mx-auto flex items-center shadow-md">
+                <span className="material-symbols-outlined text-slate-400 ml-2">
+                  search
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search for guides, errors, or policies..."
+                  className="flex-1 p-2 text-slate-900 outline-none placeholder:text-slate-400"
+                />
+                <button className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90">
+                  Search
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Quick Guides */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
-              <div className="size-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <span className="material-symbols-outlined text-2xl">
-                  menu_book
-                </span>
-              </div>
-              <h3 className="font-bold text-text-main mb-2">User Guides</h3>
-              <p className="text-sm text-text-muted">
-                Step-by-step tutorials for using all ERP modules efficiently.
-              </p>
-            </div>
-            {/* IT Support */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
-              <div className="size-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mb-4 group-hover:bg-green-600 group-hover:text-white transition-colors">
-                <span className="material-symbols-outlined text-2xl">
-                  support_agent
-                </span>
-              </div>
-              <h3 className="font-bold text-text-main mb-2">Contact IT</h3>
-              <p className="text-sm text-text-muted">
-                Raise a ticket for hardware issues, software bugs, or access
-                requests.
-              </p>
-            </div>
-            {/* Policies */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
-              <div className="size-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                <span className="material-symbols-outlined text-2xl">
-                  policy
-                </span>
-              </div>
-              <h3 className="font-bold text-text-main mb-2">Company Policy</h3>
-              <p className="text-sm text-text-muted">
-                Review HR guidelines, leave policies, and security protocols.
-              </p>
-            </div>
-          </div>
-
-          {/* FAQ */}
-          <div className="bg-bg-card border border-border-main rounded-2xl p-6">
-            <h3 className="font-bold text-text-main mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">
-                quiz
-              </span>
-              Frequently Asked Questions
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                "How do I reset my password?",
-                "How to apply for leave?",
-                "Where to find payslips?",
-                "How to update profile info?",
-              ].map((q, i) => (
-                <div
-                  key={i}
-                  className="p-4 bg-bg-main rounded-xl flex justify-between items-center cursor-pointer hover:bg-border-main/50 transition-colors"
-                >
-                  <span className="text-sm font-bold text-text-muted">{q}</span>
-                  <span className="material-symbols-outlined text-text-muted text-sm">
-                    arrow_forward_ios
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Quick Guides */}
+              <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
+                <div className="size-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined text-2xl">
+                    menu_book
                   </span>
                 </div>
-              ))}
+                <h3 className="font-bold text-text-main mb-2">User Guides</h3>
+                <p className="text-sm text-text-muted">
+                  Step-by-step tutorials for using all ERP modules efficiently.
+                </p>
+              </div>
+              {/* IT Support */}
+              <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
+                <div className="size-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mb-4 group-hover:bg-green-600 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined text-2xl">
+                    support_agent
+                  </span>
+                </div>
+                <h3 className="font-bold text-text-main mb-2">Contact IT</h3>
+                <p className="text-sm text-text-muted">
+                  Raise a ticket for hardware issues, software bugs, or access
+                  requests.
+                </p>
+              </div>
+              {/* Policies */}
+              <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
+                <div className="size-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined text-2xl">
+                    policy
+                  </span>
+                </div>
+                <h3 className="font-bold text-text-main mb-2">Company Policy</h3>
+                <p className="text-sm text-text-muted">
+                  Review HR guidelines, leave policies, and security protocols.
+                </p>
+              </div>
+            </div>
+
+            {/* FAQ */}
+            <div className="bg-bg-card border border-border-main rounded-2xl p-6">
+              <h3 className="font-bold text-text-main mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">
+                  quiz
+                </span>
+                Frequently Asked Questions
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  "How do I reset my password?",
+                  "How to apply for leave?",
+                  "Where to find payslips?",
+                  "How to update profile info?",
+                ].map((q, i) => (
+                  <div
+                    key={i}
+                    className="p-4 bg-bg-main rounded-xl flex justify-between items-center cursor-pointer hover:bg-border-main/50 transition-colors"
+                  >
+                    <span className="text-sm font-bold text-text-muted">{q}</span>
+                    <span className="material-symbols-outlined text-text-muted text-sm">
+                      arrow_forward_ios
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </MainLayout>
+        </MainLayout>
+        <DeleteModal
+          isOpen={deleteModalConfig.isOpen}
+          onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={deleteModalConfig.onConfirm}
+          title={deleteModalConfig.title}
+          message={deleteModalConfig.message}
+        />
+      </>
     );
   }
 
   return (
-    <MainLayout title={config.title}>
+    <>
+      <MainLayout title={config.title}>
       <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Header Actions */}
         <div className="flex justify-between items-center bg-bg-card p-4 rounded-xl border border-border-main shadow-sm">
@@ -1694,6 +1762,14 @@ const DemoModule = ({ type }) => {
         </div>
       </div>
     </MainLayout>
+    <DeleteModal
+      isOpen={deleteModalConfig.isOpen}
+      onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+      onConfirm={deleteModalConfig.onConfirm}
+      title={deleteModalConfig.title}
+      message={deleteModalConfig.message}
+    />
+    </>
   );
 };
 
