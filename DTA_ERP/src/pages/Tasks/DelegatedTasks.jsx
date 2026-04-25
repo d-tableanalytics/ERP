@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-    Search, Plus, Filter, FileUp, List, Layout, 
-    Calendar as CalendarIcon, ChevronDown, Clock, 
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {
+    Search, Plus, Filter, FileUp, List, Layout,
+    Calendar as CalendarIcon, ChevronDown, Clock,
     AlertCircle, CheckCircle2, PlayCircle, Folder,
     Flag, User, MoreVertical, CheckSquare, Tag, RotateCcw, X
 } from 'lucide-react';
@@ -16,8 +16,8 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import { useSelector } from 'react-redux';
 import FilterChip from '../../components/tasks/FilterChip';
-import { getDateRangeFilter } from '../../utils/taskFilters';
-import { exportTasksToCSV } from '../../utils/formatters';
+import { getDateRangeFilter, calculateTaskStatus, taskMatchesStatus } from '../../utils/taskFilters';
+import { exportTasksToCSV, getStatusBadgeClass } from '../../utils/formatters';
 
 // ── Date range helper and FilterChip imported from shared modules ──────────
 
@@ -113,17 +113,17 @@ const DelegatedTasks = () => {
     };
 
     // Client-side filtering (Already filtered by NEW API for current user as assigner)
-    const filteredTasks = tasks.filter(t => {
-        if (search && !t.taskTitle.toLowerCase().includes(search.toLowerCase())) return false;
-        if (statusFilter !== 'All' && t.status !== statusFilter) return false;
+    const filteredTasks = useMemo(() => tasks.filter(t => {
+        if (search && !(t.taskTitle || '').toLowerCase().includes(search.toLowerCase())) return false;
+        if (!taskMatchesStatus(t, statusFilter)) return false;
         if (priority !== 'All' && t.priority !== priority) return false;
         if (category !== 'All' && t.category !== category) return false;
         if (assignedTo !== 'All' && t.doerId !== assignedTo) return false;
         if (departmentFilter !== 'All' && t.department !== departmentFilter) return false;
         return getDateRangeFilter(t.dueDate || t.createdAt, dateRange, customStartDate, customEndDate);
-    });
+    }), [tasks, search, statusFilter, priority, category, assignedTo, departmentFilter, dateRange, customStartDate, customEndDate]);
 
-    const getStatusCount = (status) => tasks.filter(t => (status === 'All' || t.status === status)).length;
+    const getStatusCount = (status) => status === 'All' ? tasks.length : tasks.filter(t => taskMatchesStatus(t, status)).length;
 
     const formatTimeAgo = (d) => {
         const diff = Math.floor((new Date() - new Date(d)) / 3600000);
@@ -352,6 +352,8 @@ const DelegatedTasks = () => {
                         { label: 'Pending', dotClass: 'border-2 border-slate-400 bg-transparent', key: 'Pending' },
                         { label: 'In Progress', dotClass: 'bg-orange-500', key: 'In Progress' },
                         { label: 'Completed', dotClass: 'bg-[#137fec]', key: 'Completed' },
+                        { label: 'Hold', dotClass: 'bg-amber-500', key: 'Hold' },
+                        { label: 'Revision', dotClass: 'bg-indigo-500', key: 'Need Revision' },
                     ].map((tab) => (
                         <button 
                             key={tab.key} 
@@ -417,12 +419,7 @@ const DelegatedTasks = () => {
                                         <span className="text-base font-black text-text-main truncate">{task.taskTitle}</span>
                                     </div>
                                     <div className="ml-auto flex items-center gap-3 shrink-0">
-                                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase border whitespace-nowrap hidden md:inline-flex ${
-                                            task.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800' :
-                                            task.status === 'In Progress' ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800' :
-                                            task.status === 'Overdue' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800' :
-                                            'bg-bg-main text-text-muted border-border-main'
-                                        }`}>{task.status}</span>
+                                        <span className={getStatusBadgeClass(task.status)}>{task.status}</span>
                                         {task.priority && (
                                             <span className={`text-[10px] font-black hidden md:block ${
                                                 task.priority === 'Urgent' ? 'text-red-500' :

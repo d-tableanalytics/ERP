@@ -78,3 +78,54 @@ export const getDateRangeFilter = (taskDate, range, customStart = '', customEnd 
             return true;
     }
 };
+
+/**
+ * Returns true if a task is overdue (not completed and past due date).
+ * @param {object} task 
+ * @returns {boolean}
+ */
+export const isOverdue = (task) => {
+    if (!task) return false;
+    const isCompleted = (task.status || '').toLowerCase() === 'completed';
+    if (isCompleted) return false;
+    
+    if (!task.dueDate) return false;
+    return new Date(task.dueDate) < new Date();
+};
+
+/**
+ * Returns the effective status of a task for display purposes.
+ * @param {object} task 
+ * @returns {string}
+ */
+export const calculateTaskStatus = (task) => {
+    const s = (task.status || '').toLowerCase().replace(/[\s-]/g, '');
+    
+    // If it's a special status, keep it.
+    if (s === 'needrevision') return 'Need Revision';
+    if (s === 'hold') return 'Hold';
+    if (s === 'completed') return 'Completed';
+
+    if (isOverdue(task)) return 'Overdue';
+    return task.status;
+};
+
+
+/**
+ * Returns true if a task matches the given status filter.
+ * Handles 'Overdue' as a condition and others as exact matches.
+ * @param {object} task 
+ * @param {string} filter 
+ * @returns {boolean}
+ */
+export const taskMatchesStatus = (task, filter) => {
+    if (filter === 'All') return true;
+    if (filter === 'Overdue') return isOverdue(task);
+    
+    const s = (task.status || '').toLowerCase().replace(/[\s-]/g, '');
+    const f = (filter || '').toLowerCase().replace(/[\s-]/g, '');
+    return s === f;
+};
+
+
+

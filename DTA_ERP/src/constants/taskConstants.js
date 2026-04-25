@@ -11,6 +11,7 @@ export const TASK_STATUS = {
     IN_PROGRESS: 'In Progress',
     COMPLETED: 'Completed',
     HOLD: 'Hold',
+    NEED_REVISION: 'Need Revision',
 };
 
 export const TASK_PRIORITY = {
@@ -40,4 +41,6 @@ export const STATUS_TABS = [
     { label: 'Pending',     key: 'Pending',     dotClass: 'border-2 border-slate-400 bg-transparent' },
     { label: 'In Progress', key: 'In Progress', dotClass: 'bg-orange-500' },
     { label: 'Completed',   key: 'Completed',   dotClass: 'bg-emerald-500' },
+    { label: 'Hold',        key: 'Hold',        dotClass: 'bg-amber-500' },
+    { label: 'Need Revision', key: 'Need Revision', dotClass: 'bg-indigo-500' },
 ];

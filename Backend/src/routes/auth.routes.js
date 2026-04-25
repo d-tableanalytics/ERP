@@ -10,6 +10,7 @@ router.post('/login', authController.login);
 
 router.put('/theme', verifyToken, authController.updateTheme);
 
+router.get('/me', verifyToken, authController.getMe);
 router.get('/users', verifyToken, authController.getUsers);
 
 module.exports = router;

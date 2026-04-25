@@ -11,8 +11,8 @@ import taskService from '../../services/taskService';
 import teamService from '../../services/teamService';
 import MainLayout from '../../components/layout/MainLayout';
 import FilterChip from '../../components/tasks/FilterChip';
-import { getDateRangeFilter } from '../../utils/taskFilters';
-import { exportTasksToCSV, formatDate } from '../../utils/formatters';
+import { getDateRangeFilter, calculateTaskStatus, taskMatchesStatus } from '../../utils/taskFilters';
+import { exportTasksToCSV, formatDate, getStatusBadgeClass } from '../../utils/formatters';
 
 // fmt: short date alias used in the task list JSX
 const fmt = (d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -118,8 +118,7 @@ const DeletedTasks = () => {
     const openRestoreConfirm = (task) => setConfirmTask(task);
     const closeRestoreConfirm = () => setConfirmTask(null);
 
-    const isOverdue = (t) => t.status !== 'Completed' && t.dueDate && new Date(t.dueDate) < new Date();
-    const getStatus = (t) => isOverdue(t) ? 'OverDue' : t.status;
+    const getStatus = (t) => calculateTaskStatus(t);
 
     const getUserName = (userId) => {
         const u = users.find(u => u.userId === userId || u.id === userId);
@@ -134,8 +133,7 @@ const DeletedTasks = () => {
             if (q && !t.taskTitle.toLowerCase().includes(q) &&
                 !(t.description || '').toLowerCase().includes(q)) return false;
 
-            const st = getStatus(t);
-            if (statusFilter !== 'All' && st !== statusFilter) return false;
+            if (!taskMatchesStatus(t, statusFilter)) return false;
             if (priority !== 'All' && t.priority !== priority) return false;
             if (category !== 'All' && t.category !== category) return false;
             if (assignedBy !== 'All' && t.assignerId !== assignedBy) return false;
@@ -170,7 +168,7 @@ const DeletedTasks = () => {
 
     const getStatusCount = (st) => {
         if (st === 'All') return tasks.length;
-        return tasks.filter(t => getStatus(t) === st).length;
+        return tasks.filter(t => taskMatchesStatus(t, st)).length;
     };
 
     const activeFilterCount = [
@@ -427,6 +425,8 @@ const DeletedTasks = () => {
                         { label: 'Pending',     dotClass: 'border-2 border-slate-400 bg-transparent',  key: 'Pending' },
                         { label: 'In Progress', dotClass: 'bg-orange-500',                             key: 'In Progress' },
                         { label: 'Completed',   dotClass: 'bg-emerald-500',                            key: 'Completed' },
+                        { label: 'Hold',        dotClass: 'bg-amber-500',                              key: 'Hold' },
+                        { label: 'Revision',    dotClass: 'bg-indigo-500',                             key: 'Need Revision' },
                     ].map(tab => (
                         <button
                             key={tab.key}
@@ -509,15 +509,15 @@ const DeletedTasks = () => {
                                         </span>
 
                                         {task.dueDate && (
-                                            <span className={`flex items-center gap-1.5 font-bold ${st === 'OverDue' ? 'text-red-500' : 'text-text-muted'}`}>
+                                            <span className={`flex items-center gap-1.5 font-bold ${st === 'Overdue' ? 'text-red-500' : 'text-text-muted'}`}>
                                                 <Clock size={12} />
                                                 {fmt(task.dueDate)}
-                                                {st === 'OverDue' && ' | Overdue'}
+                                                {st === 'Overdue' && ' | Overdue'}
                                             </span>
                                         )}
 
-                                        <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border font-bold text-[11px] ${st === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800' : st === 'In Progress' ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800' : st === 'OverDue' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800' : 'bg-bg-main text-text-muted border-border-main'}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${st === 'Completed' ? 'bg-emerald-500' : st === 'In Progress' ? 'bg-orange-500' : st === 'OverDue' ? 'bg-red-500' : 'bg-slate-400'}`} />
+                                        <span className={getStatusBadgeClass(st)}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${st === 'Completed' ? 'bg-emerald-500' : st === 'In Progress' ? 'bg-orange-500' : st === 'Overdue' ? 'bg-red-500' : 'bg-slate-400'}`} />
                                             {st}
                                         </span>
 

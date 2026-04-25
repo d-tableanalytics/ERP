@@ -28,8 +28,8 @@ const HelpTicket = () => {
         },
       );
       if (response.ok) {
-        const data = await response.json();
-        setTickets(data);
+        const res = await response.json();
+        setTickets(Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []));
       }
     } catch (error) {
       console.error("Error fetching tickets:", error);

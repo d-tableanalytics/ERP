@@ -17,7 +17,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import { useSelector } from 'react-redux';
 import FilterChip from '../../components/tasks/FilterChip';
-import { getDateRangeFilter } from '../../utils/taskFilters';
+import { getDateRangeFilter, calculateTaskStatus, taskMatchesStatus } from '../../utils/taskFilters';
 import { formatTimeAgo, formatDate, getStatusBadgeClass, exportTasksToCSV } from '../../utils/formatters';
 
 // ── Date range helper and FilterChip are imported from shared modules ─────────
@@ -176,7 +176,7 @@ const AllTasks = () => {
 
     const filteredTasks = useMemo(() => tasks.filter(t => {
         if (search && !(t.taskTitle || '').toLowerCase().includes(search.toLowerCase())) return false;
-        if (statusFilter !== 'All' && t.status !== statusFilter) return false;
+        if (!taskMatchesStatus(t, statusFilter)) return false;
         if (priority !== 'All' && t.priority !== priority) return false;
         if (category !== 'All' && t.category !== category) return false;
         if (assignedTo !== 'All' && t.doerId !== assignedTo) return false;
@@ -200,7 +200,7 @@ const AllTasks = () => {
         });
     };
 
-    const getStatusCount = (status) => status === 'All' ? tasks.length : tasks.filter(t => t.status === status).length;
+    const getStatusCount = (status) => status === 'All' ? tasks.length : tasks.filter(t => taskMatchesStatus(t, status)).length;
     // formatTimeAgo is imported from shared formatters
     const getUserName = (userId) => {
         const u = users.find(u => u.userId === userId || u.id === userId);
@@ -214,6 +214,8 @@ const AllTasks = () => {
         { label: 'Pending', value: getStatusCount('Pending'), dot: 'border-2 border-slate-400 bg-transparent', bg: 'bg-bg-main', border: 'border-border-main', color: 'text-text-muted' },
         { label: 'In Progress', value: getStatusCount('In Progress'), dot: 'bg-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/10', border: 'border-orange-100 dark:border-orange-900/20', color: 'text-orange-600 dark:text-orange-400' },
         { label: 'Completed', value: getStatusCount('Completed'), dot: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/10', border: 'border-emerald-100 dark:border-emerald-900/20', color: 'text-emerald-600 dark:text-emerald-400' },
+        { label: 'Hold', value: getStatusCount('Hold'), dot: 'bg-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/10', border: 'border-amber-100 dark:border-amber-900/20', color: 'text-amber-600 dark:text-amber-400' },
+        { label: 'Revision', value: getStatusCount('Need Revision'), dot: 'bg-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/10', border: 'border-indigo-100 dark:border-indigo-900/20', color: 'text-indigo-600 dark:text-indigo-400' },
     ], [tasks, statusFilter]);
 
     return (
@@ -428,6 +430,8 @@ const AllTasks = () => {
                             { label: 'Pending', dotClass: 'border-2 border-slate-400 bg-transparent', key: 'Pending' },
                             { label: 'In Progress', dotClass: 'bg-orange-500', key: 'In Progress' },
                             { label: 'Completed', dotClass: 'bg-[#137fec]', key: 'Completed' },
+                            { label: 'Hold', dotClass: 'bg-amber-500', key: 'Hold' },
+                            { label: 'Revision', dotClass: 'bg-indigo-500', key: 'Need Revision' },
                         ].map((tab) => (
                             <button key={tab.key} onClick={() => setStatusFilter(tab.key)} className={`flex items-center gap-2 pb-4 px-2 transition-all relative whitespace-nowrap ${statusFilter === tab.key ? 'text-text-main' : 'text-text-muted hover:text-text-main'}`}>
                                 <div className={`w-3 h-3 rounded-full shrink-0 ${tab.dotClass} ${statusFilter === tab.key ? 'ring-2 ring-primary/20 shadow-sm' : ''}`} />
@@ -499,7 +503,7 @@ const AllTasks = () => {
                                             </div>
                                         </div>
                                         <div className="ml-auto flex items-center gap-3 shrink-0">
-                                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase border whitespace-nowrap hidden md:inline-flex ${task.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800' : task.status === 'In Progress' ? 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800' : task.status === 'Overdue' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800' : task.status === 'Hold' ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800' : 'bg-bg-main text-text-muted border-border-main'}`}>{task.status}</span>
+                                            <span className={getStatusBadgeClass(task.status)}>{task.status}</span>
                                             {task.dueDate && <span className={`text-[11px] font-bold whitespace-nowrap hidden md:block ${new Date(task.dueDate) < new Date() && task.status !== 'Completed' ? 'text-red-500' : 'text-slate-400'}`}>📅 {new Date(task.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
                                             {task.priority && <span className={`text-[10px] font-black hidden md:block ${task.priority === 'Urgent' ? 'text-red-500' : task.priority === 'High' ? 'text-orange-500' : task.priority === 'Medium' ? 'text-blue-500' : 'text-slate-400'}`}>● {task.priority}</span>}
                                             <span className="text-[11px] font-black text-slate-400 whitespace-nowrap">{formatTimeAgo(task.createdAt)}</span>

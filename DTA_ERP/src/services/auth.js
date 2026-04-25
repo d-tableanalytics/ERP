@@ -21,3 +21,10 @@ export function register({ name, email, password }) {
     }),
   });
 }
+
+export function getMe() {
+  const token = localStorage.getItem('token');
+  return fetchJSON(`${API_BASE_URL}/api/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}

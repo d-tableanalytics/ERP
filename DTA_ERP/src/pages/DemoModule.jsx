@@ -2,6 +2,7 @@ import MainLayout from "../components/layout/MainLayout";
 import StatCard from "../components/dashboard/StatCard";
 import DeleteModal from "../components/common/DeleteModal";
 import { getModuleConfig, formatTime12h } from "./dummyData";
+import { formatTimeAgo } from "../utils/formatters";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
@@ -13,6 +14,7 @@ import {
   removeHoliday,
 } from "../../src/store/slices/helpTicketConfigSlice";
 import { registerUser } from "../../src/store/slices/authSlice";
+import { getMe } from "../../src/services/auth";
 import {
   fetchDepartments,
   fetchEmployees,
@@ -103,7 +105,11 @@ const DemoModule = ({ type }) => {
     if (activeSetting === "Team") {
       dispatch(fetchEmployees());
     }
-  }, [activeSetting, dispatch]);
+    if (type === "profile") {
+      fetchActivities();
+      fetchFreshProfile();
+    }
+  }, [activeSetting, dispatch, type]);
 
   useEffect(() => {
     if (
@@ -338,6 +344,32 @@ const DemoModule = ({ type }) => {
     });
   };
 
+  const [activities, setActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [profileData, setProfileData] = useState(null);
+
+  const fetchFreshProfile = async () => {
+    try {
+      const data = await getMe();
+      setProfileData(data);
+    } catch (error) {
+      console.error('Error fetching fresh profile:', error);
+    }
+  };
+
+  const fetchActivities = async () => {
+    try {
+      setLoadingActivities(true);
+      const res = await notificationService.getNotifications();
+      const list = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
+      setActivities(list.slice(0, 5));
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
   const handleDeleteEmployee = async (emp) => {
     setDeleteModalConfig({
       isOpen: true,
@@ -355,6 +387,9 @@ const DemoModule = ({ type }) => {
   };
 
   // Profile Layout
+  // Use either the fresh profile data or the session user
+  const displayUser = profileData || user;
+
   if (type === "profile") {
     return (
       <>
@@ -363,24 +398,27 @@ const DemoModule = ({ type }) => {
           {/* Header Card */}
           <div className="bg-bg-card border border-border-main rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
             <div className="relative">
-              <div className="size-24 rounded-full bg-primary/20 flex items-center justify-center text-primary text-3xl font-bold border-4 border-bg-card shadow-lg">
-                SJ
+              <div className="size-24 rounded-full bg-primary/20 flex items-center justify-center text-primary text-3xl font-bold border-4 border-bg-card shadow-lg uppercase">
+                {displayUser?.First_Name?.[0] || displayUser?.name?.[0] || 'U'}
+                {displayUser?.Last_Name?.[0] || displayUser?.name?.split(' ')?.[1]?.[0] || ''}
               </div>
               <span className="absolute bottom-1 right-1 size-5 bg-green-500 border-2 border-white rounded-full"></span>
             </div>
             <div className="text-center md:text-left flex-1">
-              <h2 className="text-2xl font-bold text-text-main">
-                Sanchit Jain
+              <h2 className="text-2xl font-bold text-text-main capitalize">
+                {displayUser?.First_Name && displayUser?.Last_Name ? `${displayUser.First_Name} ${displayUser.Last_Name}` : (displayUser?.name || 'User')}
               </h2>
-              <p className="text-text-muted font-medium">
-                Senior Administrator
+              <p className="text-text-muted font-medium capitalize">
+                {displayUser?.designation || displayUser?.Designation || ''} 
+                {(displayUser?.designation || displayUser?.Designation) && (displayUser?.role || displayUser?.Role) ? ' • ' : ''}
+                {displayUser?.role || displayUser?.Role || 'Team Member'}
               </p>
               <div className="flex items-center justify-center md:justify-start gap-4 mt-3">
                 <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
-                  IT Department
+                  {displayUser?.Department || displayUser?.department || 'Not Specified'}
                 </span>
-                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">
-                  New York
+                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold capitalize">
+                  {displayUser?.location || 'Office'}
                 </span>
               </div>
             </div>
@@ -399,19 +437,37 @@ const DemoModule = ({ type }) => {
                     <span className="material-symbols-outlined text-text-muted">
                       mail
                     </span>
-                    <span className="text-text-main">sanchit@d-table.com</span>
+                    <span className="text-text-main">{displayUser?.email || displayUser?.Work_Email || 'No email provided'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-text-muted">
+                      fingerprint
+                    </span>
+                    <span className="text-text-main">User ID: {displayUser?.id || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-text-muted">
+                      badge
+                    </span>
+                    <span className="text-text-main">Designation: {displayUser?.designation || displayUser?.Designation || 'Not provided'}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-text-muted">
                       call
                     </span>
-                    <span className="text-text-main">+1 (555) 123-4567</span>
+                    <span className="text-text-main">{displayUser?.phone || displayUser?.Phone || 'Not provided'}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-text-muted">
                       location_on
                     </span>
-                    <span className="text-text-main">123 Tech Park, NY</span>
+                    <span className="text-text-main">{displayUser?.address || displayUser?.Address || 'Not provided'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-text-muted">
+                      business
+                    </span>
+                    <span className="text-text-main">Dept: {displayUser?.Department || displayUser?.department || 'Not provided'}</span>
                   </div>
                 </div>
               </div>
@@ -424,30 +480,39 @@ const DemoModule = ({ type }) => {
                   Recent Activity
                 </h3>
                 <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="flex gap-4 items-start pb-4 border-b border-border-main last:border-0 last:pb-0"
-                    >
-                      <div className="size-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-sm text-text-muted">
-                          history
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-text-main">
-                          Updated system configurations
-                        </p>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          Changed default theme settings for the engineering
-                          team.
-                        </p>
-                        <span className="text-[10px] text-text-muted mt-2 block">
-                          2 hours ago
-                        </span>
-                      </div>
+                  {loadingActivities ? (
+                    <div className="py-10 text-center animate-pulse text-text-muted text-xs font-bold uppercase tracking-widest">
+                      Loading activity...
                     </div>
-                  ))}
+                  ) : activities.length === 0 ? (
+                    <div className="py-10 text-center text-text-muted text-xs font-bold">
+                      No recent activities found
+                    </div>
+                  ) : (
+                    activities.map((activity) => (
+                      <div
+                        key={activity.id}
+                        className="flex gap-4 items-start pb-4 border-b border-border-main last:border-0 last:pb-0"
+                      >
+                        <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${activity.is_read ? 'bg-slate-100 dark:bg-slate-800' : 'bg-primary/10'}`}>
+                          <span className={`material-symbols-outlined text-sm ${activity.is_read ? 'text-text-muted' : 'text-primary'}`}>
+                            {activity.type === 'task' ? 'task_alt' : 'history'}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-text-main">
+                            {activity.title}
+                          </p>
+                          <p className="text-xs text-text-muted mt-0.5 line-clamp-2">
+                            {activity.message}
+                          </p>
+                          <span className="text-[10px] text-text-muted mt-2 block font-medium">
+                            {formatTimeAgo(activity.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -484,12 +549,11 @@ const DemoModule = ({ type }) => {
     ];
     const SETTINGS = [
       "General",
-      "Security",
       "Notifications",
       ...(canManageDepartments ? ["Team"] : []),
-      "Billing",
-      "Integrations",
-      ...(canManageDepartments ? ["Add Users", "Departments"] : []),
+      
+      "Add Users",
+      "Departments",
       ...(canManageHolidays ? ["Add Holiday"] : []),
       "Help Ticket Setting",
     ];

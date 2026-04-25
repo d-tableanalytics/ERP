@@ -34,20 +34,24 @@ export const formatDate = (dateStr, opts = { day: 'numeric', month: 'short', yea
  */
 export const getStatusBadgeClass = (status) => {
     const base = 'px-2 py-0.5 text-[10px] font-bold rounded-full uppercase border whitespace-nowrap';
-    switch (status) {
-        case 'Completed':
+    const s = (status || '').toLowerCase().replace(/[\s-]/g, '');
+
+    switch (s) {
+        case 'completed':
             return `${base} bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800`;
-        case 'In Progress':
+        case 'inprogress':
             return `${base} bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800`;
-        case 'Overdue':
-        case 'OverDue':
+        case 'overdue':
             return `${base} bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800`;
-        case 'Hold':
+        case 'hold':
             return `${base} bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800`;
+        case 'needrevision':
+            return `${base} bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/10 dark:text-indigo-400 dark:border-indigo-800`;
         default:
             return `${base} bg-bg-main text-text-muted border-border-main`;
     }
 };
+
 
 /**
  * Returns a Tailwind text-color class for a task priority.

@@ -1,11 +1,34 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
-const QuickActions = () => {
+const QuickActions = ({ onNewTask }) => {
+  const navigate = useNavigate();
+  
   const actions = [
-    { icon: "add_task", label: "New Delegation", color: "blue" },
-    { icon: "playlist_add_check", label: "Add Checklist", color: "emerald" },
-    { icon: "add_shopping_cart", label: "New Order", color: "orange" },
-    { icon: "support_agent", label: "Raise Ticket", color: "purple" },
+    { 
+      icon: "add_task", 
+      label: "New Delegation", 
+      color: "blue",
+      action: onNewTask 
+    },
+    { 
+      icon: "playlist_add_check", 
+      label: "Add Checklist", 
+      color: "emerald",
+      action: () => navigate("/checklist") 
+    },
+    { 
+      icon: "add_shopping_cart", 
+      label: "New Order", 
+      color: "orange",
+      action: () => navigate("/o2d-fms") 
+    },
+    { 
+      icon: "support_agent", 
+      label: "Raise Ticket", 
+      color: "purple",
+      action: () => navigate("/help") 
+    },
   ];
 
   const colorClasses = {
@@ -24,6 +47,7 @@ const QuickActions = () => {
         {actions.map((action, index) => (
           <button
             key={index}
+            onClick={action.action}
             className="flex flex-col items-center justify-center p-5 rounded-2xl bg-bg-main hover:bg-bg-card border-2 border-transparent hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 group active:scale-95"
           >
             <div
@@ -42,7 +66,3 @@ const QuickActions = () => {
 };
 
 export default QuickActions;
-
-
-
-

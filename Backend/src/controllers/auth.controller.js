@@ -98,6 +98,10 @@ exports.login = async (req, res) => {
                     email: employee.work_email,
                     role: employee.role,
                     name: `${employee.first_name} ${employee.last_name}`,
+                    firstName: employee.first_name,
+                    lastName: employee.last_name,
+                    designation: employee.designation,
+                    department: employee.department,
                     theme: employee.theme || 'light'
                 }
             }
@@ -143,5 +147,33 @@ exports.getUsers = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Error fetching users' });
+    }
+};
+
+// Get current user profile
+exports.getMe = async (req, res) => {
+    try {
+        const result = await db.query('SELECT user_id, first_name, last_name, work_email, role, designation, department, theme FROM employees WHERE user_id = $1', [req.user.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const u = result.rows[0];
+        res.json({
+            success: true,
+            data: {
+                id: u.user_id,
+                email: u.work_email,
+                role: u.role,
+                name: `${u.first_name} ${u.last_name}`,
+                firstName: u.first_name,
+                lastName: u.last_name,
+                designation: u.designation,
+                department: u.department,
+                theme: u.theme || 'light'
+            }
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Error fetching user profile' });
     }
 };
