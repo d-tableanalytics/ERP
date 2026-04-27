@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     X, Info, AlignLeft, User, Calendar, CheckCircle2,
     MoreVertical, ArrowLeft, Loader2, MessageSquare,
@@ -20,7 +20,7 @@ import CompleteTaskModal from './CompleteTaskModal';
 import usePermissions from '../../hooks/usePermissions';
 
 const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
-    const { can, userId: loggedInUserId } = usePermissions();
+    const { can } = usePermissions();
     const [task, setTask] = useState(null);
     const [apiMode, setApiMode] = useState('task'); // 'task' | 'delegation'
     const [users, setUsers] = useState([]);
@@ -28,7 +28,6 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [status, setStatus] = useState('');
-    const [nextRevisedDate, setNextRevisedDate] = useState('');
     const [remark, setRemark] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isSubtaskModalOpen, setIsSubtaskModalOpen] = useState(false);
@@ -42,16 +41,16 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         if (isOpen && taskId) {
             fetchInitialData();
         }
-    }, [isOpen, taskId]);
+    }, [isOpen, taskId, fetchInitialData]);
 
-    const fetchEntityDetails = async (id, preferredMode = null) => {
+    const fetchEntityDetails = useCallback(async (id, preferredMode = null) => {
         const loadTask = async () => ({ data: await taskService.getTaskById(id), mode: 'task' });
         const loadDelegation = async () => ({ data: await delegationService.getDelegationById(id), mode: 'delegation' });
 
         if (preferredMode === 'task') {
             try {
                 return await loadTask();
-            } catch (err) {
+            } catch {
                 return await loadDelegation();
             }
         }
@@ -59,17 +58,17 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         if (preferredMode === 'delegation') {
             try {
                 return await loadDelegation();
-            } catch (err) {
+            } catch {
                 return await loadTask();
             }
         }
 
         try {
             return await loadTask();
-        } catch (err) {
+        } catch {
             return await loadDelegation();
         }
-    };
+    }, []);
 
     const updateCurrentRecord = async (id, payload) => {
         if (apiMode === 'delegation') {
@@ -85,7 +84,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         return taskService.addRemark(id, payload);
     };
 
-    const fetchInitialData = async () => {
+    const fetchInitialData = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
@@ -103,9 +102,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [taskId, fetchEntityDetails]);
 
-    const fetchTaskDetails = async () => {
+    const fetchTaskDetails = useCallback(async () => {
         try {
             const { data: response, mode } = await fetchEntityDetails(taskId, apiMode);
             setApiMode(mode);
@@ -114,7 +113,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
         } catch (err) {
             console.error('Failed to fetch task details:', err);
         }
-    };
+    }, [taskId, apiMode, fetchEntityDetails]);
 
     const handleQuickAction = (action) => {
         if (action === 'Completed') {
@@ -123,7 +122,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                 parsedChecklist = typeof task.checklistItems === 'string'
                     ? JSON.parse(task.checklistItems)
                     : (task.checklistItems || []);
-            } catch (e) { }
+            } catch {
+                // Silently ignore parse errors as we have a default value
+            }
 
             if (parsedChecklist.length > 0 && parsedChecklist.some(item => !item.completed)) {
                 toast.error('Please complete all checklist items before marking the task as Completed.');
@@ -141,7 +142,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                 parsedChecklist = typeof task.checklistItems === 'string'
                     ? JSON.parse(task.checklistItems)
                     : (task.checklistItems || []);
-            } catch (e) { }
+            } catch {
+                // Silently ignore parse errors
+            }
 
             const updatedChecklist = [...parsedChecklist];
             updatedChecklist[index].completed = !updatedChecklist[index].completed;
@@ -391,14 +394,14 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] overflow-hidden">
+        <div className="fixed inset-0 z-100 overflow-hidden">
             <div
                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity duration-300"
                 onClick={onClose}
             />
 
             <div className="absolute right-0 top-0 h-full w-full max-w-4xl bg-bg-card shadow-2xl transition-transform duration-300 transform translate-x-0 border-l border-border-main flex flex-col">
-                <div className="px-4.5 py-3 bg-bg-card border-b border-border-main flex items-center justify-between sticky top-0 z-[60]">
+                <div className="px-4.5 py-3 bg-bg-card border-b border-border-main flex items-center justify-between sticky top-0 z-60">
                     <div className="flex items-center gap-3">
                         <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
                             <ArrowLeft size={16} />
@@ -440,7 +443,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                     <div className="flex-1 flex items-center justify-center">
                         <div className="flex flex-col items-center gap-3">
                             <Loader2 className="animate-spin text-emerald-500" size={32} />
-                            <p className="text-sm font-medium text-[var(--text-secondary)]">Loading task details...</p>
+                            <p className="text-sm font-medium text-(--text-secondary)">Loading task details...</p>
                         </div>
                     </div>
                 ) : error ? (
@@ -532,7 +535,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                     {(() => {
                                         let parsedTags = [];
                                         if (task.tags) {
-                                            try { parsedTags = typeof task.tags === 'string' ? JSON.parse(task.tags) : task.tags; } catch (e) { }
+                                            try { parsedTags = typeof task.tags === 'string' ? JSON.parse(task.tags) : task.tags; } catch { /* Ignore parse error */ }
                                             if (!Array.isArray(parsedTags)) parsedTags = [];
                                         }
                                         if (parsedTags.length === 0) return null;
@@ -560,6 +563,20 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                     })()}
                                 </div>
 
+                                {task.description && (
+                                    <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="p-1.5 bg-bg-main rounded-lg text-text-muted">
+                                                <AlignLeft size={14} />
+                                            </div>
+                                            <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">Description</h2>
+                                        </div>
+                                        <p className="text-[11px] font-medium text-text-muted leading-relaxed whitespace-pre-wrap">
+                                            {task.description}
+                                        </p>
+                                    </div>
+                                )}
+
                                 {/* CHECKLIST SECTION */}
                                 {(() => {
                                     let parsedChecklist = [];
@@ -567,7 +584,9 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                         parsedChecklist = typeof task.checklistItems === 'string'
                                             ? JSON.parse(task.checklistItems)
                                             : (task.checklistItems || []);
-                                    } catch (e) { }
+                                    } catch {
+                                        // Ignore parse error
+                                    }
 
                                     if (!parsedChecklist || parsedChecklist.length === 0) return null;
 
@@ -788,13 +807,13 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 shadow-sm flex flex-col items-center justify-center text-center space-y-3">
+                                    <div className="bg-(--bg-secondary) border border-(--border-color) rounded-xl p-5 shadow-sm flex flex-col items-center justify-center text-center space-y-3">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSubscribed() ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
                                             {isSubscribed() ? <Bell size={20} /> : <BellOff size={20} />}
                                         </div>
                                         <div>
-                                            <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-tight">Observer Mode</h3>
-                                            <p className="text-[10px] text-[var(--text-secondary)] mt-1 max-w-sm uppercase font-bold tracking-widest opacity-70 leading-relaxed">
+                                            <h3 className="text-xs font-bold text-(--text-primary) uppercase tracking-tight">Observer Mode</h3>
+                                            <p className="text-[10px] text-(--text-secondary) mt-1 max-w-sm uppercase font-bold tracking-widest opacity-70 leading-relaxed">
                                                 {isSubscribed() ? "You are currently subscribed." : "Subscribe to receive updates."}
                                             </p>
                                         </div>
@@ -944,7 +963,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
                                                 try {
                                                     const parsed = JSON.parse(task.evidenceUrl);
                                                     evidenceUrls = Array.isArray(parsed) ? parsed : [task.evidenceUrl];
-                                                } catch (e) {
+                                                } catch {
                                                     evidenceUrls = task.evidenceUrl.split(',').filter(Boolean);
                                                 }
                                                 
@@ -1195,7 +1214,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, onSuccess }) => {
 
             {/* Image Preview Modal */}
             {previewImage && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-110 flex items-center justify-center p-4">
                     <div 
                         className="absolute inset-0 bg-slate-900/90 backdrop-blur-md"
                         onClick={() => setPreviewImage(null)}

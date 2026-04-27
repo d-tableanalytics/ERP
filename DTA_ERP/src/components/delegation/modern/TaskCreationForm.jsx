@@ -11,6 +11,26 @@ import notificationService from '../../services/notificationService';
 
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+const formatLocalDate = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const displayLocalDate = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string' || !dateStr.includes('-')) {
+        if (dateStr instanceof Date) return dateStr.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return dateStr || '';
+    }
+    const [year, month, day] = dateStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 const normalizeIdArray = (value) => {
     if (value === undefined || value === null || value === '' || value === 'undefined' || value === 'null') return [];
     if (Array.isArray(value)) {
@@ -93,6 +113,8 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
     const [tempSelectedDate, setTempSelectedDate] = useState(null);
     const [datePickerView, setDatePickerView] = useState('date'); // 'date' | 'time'
     const [tempSelectedTime, setTempSelectedTime] = useState({ hours: '12', minutes: '00', ampm: 'PM' });
+    const [typedHour, setTypedHour] = useState('12');
+    const [typedMin, setTypedMin] = useState('00');
 
     // Checklist
     const [checklistExpanded, setChecklistExpanded] = useState(false);
@@ -123,7 +145,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
     const [repeatEndDate, setRepeatEndDate] = useState('');
     const [weeklyDays, setWeeklyDays] = useState([]); // ['Monday', 'Tuesday', ...]
     const [selectedDates, setSelectedDates] = useState([]); // ['01', '15', ...]
-    const [repeatStartDate, setRepeatStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [repeatStartDate, setRepeatStartDate] = useState(formatLocalDate(new Date()));
     const [repeatIntervalDays, setRepeatIntervalDays] = useState('1');
     const [occurEveryMode, setOccurEveryMode] = useState('Week'); // 'Week' | 'Month'
     const [customOccurValue, setCustomOccurValue] = useState('1');
@@ -203,6 +225,28 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                 } else if (Array.isArray(initialData.reference_docs)) {
                     setLinks(initialData.reference_docs);
                 }
+
+                // Handle Repeat Restoration
+                if (initialData.repeatSettings || initialData.isRepeat) {
+                    const repeat = typeof initialData.repeatSettings === 'string' 
+                        ? JSON.parse(initialData.repeatSettings) 
+                        : (initialData.repeatSettings || {});
+                    
+                    setIsRepeat(true);
+                    setRepeatMode(repeat.repeatFrequency || initialData.repeatFrequency || 'Daily');
+                    setRepeatStartDate(repeat.repeatStartDate || initialData.repeatStartDate || formatLocalDate(new Date()));
+                    setRepeatEndDate(repeat.repeatEndDate || initialData.repeatEndDate || '');
+                    setRepeatIntervalDays(repeat.repeatIntervalDays?.toString() || '1');
+                    setWeeklyDays(repeat.weeklyDays || []);
+                    setSelectedDates(repeat.selectedDates || []);
+                    setIsLastDayOfMonth(!!repeat.isLastDayOfMonth);
+                    setCustomOccurValue(repeat.customOccurValue?.toString() || '1');
+                    setOccurEveryMode(repeat.occurEveryMode || 'Week');
+                    setCustomOccurDays(repeat.customOccurDays || []);
+                    setCustomOccurDates(repeat.customOccurDates || []);
+                } else {
+                    setIsRepeat(false);
+                }
             } else {
                 const storedUser = JSON.parse(localStorage.getItem('user'));
                 const currentId = storedUser?.user?.id || storedUser?.id;
@@ -219,6 +263,17 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                 });
                 setChecklistItems([]);
                 setChecklistExpanded(false);
+                setIsRepeat(false);
+                setRepeatMode('Daily');
+                setRepeatEndDate('');
+                setRepeatStartDate(formatLocalDate(new Date()));
+                setRepeatIntervalDays('1');
+                setOccurEveryMode('Week');
+                setCustomOccurValue('1');
+                setWeeklyDays([]);
+                setSelectedDates([]);
+                setCustomOccurDays([]);
+                setCustomOccurDates([]);
             }
 
             setError(null);
@@ -226,18 +281,8 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             setActiveModal(null);
             setLinks([]);
             setNewLinkText('');
-            setRepeatMode('Daily');
-            setRepeatEndDate('');
-            setRepeatStartDate(new Date().toISOString().split('T')[0]);
             fetchHolidays();
             setDepartmentSearch('');
-            setRepeatIntervalDays('1');
-            setOccurEveryMode('Week');
-            setCustomOccurValue('1');
-            setWeeklyDays([]);
-            setSelectedDates([]);
-            setCustomOccurDays([]);
-            setCustomOccurDates([]);
             setVoiceState('idle');
             setRecordingTime(0);
             setAudioBlob(null);
@@ -338,10 +383,14 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             let initialDate;
             if (target === 'dueDate') {
                 initialDate = formData.dueDate;
-            } else if (target === 'repeatStartDate') {
-                initialDate = repeatStartDate ? new Date(repeatStartDate) : new Date();
-            } else if (target === 'repeatEndDate') {
-                initialDate = repeatEndDate ? new Date(repeatEndDate) : new Date();
+            } else {
+                const dateStr = target === 'repeatStartDate' ? repeatStartDate : repeatEndDate;
+                if (dateStr && typeof dateStr === 'string' && dateStr.includes('-')) {
+                    const [y, m, d] = dateStr.split('-').map(Number);
+                    initialDate = new Date(y, m - 1, d);
+                } else {
+                    initialDate = dateStr || new Date();
+                }
             }
 
             if (initialDate && initialDate instanceof Date && !isNaN(initialDate)) {
@@ -351,18 +400,16 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                 const m = initialDate.getMinutes().toString().padStart(2, '0');
                 const ampm = h >= 12 ? 'PM' : 'AM';
                 h = h % 12 || 12;
-                setTempSelectedTime({ hours: h.toString().padStart(2, '0'), minutes: m, ampm });
-            } else if (typeof initialDate === 'string' && initialDate) {
-                const parsed = new Date(initialDate);
-                if (!isNaN(parsed)) {
-                    setTempSelectedDate(parsed);
-                    setCurrentCalMonth(parsed);
-                    setTempSelectedTime({ hours: '12', minutes: '00', ampm: 'PM' });
-                }
+                const hStr = h.toString().padStart(2, '0');
+                setTempSelectedTime({ hours: hStr, minutes: m, ampm });
+                setTypedHour(hStr);
+                setTypedMin(m);
             } else {
                 setTempSelectedDate(new Date());
                 setCurrentCalMonth(new Date());
                 setTempSelectedTime({ hours: '12', minutes: '00', ampm: 'PM' });
+                setTypedHour('12');
+                setTypedMin('00');
             }
         }
     };
@@ -869,7 +916,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                             <button onClick={() => toggleModal('date', 'repeatStartDate')} className="flex items-center bg-bg-card border-2 border-border-main rounded-lg px-2.5 py-1 hover:border-emerald-500/30 transition-all shadow-sm group">
                                                 <CalendarIcon size={12} className="text-slate-300 group-hover:text-emerald-500 mr-1.5 shrink-0 transition-colors" />
                                                 <span className="text-[9px] font-black text-text-main uppercase tracking-tighter w-[60px] text-left">
-                                                    {repeatStartDate ? new Date(repeatStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Start Date'}
+                                                    {repeatStartDate ? displayLocalDate(repeatStartDate) : 'Start Date'}
                                                 </span>
                                             </button>
                                         </div>
@@ -877,7 +924,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                             <button onClick={() => toggleModal('date', 'repeatEndDate')} className="flex items-center bg-bg-card border-2 border-border-main rounded-lg px-2.5 py-1 hover:border-emerald-500/30 transition-all shadow-sm group">
                                                 <CalendarIcon size={12} className="text-slate-300 group-hover:text-emerald-500 mr-1.5 shrink-0 transition-colors" />
                                                 <span className="text-[9px] font-black text-text-main uppercase tracking-tighter w-[60px] text-left">
-                                                    {repeatEndDate ? new Date(repeatEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'End Date'}
+                                                    {repeatEndDate ? displayLocalDate(repeatEndDate) : 'End Date'}
                                                 </span>
                                             </button>
                                         </div>
@@ -1136,9 +1183,9 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                             if (dateTarget === 'dueDate') {
                                 setFormData(prev => ({ ...prev, dueDate: finalDate }));
                             } else if (dateTarget === 'repeatStartDate') {
-                                setRepeatStartDate(finalDate.toISOString().split('T')[0]);
+                                setRepeatStartDate(formatLocalDate(finalDate));
                             } else if (dateTarget === 'repeatEndDate') {
-                                setRepeatEndDate(finalDate.toISOString().split('T')[0]);
+                                setRepeatEndDate(formatLocalDate(finalDate));
                             }
                             setActiveModal(null);
                         }}
@@ -1192,26 +1239,33 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                             const isHoliday = isWeeklyOff || holidays.some(h => h && h.date && isSameDate(new Date(h.date), dateObj));
                                             const isToday = isSameDate(new Date(), dateObj);
 
+                                            const today = new Date();
+                                            today.setHours(0, 0, 0, 0);
+                                            const isPast = dateObj < today;
+
                                             return (
                                                 <button
                                                     key={d}
                                                     type="button"
                                                     onClick={() => {
+                                                        if (isPast) return;
                                                         if (isHoliday) {
                                                             toast.error("Holiday detected! Please select another date.");
                                                             return;
                                                         }
                                                         setTempSelectedDate(dateObj);
                                                     }}
+                                                    disabled={isPast}
                                                     className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-[13px] font-black transition-all relative group
-                                                        ${isHoliday ? 'bg-red-50 text-red-300' :
+                                                        ${isPast ? 'bg-slate-50 text-slate-200 cursor-not-allowed opacity-50' :
+                                                          isHoliday ? 'bg-red-50 text-red-300' :
                                                             isSelected ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-110' :
                                                                 'text-text-muted hover:bg-emerald-50 hover:text-emerald-600 hover:scale-105'}
-                                                        ${isToday && !isSelected ? 'border-2 border-emerald-500/20' : ''}
+                                                        ${isToday && !isSelected && !isPast ? 'border-2 border-emerald-500/20' : ''}
                                                     `}
                                                 >
                                                     {d}
-                                                    {isToday && !isSelected && <div className="absolute top-1.5 right-1.5 w-1 h-1 bg-emerald-500 rounded-full"></div>}
+                                                    {isToday && !isSelected && !isPast && <div className="absolute top-1.5 right-1.5 w-1 h-1 bg-emerald-500 rounded-full"></div>}
                                                 </button>
                                             );
                                         })}
@@ -1225,17 +1279,34 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                             <button type="button" onClick={() => {
                                                 let h = parseInt(tempSelectedTime.hours);
                                                 h = h >= 12 ? 1 : h + 1;
-                                                setTempSelectedTime(prev => ({ ...prev, hours: h.toString().padStart(2, '0') }));
+                                                const val = h.toString().padStart(2, '0');
+                                                setTempSelectedTime(prev => ({ ...prev, hours: val }));
+                                                setTypedHour(val);
                                             }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                                                 <ChevronDown size={24} className="rotate-180" strokeWidth={3} />
                                             </button>
-                                            <div className="w-20 h-24 bg-bg-card border-2 border-border-main rounded-[28px] flex items-center justify-center text-4xl font-black text-text-main shadow-sm leading-none">
-                                                {tempSelectedTime.hours}
-                                            </div>
+                                            <input 
+                                                type="text"
+                                                value={typedHour}
+                                                 onChange={(e) => {
+                                                     const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                                                     const num = parseInt(val, 10);
+                                                     if (val === '' || (num >= 0 && num <= 12)) {
+                                                         setTypedHour(val);
+                                                         if (num >= 1 && num <= 12) {
+                                                             setTempSelectedTime(p => ({ ...p, hours: num.toString().padStart(2, '0') }));
+                                                         }
+                                                     }
+                                                 }}
+                                                onBlur={() => setTypedHour(tempSelectedTime.hours)}
+                                                className="w-20 h-24 bg-bg-card border-2 border-border-main rounded-[28px] flex items-center justify-center text-center text-4xl font-black text-text-main shadow-sm leading-none outline-none focus:border-emerald-500/30 transition-all"
+                                            />
                                             <button type="button" onClick={() => {
                                                 let h = parseInt(tempSelectedTime.hours);
                                                 h = h <= 1 ? 12 : h - 1;
-                                                setTempSelectedTime(prev => ({ ...prev, hours: h.toString().padStart(2, '0') }));
+                                                const val = h.toString().padStart(2, '0');
+                                                setTempSelectedTime(prev => ({ ...prev, hours: val }));
+                                                setTypedHour(val);
                                             }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                                                 <ChevronDown size={24} strokeWidth={3} />
                                             </button>
@@ -1248,17 +1319,34 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                                             <button type="button" onClick={() => {
                                                 let m = parseInt(tempSelectedTime.minutes);
                                                 m = m >= 59 ? 0 : m + 1;
-                                                setTempSelectedTime(prev => ({ ...prev, minutes: m.toString().padStart(2, '0') }));
+                                                const val = m.toString().padStart(2, '0');
+                                                setTempSelectedTime(prev => ({ ...prev, minutes: val }));
+                                                setTypedMin(val);
                                             }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                                                 <ChevronDown size={24} className="rotate-180" strokeWidth={3} />
                                             </button>
-                                            <div className="w-20 h-24 bg-bg-card border-2 border-border-main rounded-[28px] flex items-center justify-center text-4xl font-black text-text-main shadow-sm leading-none">
-                                                {tempSelectedTime.minutes}
-                                            </div>
+                                            <input 
+                                                type="text"
+                                                value={typedMin}
+                                                 onChange={(e) => {
+                                                     const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                                                     const num = parseInt(val, 10);
+                                                     if (val === '' || (num >= 0 && num <= 59)) {
+                                                         setTypedMin(val);
+                                                         if (!isNaN(num)) {
+                                                             setTempSelectedTime(p => ({ ...p, minutes: num.toString().padStart(2, '0') }));
+                                                         }
+                                                     }
+                                                 }}
+                                                onBlur={() => setTypedMin(tempSelectedTime.minutes)}
+                                                className="w-20 h-24 bg-bg-card border-2 border-border-main rounded-[28px] flex items-center justify-center text-center text-4xl font-black text-text-main shadow-sm leading-none outline-none focus:border-emerald-500/30 transition-all"
+                                            />
                                             <button type="button" onClick={() => {
                                                 let m = parseInt(tempSelectedTime.minutes);
                                                 m = m <= 0 ? 59 : m - 1;
-                                                setTempSelectedTime(prev => ({ ...prev, minutes: m.toString().padStart(2, '0') }));
+                                                const val = m.toString().padStart(2, '0');
+                                                setTempSelectedTime(prev => ({ ...prev, minutes: val }));
+                                                setTypedMin(val);
                                             }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-emerald-500 hover:bg-emerald-50 transition-all">
                                                 <ChevronDown size={24} strokeWidth={3} />
                                             </button>

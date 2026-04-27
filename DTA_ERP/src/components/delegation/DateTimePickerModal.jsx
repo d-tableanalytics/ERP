@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays, setHours, setMinutes, getHours, getMinutes } from "date-fns";
+import React, { useState, useEffect } from "react";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays, setHours, setMinutes, getHours, getMinutes, isBefore, startOfDay } from "date-fns";
 
 const DateTimePickerModal = ({ isOpen, onClose, value, onChange }) => {
   const [activeTab, setActiveTab] = useState("date"); // "date" or "time"
@@ -8,6 +8,23 @@ const DateTimePickerModal = ({ isOpen, onClose, value, onChange }) => {
   // Internal state for selected date and time
   const [selectedDate, setSelectedDate] = useState(value ? new Date(value) : new Date());
   
+  // Local state for direct time input
+  const [typedHour, setTypedHour] = useState('12');
+  const [typedMin, setTypedMin] = useState('00');
+
+  useEffect(() => {
+    if (isOpen) {
+      const date = value ? new Date(value) : new Date();
+      setSelectedDate(date);
+      setCurrentMonth(date);
+      const h24 = getHours(date);
+      const h12 = h24 % 12 || 12;
+      const m = getMinutes(date);
+      setTypedHour(h12.toString().padStart(2, '0'));
+      setTypedMin(m.toString().padStart(2, '0'));
+    }
+  }, [isOpen, value]);
+
   const handleDateSelect = (date) => {
     const newDate = new Date(selectedDate);
     newDate.setFullYear(date.getFullYear());
@@ -30,6 +47,43 @@ const DateTimePickerModal = ({ isOpen, onClose, value, onChange }) => {
     newDate.setHours(hours);
     newDate.setMinutes(minutes);
     setSelectedDate(newDate);
+
+    // Update typed inputs to stay in sync
+    const h12 = hours % 12 || 12;
+    setTypedHour(h12.toString().padStart(2, '0'));
+    setTypedMin(minutes.toString().padStart(2, '0'));
+  };
+
+  const handleDirectInput = (type, val) => {
+    // Only allow numbers and max 2 digits
+    const cleanVal = val.replace(/\D/g, '').slice(0, 2);
+    const num = parseInt(cleanVal, 10);
+    
+    if (type === 'hour') {
+      // Allow empty (for backspace) or valid hour (0-12)
+      if (cleanVal === '' || (num >= 0 && num <= 12)) {
+        setTypedHour(cleanVal);
+        if (num >= 1 && num <= 12) {
+          const newDate = new Date(selectedDate);
+          const isPMNow = getHours(newDate) >= 12;
+          let h24 = num;
+          if (isPMNow && num !== 12) h24 += 12;
+          if (!isPMNow && num === 12) h24 = 0;
+          newDate.setHours(h24);
+          setSelectedDate(newDate);
+        }
+      }
+    } else {
+      // Allow empty or valid minutes (0-59)
+      if (cleanVal === '' || (num >= 0 && num <= 59)) {
+        setTypedMin(cleanVal);
+        if (!isNaN(num)) {
+          const newDate = new Date(selectedDate);
+          newDate.setMinutes(num);
+          setSelectedDate(newDate);
+        }
+      }
+    }
   };
 
   const toggleAMPM = () => {
@@ -42,6 +96,10 @@ const DateTimePickerModal = ({ isOpen, onClose, value, onChange }) => {
     }
     newDate.setHours(hours);
     setSelectedDate(newDate);
+
+    // Sync typed hour when AM/PM toggles (though hour12 doesn't change, good for consistency)
+    const h12 = hours % 12 || 12;
+    setTypedHour(h12.toString().padStart(2, '0'));
   };
 
   const handleDone = () => {
@@ -122,12 +180,16 @@ const DateTimePickerModal = ({ isOpen, onClose, value, onChange }) => {
                    {calendarDays.map((day, i) => {
                      const isSelected = isSameDay(day, selectedDate);
                      const isCurrentMonth = isSameMonth(day, currentMonth);
+                     const isPast = isBefore(day, startOfDay(new Date()));
+                     
                      return (
                        <button
                          key={i}
-                         onClick={() => handleDateSelect(day)}
+                         onClick={() => !isPast && handleDateSelect(day)}
+                         disabled={isPast}
                          className={`size-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all mx-auto
                            ${isSelected ? 'bg-[#137fec] text-white shadow-lg shadow-blue-500/20' : 
+                             isPast ? 'text-text-muted/30 cursor-not-allowed' :
                              isCurrentMonth ? 'text-text-main hover:bg-bg-main hover:text-[#137fec]' : 'text-text-muted'}`}
                        >
                          {format(day, "d")}
@@ -144,9 +206,13 @@ const DateTimePickerModal = ({ isOpen, onClose, value, onChange }) => {
                       <button onClick={() => handleTimeChange("hour", "inc")} className="text-text-muted hover:text-[#137fec] transition-colors">
                          <span className="material-symbols-outlined text-2xl">expand_less</span>
                       </button>
-                      <div className="size-16 bg-bg-main border-2 border-border-main rounded-2xl flex items-center justify-center text-3xl font-black text-text-main shadow-sm">
-                         {hour12.toString().padStart(2, '0')}
-                      </div>
+                      <input 
+                        type="text"
+                        value={typedHour}
+                        onChange={(e) => handleDirectInput("hour", e.target.value)}
+                        onBlur={() => setTypedHour(hour12.toString().padStart(2, '0'))}
+                        className="size-16 bg-bg-main border-2 border-border-main rounded-2xl flex items-center justify-center text-center text-3xl font-black text-text-main shadow-sm focus:border-[#137fec] outline-none transition-all"
+                      />
                       <button onClick={() => handleTimeChange("hour", "dec")} className="text-text-muted hover:text-[#137fec] transition-colors">
                          <span className="material-symbols-outlined text-2xl">expand_more</span>
                       </button>
@@ -159,9 +225,13 @@ const DateTimePickerModal = ({ isOpen, onClose, value, onChange }) => {
                       <button onClick={() => handleTimeChange("min", "inc")} className="text-text-muted hover:text-[#137fec] transition-colors">
                          <span className="material-symbols-outlined text-2xl">expand_less</span>
                       </button>
-                      <div className="size-16 bg-bg-main border-2 border-border-main rounded-2xl flex items-center justify-center text-3xl font-black text-text-main shadow-sm">
-                         {mins.toString().padStart(2, '0')}
-                      </div>
+                      <input 
+                        type="text"
+                        value={typedMin}
+                        onChange={(e) => handleDirectInput("min", e.target.value)}
+                        onBlur={() => setTypedMin(mins.toString().padStart(2, '0'))}
+                        className="size-16 bg-bg-main border-2 border-border-main rounded-2xl flex items-center justify-center text-center text-3xl font-black text-text-main shadow-sm focus:border-[#137fec] outline-none transition-all"
+                      />
                       <button onClick={() => handleTimeChange("min", "dec")} className="text-text-muted hover:text-[#137fec] transition-colors">
                          <span className="material-symbols-outlined text-2xl">expand_more</span>
                       </button>

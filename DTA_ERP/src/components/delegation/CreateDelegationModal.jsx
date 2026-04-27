@@ -8,6 +8,19 @@ import taskService from '../../services/taskService';
 import toast from 'react-hot-toast';
 import useHolidayCheck from "../../hooks/useHolidayCheck";
 
+// Helper to format date for datetime-local input (YYYY-MM-DDTHH:mm) in local time
+const formatForDateTimeLocal = (date) => {
+   if (!date) return '';
+   const d = new Date(date);
+   const year = d.getFullYear();
+   const month = String(d.getMonth() + 1).padStart(2, '0');
+   const day = String(d.getDate()).padStart(2, '0');
+   const hours = String(d.getHours()).padStart(2, '0');
+   const minutes = String(d.getMinutes()).padStart(2, '0');
+   return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+
 const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit }) => {
    const { token, user } = useSelector((state) => state.auth);
    const dispatch = useDispatch();
@@ -74,7 +87,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
                doer_name: delegationToEdit.doer_name,
                department: delegationToEdit.department,
                priority: delegationToEdit.priority,
-               due_date: delegationToEdit.due_date ? new Date(delegationToEdit.due_date).toISOString().slice(0, 16) : '',
+               due_date: delegationToEdit.due_date ? formatForDateTimeLocal(delegationToEdit.due_date) : '',
                evidence_required: delegationToEdit.evidence_required
             });
 

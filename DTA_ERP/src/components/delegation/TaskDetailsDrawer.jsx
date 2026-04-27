@@ -41,6 +41,8 @@ import {
   Volume2,
   ExternalLink,
   Eye,
+  Flag,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import taskService from "../../services/taskService";
@@ -82,6 +84,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
   const [recordingTime, setRecordingTime] = useState(0);
   const [voiceState, setVoiceState] = useState('idle'); // 'idle', 'recording', 'recorded'
   const [showRecorder, setShowRecorder] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const referenceDocsInputRef = useRef(null);
@@ -756,6 +759,39 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                         </span>
                       </div>
                     </div>
+
+                    {/* Recurrence Info */}
+                    {(() => {
+                      const repeat = typeof task.repeatSettings === 'string' 
+                        ? JSON.parse(task.repeatSettings) 
+                        : (task.repeatSettings || {});
+                      
+                      if (!repeat.isRepeat && !task.isRepeat) return null;
+
+                      const frequency = repeat.repeatFrequency || task.repeatFrequency || 'Daily';
+                      let scheduleDesc = '';
+                      if (frequency === 'Weekly') scheduleDesc = `Every ${(repeat.weeklyDays || []).join(', ')}`;
+                      else if (frequency === 'Monthly') scheduleDesc = `Dates: ${(repeat.selectedDates || []).join(', ')}${repeat.isLastDayOfMonth ? ' & Last Day' : ''}`;
+                      else if (frequency === 'Periodically') scheduleDesc = `Every ${repeat.repeatIntervalDays || 1} Days`;
+                      else if (frequency === 'Custom') scheduleDesc = `${repeat.customOccurValue} ${repeat.occurEveryMode}(s) on ${(repeat.customOccurDays || repeat.customOccurDates || []).join(', ')}`;
+                      else scheduleDesc = 'Every Day';
+
+                      return (
+                        <div className="space-y-1.5 border-l border-border-main pl-6 ml-2">
+                          <label className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <RefreshCw size={10} className="animate-spin-slow" /> Recurrence
+                          </label>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[11px] font-black text-text-main">
+                              {frequency} Schedule
+                            </span>
+                            <span className="text-[10px] font-bold text-text-muted">
+                              {scheduleDesc}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                         Deadline
@@ -773,6 +809,22 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                     </div>
                   </div>
                 </div>
+
+                {task.description && (
+                  <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="p-1.5 bg-bg-main rounded-lg text-text-muted">
+                        <AlignLeft size={14} />
+                      </div>
+                      <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">
+                        Description
+                      </h2>
+                    </div>
+                    <p className="text-[11px] font-medium text-text-muted leading-relaxed whitespace-pre-wrap">
+                      {task.description}
+                    </p>
+                  </div>
+                )}
 
                 {/* Checklist */}
                 {(() => {
@@ -1391,43 +1443,134 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
                     }
                     return [];
                   })();
-                  const refDocs = task?.referenceDocsList || [];
+                  
+                  const refDocs = (() => {
+                    // Check referenceDocsList first (some APIs return this)
+                    if (Array.isArray(task?.referenceDocsList) && task.referenceDocsList.length > 0) return task.referenceDocsList;
+                    
+                    // Fallback to referenceDocs
+                    if (!task?.referenceDocs) return [];
+                    if (Array.isArray(task.referenceDocs)) return task.referenceDocs.filter(Boolean);
+                    if (typeof task.referenceDocs === "string") {
+                      return task.referenceDocs.split(",").map(s => s.trim()).filter(Boolean);
+                    }
+                    return [];
+                  })();
+
                   const voice = task?.voiceNoteUrl;
                   const hasAttachments = evidenceUrls.length > 0 || refDocs.length > 0 || voice;
 
                   if (!hasAttachments) return null;
 
+                  const isImageFile = (url) => {
+                    if (!url) return false;
+                    return /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url);
+                  };
+
                   return (
                     <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
-                      <h3 className="text-[10px] font-black text-text-main uppercase tracking-widest mb-4 opacity-80 flex items-center gap-2">
-                        <Paperclip size={12} /> Attachments
-                      </h3>
-                      <div className="space-y-3">
-                        {evidenceUrls.map((url, idx) => {
-                          const fileName = url.split('/').pop()?.substring(0, 25) + '...';
-                          return (
-                          <a key={`ev-${idx}`} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors border border-emerald-100 dark:border-emerald-800/30 group">
-                             <ImageIcon size={14} className="text-emerald-500 shrink-0" />
-                             <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 truncate group-hover:text-[#137fec] transition-colors" title={url}>Evidence File {idx + 1}</span>
-                          </a>
-                        )})}
-                        {refDocs.map((url, idx) => {
-                          const fileName = url.split('/').pop()?.substring(0, 25) + '...';
-                          return (
-                          <a key={`ref-${idx}`} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors border border-blue-100 dark:border-blue-800/30 group">
-                             <FileText size={14} className="text-blue-500 shrink-0" />
-                             <span className="text-[10px] font-black text-blue-700 dark:text-blue-400 truncate group-hover:text-[#137fec] transition-colors" title={url}>Reference File {idx + 1}</span>
-                          </a>
-                        )})}
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="p-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-500">
+                          <Paperclip size={14} />
+                        </div>
+                        <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">
+                          Attachments
+                        </h2>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {/* Evidence Files */}
+                        {evidenceUrls.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {evidenceUrls.map((url, idx) => {
+                              const isImg = isImageFile(url);
+                              const fileName = url.split('/').pop()?.replace(/^\d+-/, '') || `Evidence ${idx + 1}`;
+                              
+                              return (
+                                <div key={`ev-${idx}`} className="group relative p-2 bg-emerald-50/30 dark:bg-emerald-900/10 rounded-xl border border-emerald-100/50 dark:border-emerald-900/30 hover:border-[#137fec]/30 transition-all">
+                                  {isImg ? (
+                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 border border-border-main mb-2">
+                                      <img src={url} alt={fileName} className="w-full h-full object-cover" />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
+                                        <button onClick={() => setPreviewImage(url)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all">
+                                          <Maximize2 size={16} />
+                                        </button>
+                                        <a href={url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all">
+                                          <ExternalLink size={16} />
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500 shrink-0">
+                                        <ImageIcon size={20} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 truncate uppercase tracking-widest">Evidence File</p>
+                                        <p className="text-[9px] font-bold text-text-muted truncate">{fileName}</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-1.5 bg-bg-card border border-border-main rounded-lg text-[9px] font-black text-[#137fec] uppercase tracking-widest hover:bg-blue-50 transition-all">
+                                    <Download size={10} /> Download
+                                  </a>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Reference Files */}
+                        {refDocs.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {refDocs.map((url, idx) => {
+                              const isImg = isImageFile(url);
+                              const fileName = url.split('/').pop()?.replace(/^\d+-/, '') || `Reference ${idx + 1}`;
+                              
+                              return (
+                                <div key={`ref-${idx}`} className="group relative p-2 bg-blue-50/30 dark:bg-blue-900/10 rounded-xl border border-blue-100/50 dark:border-blue-900/30 hover:border-[#137fec]/30 transition-all">
+                                  {isImg ? (
+                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 border border-border-main mb-2">
+                                      <img src={url} alt={fileName} className="w-full h-full object-cover" />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
+                                        <button onClick={() => setPreviewImage(url)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all">
+                                          <Maximize2 size={16} />
+                                        </button>
+                                        <a href={url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all">
+                                          <ExternalLink size={16} />
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 shrink-0">
+                                        <FileText size={20} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-black text-blue-700 dark:text-blue-400 truncate uppercase tracking-widest">Reference File</p>
+                                        <p className="text-[9px] font-bold text-text-muted truncate">{fileName}</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-1.5 bg-bg-card border border-border-main rounded-lg text-[9px] font-black text-[#137fec] uppercase tracking-widest hover:bg-blue-50 transition-all">
+                                    <Download size={10} /> Download
+                                  </a>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Voice Note */}
                         {voice && (
-                          <div className="p-2 rounded-lg bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/30">
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                              <div className="flex items-center gap-2">
+                          <div className="p-3.5 bg-purple-50/30 dark:bg-purple-900/10 rounded-2xl border border-purple-100/50 dark:border-purple-800/30 flex flex-col gap-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest">
                                 <Mic size={14} className="text-purple-500" />
-                                <span className="text-[10px] font-black text-purple-700 dark:text-purple-400">Voice Note</span>
+                                Voice Note
                               </div>
-                              <a href={voice} target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-600">
-                                <ExternalLink size={12} />
+                              <a href={voice} target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-600 p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-all">
+                                <Download size={14} />
                               </a>
                             </div>
                             <audio controls src={voice} className="w-full h-8" />
@@ -1531,6 +1674,47 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
           setIsDatePickerOpen(false);
         }}
       />
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center">
+            <button 
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
+            >
+              <X size={32} />
+            </button>
+            <img 
+              src={previewImage} 
+              alt="Preview" 
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="mt-4 flex gap-4">
+              <a 
+                href={previewImage} 
+                download 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white text-[11px] font-black uppercase tracking-widest rounded-full backdrop-blur-md transition-all flex items-center gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download size={16} /> Download
+              </a>
+              <button 
+                onClick={() => setPreviewImage(null)}
+                className="px-6 py-2 bg-[#137fec] hover:bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest rounded-full transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

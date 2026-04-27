@@ -11,6 +11,25 @@ import notificationService from '../../services/notificationService';
 
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+// Helper to format date as YYYY-MM-DD in local time
+const formatLocalDate = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Helper to display date string (YYYY-MM-DD) in short format (e.g., 30 APR)
+const displayLocalDate = (dateStr) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+};
+
 const normalizeIdArray = (value) => {
  if (value === undefined || value === null || value === '' || value === 'undefined' || value === 'null') return [];
  if (Array.isArray(value)) return value.map(v => parseInt(v)).filter(v => !isNaN(v));
@@ -102,7 +121,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  const [departmentSearch, setDepartmentSearch] = useState('');
  const [categorySearch, setCategorySearch] = useState('');
  const [categories, setCategories] = useState([]);
- const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+
 
  // Add Category Modal
  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
@@ -123,6 +142,10 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  const [tempSelectedDate, setTempSelectedDate] = useState(null);
  const [datePickerView, setDatePickerView] = useState('date'); // 'date' | 'time'
  const [tempSelectedTime, setTempSelectedTime] = useState({ hours: '12', minutes: '00', ampm: 'PM' });
+  const [typedHour, setTypedHour] = useState('12');
+  const [typedMin, setTypedMin] = useState('00');
+  
+ 
 
  // Checklist
  const [checklistExpanded, setChecklistExpanded] = useState(false);
@@ -153,7 +176,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  const [repeatEndDate, setRepeatEndDate] = useState('');
  const [weeklyDays, setWeeklyDays] = useState([]); // ['Monday', 'Tuesday', ...]
  const [selectedDates, setSelectedDates] = useState([]); // ['01', '15', ...]
- const [repeatStartDate, setRepeatStartDate] = useState(new Date().toISOString().split('T')[0]);
+ const [repeatStartDate, setRepeatStartDate] = useState(formatLocalDate(new Date()));
  const [repeatIntervalDays, setRepeatIntervalDays] = useState('1');
  const [occurEveryMode, setOccurEveryMode] = useState('Week'); // 'Week' | 'Month'
  const [customOccurValue, setCustomOccurValue] = useState('1');
@@ -168,7 +191,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  const mediaRecorderRef = useRef(null);
  const audioChunksRef = useRef([]);
  const [audioBlob, setAudioBlob] = useState(null);
-
+  
  useEffect(() => {
  let interval;
  if (voiceState === 'recording') {
@@ -181,11 +204,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  return () => clearInterval(interval);
  }, [voiceState]);
 
- const formatTime = (seconds) => {
- const m = Math.floor(seconds / 60).toString().padStart(2, '0');
- const s = (seconds % 60).toString().padStart(2, '0');
- return `${m}:${s}`;
- };
+ 
 
  useEffect(() => {
  if (isOpen) {
@@ -207,7 +226,25 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  setReminders(Array.isArray(parsedReminders) ? parsedReminders.map((r, idx) => ({ id: r.id || Date.now() + idx, ...r, timeValue: r.timeValue?.toString() || '10' })) : []);
  }
 
- if (initialData.referenceDocs && typeof initialData.referenceDocs === 'string') {
+   if (initialData.referenceDocs && typeof initialData.referenceDocs === 'string') {
+        const repeat = typeof initialData.repeatSettings === 'string' 
+          ? JSON.parse(initialData.repeatSettings) 
+          : (initialData.repeatSettings || {});
+        
+        setIsRepeat(repeat.isRepeat || initialData.isRepeat || false);
+        if (repeat.isRepeat || initialData.isRepeat) {
+          setRepeatMode(repeat.repeatFrequency || 'Daily');
+          setRepeatStartDate(repeat.repeatStartDate || formatLocalDate(new Date()));
+          setRepeatEndDate(repeat.repeatEndDate || '');
+          setRepeatIntervalDays(repeat.repeatIntervalDays?.toString() || '1');
+          setWeeklyDays(repeat.weeklyDays || []);
+          setSelectedDates(repeat.selectedDates || []);
+          setOccurEveryMode(repeat.occurEveryMode || 'Week');
+          setCustomOccurValue(repeat.customOccurValue?.toString() || '1');
+          setCustomOccurDays(repeat.customOccurDays || []);
+          setCustomOccurDates(repeat.customOccurDates || []);
+          setIsLastDayOfMonth(repeat.isLastDayOfMonth || false);
+        }
  setLinks(initialData.referenceDocs.split(',').filter(Boolean));
  } else if (initialData.reference_docs && typeof initialData.reference_docs === 'string') {
  setLinks(initialData.reference_docs.split(',').filter(Boolean));
@@ -216,17 +253,24 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  } else if (Array.isArray(initialData.reference_docs)) {
  setLinks(initialData.reference_docs);
  }
- } else {
- setFormData({ taskTitle: '', description: '', doerId: [], department: '', category: '', priority: 'Low', dueDate: null, evidenceRequired: false, inLoopIds: [], });
- setChecklistItems([]);
- setChecklistExpanded(false);
- }
- setError(null); setActiveDropdown(null); setActiveModal(null); setLinks([]); setNewLinkText('');
- setRepeatMode('Daily');
- setRepeatEndDate(''); setRepeatStartDate(new Date().toISOString().split('T')[0]); fetchHolidays();
- setRepeatIntervalDays('1'); setOccurEveryMode('Week'); setCustomOccurValue('1');
- setWeeklyDays([]); setSelectedDates([]); setCustomOccurDays([]); setCustomOccurDates([]);
- setVoiceState('idle'); setRecordingTime(0); setAudioBlob(null); audioChunksRef.current = [];
+       } else {
+        setFormData({ taskTitle: '', description: '', doerId: [], department: '', category: '', priority: 'Low', dueDate: null, evidenceRequired: false, inLoopIds: [], });
+        setChecklistItems([]);
+        setChecklistExpanded(false);
+        setRepeatMode('Daily');
+        setRepeatEndDate(''); 
+        setRepeatStartDate(formatLocalDate(new Date()));
+        setRepeatIntervalDays('1'); 
+        setOccurEveryMode('Week'); 
+        setCustomOccurValue('1');
+        setWeeklyDays([]); 
+        setSelectedDates([]); 
+        setCustomOccurDays([]); 
+        setCustomOccurDates([]);
+      }
+  setError(null); setActiveDropdown(null); setActiveModal(null); setLinks([]); setNewLinkText('');
+  fetchHolidays();
+  setVoiceState('idle'); setRecordingTime(0); setAudioBlob(null); audioChunksRef.current = [];
  setDepartmentSearch('');
  if (isMyTask && !initialData) {
  const storedUser = JSON.parse(localStorage.getItem('user'));
@@ -271,10 +315,10 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
 
  const fetchCategories = async () => {
  try {
- setIsLoadingCategories(true);
+ 
  const data = await delegationService.getCategories();
  setCategories(Array.isArray(data) ? data : (data.data || []));
- } catch (err) { console.error('Failed to fetch categories:', err); } finally { setIsLoadingCategories(false); }
+ } catch (err) { console.error('Failed to fetch categories:', err); }
  };
 
  const handleSaveCategory = async () => {
@@ -308,13 +352,33 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  setActiveModal(isClosing ? null : modal);
  if (modal === 'date') {
  setDateTarget(target); setDatePickerView('date');
- let initialDate = target === 'dueDate' ? formData.dueDate : (target === 'repeatStartDate' ? (repeatStartDate ? new Date(repeatStartDate) : new Date()) : (repeatEndDate ? new Date(repeatEndDate) : new Date()));
+ let initialDate;
+ if (target === 'dueDate') {
+ initialDate = formData.dueDate;
+ } else {
+ const dateStr = target === 'repeatStartDate' ? repeatStartDate : repeatEndDate;
+ if (dateStr && typeof dateStr === 'string' && dateStr.includes('-')) {
+ const [y, m, d] = dateStr.split('-').map(Number);
+ initialDate = new Date(y, m - 1, d);
+ } else {
+ initialDate = dateStr || new Date();
+ }
+ }
+
  if (initialDate && initialDate instanceof Date && !isNaN(initialDate)) {
  setTempSelectedDate(initialDate); setCurrentCalMonth(initialDate);
  let h = initialDate.getHours(); const m = initialDate.getMinutes().toString().padStart(2, '0');
  const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
- setTempSelectedTime({ hours: h.toString().padStart(2, '0'), minutes: m, ampm });
- } else { setTempSelectedDate(new Date()); setCurrentCalMonth(new Date()); setTempSelectedTime({ hours: '12', minutes: '00', ampm: 'PM' }); }
+ const hStr = h.toString().padStart(2, '0');
+ setTempSelectedTime({ hours: hStr, minutes: m, ampm });
+ setTypedHour(hStr); setTypedMin(m);
+ } else {
+ setTempSelectedDate(new Date());
+ setCurrentCalMonth(new Date());
+ setTempSelectedTime({ hours: '12', minutes: '00', ampm: 'PM' });
+ setTypedHour('12');
+ setTypedMin('00');
+ }
  }
  };
 
@@ -620,10 +684,10 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  </div>
 
  <button onClick={() => toggleModal('date', 'repeatStartDate')} className="flex items-center gap-3 px-5 py-2.5 bg-bg-card border-2 border-border-main rounded-2xl text-[11px] font-black text-text-muted uppercase tracking-widest shadow-sm hover:border-[#137fec]/30 transition-all">
- <CalendarIcon size={14} className="text-text-muted" /> {repeatStartDate ? new Date(repeatStartDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short' }) : 'Start Date'}
+ <CalendarIcon size={14} className="text-text-muted" /> {repeatStartDate ? displayLocalDate(repeatStartDate) : 'Start Date'}
  </button>
  <button onClick={() => toggleModal('date', 'repeatEndDate')} className="flex items-center gap-3 px-5 py-2.5 bg-bg-card border-2 border-border-main rounded-2xl text-[11px] font-black text-text-muted uppercase tracking-widest shadow-sm hover:border-[#137fec]/30 transition-all">
- <CalendarIcon size={14} className="text-text-muted" /> {repeatEndDate ? new Date(repeatEndDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short' }) : 'End Date'}
+ <CalendarIcon size={14} className="text-text-muted" /> {repeatEndDate ? displayLocalDate(repeatEndDate) : 'End Date'}
  </button>
  </>
  )}
@@ -735,7 +799,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  </div>
 
  {activeModal === 'date' && (
- <ActionModal title={`Select deadline`} onClose={() => setActiveModal(null)} onSave={() => { if (!tempSelectedDate) return; const finalDate = new Date(tempSelectedDate); if (dateTarget === 'dueDate') { let h = parseInt(tempSelectedTime.hours); if (tempSelectedTime.ampm === 'PM' && h < 12) h += 12; if (tempSelectedTime.ampm === 'AM' && h === 12) h = 0; finalDate.setHours(h, parseInt(tempSelectedTime.minutes), 0, 0); setFormData(prev => ({ ...prev, dueDate: finalDate })); } else if (dateTarget === 'repeatStartDate') setRepeatStartDate(finalDate.toISOString().split('T')[0]); else setRepeatEndDate(finalDate.toISOString().split('T')[0]); setActiveModal(null); }}>
+ <ActionModal title={`Select deadline`} onClose={() => setActiveModal(null)} onSave={() => { if (!tempSelectedDate) return; const finalDate = new Date(tempSelectedDate); if (dateTarget === 'dueDate') { let h = parseInt(tempSelectedTime.hours); if (tempSelectedTime.ampm === 'PM' && h < 12) h += 12; if (tempSelectedTime.ampm === 'AM' && h === 12) h = 0; finalDate.setHours(h, parseInt(tempSelectedTime.minutes), 0, 0); setFormData(prev => ({ ...prev, dueDate: finalDate })); } else if (dateTarget === 'repeatStartDate') setRepeatStartDate(formatLocalDate(finalDate)); else setRepeatEndDate(formatLocalDate(finalDate)); setActiveModal(null); }}>
  <div className="flex flex-col gap-6">
  {dateTarget === 'dueDate' && (
  <div className="flex bg-border-main p-1 rounded-2xl self-center">
@@ -758,27 +822,112 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  <div className="grid grid-cols-7 gap-1">
  {Array.from({ length: getFirstDayOfMonth(currentCalMonth.getFullYear(), currentCalMonth.getMonth()) }).map((_, i) => <div key={i} />)}
  {Array.from({ length: getDaysInMonth(currentCalMonth.getFullYear(), currentCalMonth.getMonth()) }).map((_, i) => {
- const d = i + 1; const dateObj = new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth(), d);
+ const d = i + 1;
+ const dateObj = new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth(), d);
+ const today = new Date();
+ today.setHours(0, 0, 0, 0);
+ const isPast = dateObj < today;
+
+ // Simple isSameDate implementation if not found
+ const isSameDate = (d1, d2) => d1 && d2 && d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+
  const isSelected = tempSelectedDate && isSameDate(tempSelectedDate, dateObj);
  const isToday = isSameDate(new Date(), dateObj);
- return <button key={d} onClick={() => setTempSelectedDate(dateObj)} className={`w-8 h-8 mx-auto rounded-lg text-[11px] font-black transition-all ${isSelected ? 'bg-[#137fec] text-white shadow-md' : isToday ? 'border-2 border-blue-100 text-[#137fec]' : 'text-text-main hover:bg-blue-50 dark:hover:bg-slate-800'}`}>{d}</button>
+
+ return (
+ <button
+ key={d}
+ onClick={() => !isPast && setTempSelectedDate(dateObj)}
+ disabled={isPast}
+ className={`w-8 h-8 mx-auto rounded-lg text-[11px] font-black transition-all 
+ ${isSelected ? 'bg-[#137fec] text-white shadow-md' : 
+ isPast ? 'text-text-muted/30 cursor-not-allowed' :
+ isToday ? 'border-2 border-blue-100 text-[#137fec]' : 
+ 'text-text-main hover:bg-blue-50 dark:hover:bg-slate-800'}`}
+ >
+ {d}
+ </button>
+ );
  })}
  </div>
  </div>
  ) : (
  <div className="flex items-center justify-center gap-6 py-6 font-black">
  <div className="flex items-center gap-4">
- <div className="flex flex-col items-center gap-1">
- <button onClick={() => { let h = parseInt(tempSelectedTime.hours); h = h >= 12 ? 1 : h + 1; setTempSelectedTime(p => ({ ...p, hours: h.toString().padStart(2, '0') })); }} className="text-text-muted hover:text-[#137fec]"><ChevronDown className="rotate-180" /></button>
- <div className="text-4xl text-text-main">{tempSelectedTime.hours}</div>
- <button onClick={() => { let h = parseInt(tempSelectedTime.hours); h = h <= 1 ? 12 : h - 1; setTempSelectedTime(p => ({ ...p, hours: h.toString().padStart(2, '0') })); }} className="text-text-muted hover:text-[#137fec]"><ChevronDown /></button>
+ {/* Hours */}
+ <div className="flex flex-col items-center gap-2">
+ <button onClick={() => {
+ let h = parseInt(tempSelectedTime.hours);
+ h = h >= 12 ? 1 : h + 1;
+ const val = h.toString().padStart(2, '0');
+ setTempSelectedTime(p => ({ ...p, hours: val }));
+ setTypedHour(val);
+ }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-[#137fec] hover:bg-blue-50 transition-all">
+ <ChevronDown size={24} className="rotate-180" strokeWidth={3} />
+ </button>
+ <input 
+ type="text"
+ value={typedHour}
+ onChange={(e) => {
+ const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+ if (val === '' || (parseInt(val, 10) >= 0 && parseInt(val, 10) <= 12)) setTypedHour(val);
+ const num = parseInt(val, 10);
+ if (num >= 1 && num <= 12) {
+ setTempSelectedTime(p => ({ ...p, hours: num.toString().padStart(2, '0') }));
+ }
+ }}
+ onBlur={() => setTypedHour(tempSelectedTime.hours)}
+ className="w-20 h-24 bg-bg-card border-2 border-border-main rounded-[2rem] flex items-center justify-center text-center text-4xl font-black text-text-main shadow-sm leading-none outline-none focus:border-[#137fec]/30 transition-all"
+ />
+ <button onClick={() => {
+ let h = parseInt(tempSelectedTime.hours);
+ h = h <= 1 ? 12 : h - 1;
+ const val = h.toString().padStart(2, '0');
+ setTempSelectedTime(p => ({ ...p, hours: val }));
+ setTypedHour(val);
+ }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-[#137fec] hover:bg-blue-50 transition-all">
+ <ChevronDown size={24} strokeWidth={3} />
+ </button>
  </div>
- <div className="text-4xl text-slate-200">:</div>
- <div className="flex flex-col items-center gap-1">
- <button onClick={() => { let m = parseInt(tempSelectedTime.minutes); m = m >= 59 ? 0 : m + 1; setTempSelectedTime(p => ({ ...p, minutes: m.toString().padStart(2, '0') })); }} className="text-text-muted hover:text-[#137fec]"><ChevronDown className="rotate-180" /></button>
- <div className="text-4xl text-text-main">{tempSelectedTime.minutes}</div>
- <button onClick={() => { let m = parseInt(tempSelectedTime.minutes); m = m <= 0 ? 59 : m - 1; setTempSelectedTime(p => ({ ...p, minutes: m.toString().padStart(2, '0') })); }} className="text-text-muted hover:text-[#137fec]"><ChevronDown /></button>
+
+ <div className="text-4xl font-black text-slate-200 mb-6">:</div>
+
+ {/* Minutes */}
+ <div className="flex flex-col items-center gap-2">
+ <button onClick={() => {
+ let m = parseInt(tempSelectedTime.minutes);
+ m = m >= 59 ? 0 : m + 1;
+ const val = m.toString().padStart(2, '0');
+ setTempSelectedTime(p => ({ ...p, minutes: val }));
+ setTypedMin(val);
+ }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-[#137fec] hover:bg-blue-50 transition-all">
+ <ChevronDown size={24} className="rotate-180" strokeWidth={3} />
+ </button>
+ <input 
+ type="text"
+ value={typedMin}
+ onChange={(e) => {
+ const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+ if (val === '' || (parseInt(val, 10) >= 0 && parseInt(val, 10) <= 59)) setTypedMin(val);
+ const num = parseInt(val, 10);
+ if (num >= 0 && num <= 59) {
+ setTempSelectedTime(p => ({ ...p, minutes: num.toString().padStart(2, '0') }));
+ }
+ }}
+ onBlur={() => setTypedMin(tempSelectedTime.minutes)}
+ className="w-20 h-24 bg-bg-card border-2 border-border-main rounded-[2rem] flex items-center justify-center text-center text-4xl font-black text-text-main shadow-sm leading-none outline-none focus:border-[#137fec]/30 transition-all"
+ />
+ <button onClick={() => {
+ let m = parseInt(tempSelectedTime.minutes);
+ m = m <= 0 ? 59 : m - 1;
+ const val = m.toString().padStart(2, '0');
+ setTempSelectedTime(p => ({ ...p, minutes: val }));
+ setTypedMin(val);
+ }} className="w-10 h-10 rounded-xl bg-bg-main flex items-center justify-center text-text-muted hover:text-[#137fec] hover:bg-blue-50 transition-all">
+ <ChevronDown size={24} strokeWidth={3} />
+ </button>
  </div>
+
  <div className="flex flex-col gap-2">
  {['AM', 'PM'].map(p => <button key={p} onClick={() => setTempSelectedTime(prev => ({ ...prev, ampm: p }))} className={`px-4 py-2 rounded-xl text-[12px] border-2 transition-all ${tempSelectedTime.ampm === p ? 'bg-[#137fec] border-[#137fec] text-white' : 'bg-bg-card border-border-main text-text-muted'}`}>{p}</button>)}
  </div>

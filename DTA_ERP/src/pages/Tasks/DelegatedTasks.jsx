@@ -467,6 +467,13 @@ const DelegatedTasks = () => {
                                         )}
                                     </div>
 
+                                    {/* Description */}
+                                    {task.description && (
+                                        <p className="text-[11px] font-medium text-text-muted leading-relaxed line-clamp-2 bg-bg-main/50 p-2.5 rounded-xl border border-border-main/50">
+                                            {task.description}
+                                        </p>
+                                    )}
+
                                     {/* Tags */}
                                     {(() => {
                                         try {
