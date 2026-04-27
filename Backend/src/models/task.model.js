@@ -1,8 +1,17 @@
 const { pool } = require('../config/db.config');
 
 const createTaskTable = async () => {
-    // Table is now created via migration script
-    console.log('Task table and schema enhancements ensured via migration');
+    // Auto-migrate actioned fields
+    try {
+        await pool.query(`
+            ALTER TABLE tasks 
+            ADD COLUMN IF NOT EXISTS actioned_by_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS actioned_at TIMESTAMP;
+        `);
+        console.log('Action tracking migration applied automatically');
+    } catch (err) {
+        console.error('Error applying action tracking migration', err);
+    }
 };
 
 class Task {
@@ -38,7 +47,10 @@ class Task {
                 t.created_at AS "createdAt",
                 t.completed_at AS "completedAt",
                 t.remarks,
-                t.revision_count AS "revisionCount"
+                t.revision_count AS "revisionCount",
+                t.approval_status AS "approvalStatus",
+                t.actioned_by_name AS "actionedByName",
+                t.actioned_at AS "actionedAt"
             FROM tasks t
             LEFT JOIN employees e_doer ON t.doer_id = e_doer.user_id
             LEFT JOIN employees e_del ON t.delegator_id = e_del.user_id
@@ -52,8 +64,8 @@ class Task {
                 doer_id, doer_name, department, priority, due_date, 
                 voice_note_url, reference_docs, evidence_required,
                 status, category, tags, checklist, repeat_settings,
-                in_loop_ids, group_id, parent_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) 
+                in_loop_ids, group_id, parent_id, approval_status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) 
             RETURNING *`;
 
         const values = [
@@ -76,7 +88,8 @@ class Task {
             JSON.stringify(data.repeat_settings || {}),
             data.in_loop_ids || [],
             data.group_id || null,
-            data.parent_id || null
+            data.parent_id || null,
+            data.approval_status || 'PENDING'
         ];
 
         const result = await client.query(query, values);
@@ -199,6 +212,18 @@ class Task {
         const query = `${this.BASE_QUERY} WHERE t.parent_id = $1 AND t.deleted_at IS NULL ORDER BY t.created_at ASC`;
         const result = await pool.query(query, [parentId]);
         return result.rows;
+    }
+
+    static async getApprovalsByStatus(status) {
+        const query = `${this.BASE_QUERY} WHERE t.approval_status = $1 AND t.deleted_at IS NULL ORDER BY t.created_at DESC`;
+        const result = await pool.query(query, [status]);
+        return result.rows;
+    }
+
+    static async updateApprovalStatus(id, status, actionedByName = null, client = pool) {
+        const query = `UPDATE tasks SET approval_status = $1, actioned_by_name = $2, actioned_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *`;
+        const result = await client.query(query, [status, actionedByName, id]);
+        return result.rows[0];
     }
 }
 

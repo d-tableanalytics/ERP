@@ -3,7 +3,7 @@ import {
     Search, Plus, Filter, FileUp, List, Layout,
     Calendar as CalendarIcon, ChevronDown, Clock,
     AlertCircle, CheckCircle2, PlayCircle, Folder,
-    Flag, User, MoreVertical, CheckSquare, Tag, RotateCcw, X
+    Flag, User, MoreVertical, CheckSquare, Tag, RotateCcw, 
 } from 'lucide-react';
 import delegationService from '../../services/delegationService';
 import taskService from '../../services/taskService';
@@ -16,7 +16,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import { useSelector } from 'react-redux';
 import FilterChip from '../../components/tasks/FilterChip';
-import { getDateRangeFilter, calculateTaskStatus, taskMatchesStatus } from '../../utils/taskFilters';
+import { getDateRangeFilter, taskMatchesStatus } from '../../utils/taskFilters';
 import { exportTasksToCSV, getStatusBadgeClass } from '../../utils/formatters';
 
 // ── Date range helper and FilterChip imported from shared modules ──────────
@@ -51,8 +51,6 @@ const DelegatedTasks = () => {
     const [showDetails, setShowDetails] = useState(false);
 
     const filterPanelRef = useRef(null);
-    const currentUser = useSelector((state) => state.auth.user);
-    const currentUserId = currentUser?.id;
 
     useEffect(() => {
         fetchAllData();
@@ -159,7 +157,7 @@ const DelegatedTasks = () => {
                 {canCreateTask && (
                     <button 
                         onClick={() => setShowTaskDrawer(true)}
-                        className="flex items-center gap-2 px-5 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all active:scale-95 shadow-sm"
+                        className="flex items-center gap-2 px-5 h-11 bg-primary hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all active:scale-95 shadow-sm"
                     >
                         <div className="p-0.5 bg-white/20 rounded-md"><CheckSquare size={16} strokeWidth={3} /></div>
                         Assign Task
@@ -174,7 +172,7 @@ const DelegatedTasks = () => {
                             value={dateRange}
                             onChange={(e) => setDateRange(e.target.value)}
                             
-                            className="w-full h-11 bg-bg-card border border-[#137fec] dark:border-slate-800 rounded-lg pl-3 pr-8 text-sm font-bold text-text-main outline-none appearance-none cursor-pointer shadow-sm"
+                            className="w-full h-11 bg-bg-card border border-primary dark:border-slate-800 rounded-lg pl-3 pr-8 text-sm font-bold text-text-main outline-none appearance-none cursor-pointer shadow-sm"
                         >
                             <option value="All Time">All Time</option>
                             <option value="Today">Today</option>
@@ -195,8 +193,8 @@ const DelegatedTasks = () => {
                     <>
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-black text-slate-400 uppercase ml-1">Start Date</span>
-                            <div className="relative border border-[#137fec] dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-bg-card min-w-[130px]">
-                                <CalendarIcon size={14} className="text-[#137fec] shrink-0" />
+                            <div className="relative border border-primary dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-bg-card min-w-[130px]">
+                                <CalendarIcon size={14} className="text-primary shrink-0" />
                                 <div className="flex flex-col flex-1">
                                     <span className="text-[8px] font-bold text-slate-400 leading-none">Start</span>
                                     <input 
@@ -211,8 +209,8 @@ const DelegatedTasks = () => {
                         </div>
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-black text-slate-400 uppercase ml-1">End Date</span>
-                            <div className="relative border border-[#137fec] dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-bg-card min-w-[130px]">
-                                <CalendarIcon size={14} className="text-[#137fec] shrink-0" />
+                            <div className="relative border border-primary dark:border-slate-800 rounded-lg h-11 flex items-center px-2.5 gap-1.5 bg-bg-card min-w-[130px]">
+                                <CalendarIcon size={14} className="text-primary shrink-0" />
                                 <div className="flex flex-col flex-1">
                                     <span className="text-[8px] font-bold text-slate-400 leading-none">End</span>
                                     <input 
@@ -233,12 +231,12 @@ const DelegatedTasks = () => {
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 invisible">Filter</span>
                     <button 
                         onClick={() => setShowFilters(v => !v)}
-                        className={`flex items-center gap-2 px-5 h-11 rounded-lg font-bold text-sm transition-all shadow-sm ${showFilters ? 'bg-slate-800 dark:bg-slate-700 text-white' : 'bg-[#137fec] hover:bg-[#106bc7] text-white'}`}
+                        className={`flex items-center gap-2 px-5 h-11 rounded-lg font-bold text-sm transition-all shadow-sm ${showFilters ? 'bg-slate-800 dark:bg-slate-700 text-white' : 'bg-primary hover:bg-[#106bc7] text-white'}`}
                     >
                         <Filter size={18} />
                         Filter
                         {activeFilterCount > 0 && (
-                            <span className="bg-white text-[#137fec] text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center border border-white dark:border-slate-700/50 shadow-sm">
+                            <span className="bg-white text-primary text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center border border-white dark:border-slate-700/50 shadow-sm">
                                 {activeFilterCount}
                             </span>
                         )}
@@ -248,7 +246,7 @@ const DelegatedTasks = () => {
                         <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-bg-card border border-border-main rounded-xl shadow-2xl p-4 flex flex-col gap-4 min-w-[240px] animate-in slide-in-from-top-2 duration-200">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-black text-text-main uppercase tracking-widest">Filters</span>
-                                <button onClick={handleClearFilters} className="text-[10px] font-bold text-[#137fec] hover:underline">Clear All</button>
+                                <button onClick={handleClearFilters} className="text-[10px] font-bold text-primary hover:underline">Clear All</button>
                             </div>
 
                             <div className="flex flex-col gap-1">
@@ -299,7 +297,7 @@ const DelegatedTasks = () => {
                             placeholder="Search tasks..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full h-11 pl-10 pr-4 bg-bg-card border border-border-main rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#137fec]/20 text-text-main"
+                            className="w-full h-11 pl-10 pr-4 bg-bg-card border border-border-main rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 text-text-main"
                         />
                     </div>
                 </div>
@@ -307,7 +305,7 @@ const DelegatedTasks = () => {
                 {/* Clear */}
                 <button
                     onClick={handleClearFilters}
-                    className="h-11 w-11 flex items-center justify-center bg-[#137fec] text-white rounded-lg hover:bg-[#106bc7] transition-all shadow-sm active:scale-95"
+                    className="h-11 w-11 flex items-center justify-center bg-primary text-white rounded-lg hover:bg-[#106bc7] transition-all shadow-sm active:scale-95"
                     title="Clear Filters"
                 >
                     <RotateCcw size={18} strokeWidth={3} />
@@ -319,7 +317,7 @@ const DelegatedTasks = () => {
                         exportTasksToCSV(filteredTasks, 'delegated-tasks', (msg) => toast.error(msg));
                         if (filteredTasks.length > 0) toast.success(`Exported ${filteredTasks.length} tasks`);
                     }}
-                    className="flex items-center gap-2 px-4 h-11 bg-[#137fec] hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm active:scale-95"
+                    className="flex items-center gap-2 px-4 h-11 bg-primary hover:bg-[#106bc7] text-white rounded-lg font-bold text-sm transition-all shadow-sm active:scale-95"
                 >
                     <FileUp size={18} />
                     Export
@@ -331,13 +329,13 @@ const DelegatedTasks = () => {
                         { mode: 'List', icon: List },
                         { mode: 'Kanban', icon: Layout },
                         { mode: 'Calendar', icon: CalendarIcon }
-                    ].map(({ mode, icon: Icon }) => (
+                    ].map((item) => (
                         <button 
-                            key={mode}
-                            onClick={() => setViewMode(mode)}
-                            className={`p-2 rounded-md transition-all ${viewMode === mode ? 'bg-[#137fec] text-white shadow-sm' : 'text-slate-400 hover:bg-bg-main'}`}
+                            key={item.mode}
+                            onClick={() => setViewMode(item.mode)}
+                            className={`p-2 rounded-md transition-all ${viewMode === item.mode ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:bg-bg-main'}`}
                         >
-                            <Icon size={18} />
+                            <item.icon size={18} />
                         </button>
                     ))}
                 </div>
@@ -351,7 +349,7 @@ const DelegatedTasks = () => {
                         { label: 'Overdue', dotClass: 'bg-red-500', key: 'Overdue' },
                         { label: 'Pending', dotClass: 'border-2 border-slate-400 bg-transparent', key: 'Pending' },
                         { label: 'In Progress', dotClass: 'bg-orange-500', key: 'In Progress' },
-                        { label: 'Completed', dotClass: 'bg-[#137fec]', key: 'Completed' },
+                        { label: 'Completed', dotClass: 'bg-primary', key: 'Completed' },
                         { label: 'Hold', dotClass: 'bg-amber-500', key: 'Hold' },
                         { label: 'Revision', dotClass: 'bg-indigo-500', key: 'Need Revision' },
                     ].map((tab) => (
@@ -384,7 +382,7 @@ const DelegatedTasks = () => {
             <div className="max-w-7xl mx-auto space-y-3 pb-20">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-4">
-                        <div className="w-12 h-12 border-4 border-[#137fec] border-t-transparent rounded-full animate-spin" />
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                         <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Loading Tasks...</p>
                     </div>
                 ) : filteredTasks.length === 0 ? (
@@ -394,7 +392,7 @@ const DelegatedTasks = () => {
                         </div>
                         <h3 className="text-xl font-black text-text-main mb-2">No Tasks Found</h3>
                         <p className="text-slate-500 font-medium">Try changing your filters or date range</p>
-                        <button onClick={handleClearFilters} className="mt-4 px-4 py-2 bg-[#137fec] text-white rounded-lg text-sm font-bold hover:bg-[#106bc7] transition-all shadow-sm active:scale-95">
+                        <button onClick={handleClearFilters} className="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-[#106bc7] transition-all shadow-sm active:scale-95">
                             Clear Filters
                         </button>
                     </div>
@@ -408,8 +406,8 @@ const DelegatedTasks = () => {
                                 className="p-4 flex items-center gap-4 cursor-pointer"
                                 onClick={() => toggleTaskExpansion(task.id)}
                             >
-                                <input type="checkbox" className="w-5 h-5 rounded border-slate-300 accent-[#137fec]" onClick={e => e.stopPropagation()} />
-                                <div className="w-10 h-10 rounded-full bg-[#137fec]/10 dark:bg-blue-900/30 text-[#137fec] dark:text-blue-400 flex items-center justify-center font-bold relative shrink-0">
+                                <input type="checkbox" className="w-5 h-5 rounded border-slate-300 accent-primary" onClick={e => e.stopPropagation()} />
+                                <div className="w-10 h-10 rounded-full bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 flex items-center justify-center font-bold relative shrink-0">
                                     <div className="absolute inset-0 rounded-full border-2 border-sky-400 dark:border-blue-800 opacity-50" />
                                     {getInitials(task.doerFirstName, task.doerLastName)}
                                 </div>
@@ -432,7 +430,7 @@ const DelegatedTasks = () => {
                                         <span className="text-[11px] font-black text-slate-400 whitespace-nowrap">{formatTimeAgo(task.createdAt)}</span>
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); setSelectedTaskId(task.id); setShowDetails(true); }}
-                                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-[#137fec] dark:hover:text-blue-400 transition-all"
+                                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-primary dark:hover:text-blue-400 transition-all"
                                             title="View Details"
                                         >
                                             <MoreVertical size={18} />
@@ -493,7 +491,7 @@ const DelegatedTasks = () => {
                                                     ))}
                                                 </div>
                                             );
-                                        } catch (e) { return null; }
+                                        } catch (_e) { return null; }
                                     })()}
                                 </div>
                             )}

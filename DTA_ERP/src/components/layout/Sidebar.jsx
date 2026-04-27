@@ -14,48 +14,64 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
   /* ================= MENU STRUCTURE ================= */
 
   const menuItems = useMemo(
-    () => [
-      { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
-      { icon: "assignment_ind", label: "Delegation", path: "/delegation" },
-      { icon: "check_box", label: "Checklist", path: "/checklist" },
-      {
-        icon: "task_alt",
-        label: "Tasks",
-        children: [
-          { icon: "task_alt",               label: "My Tasks",         path: "/tasks/my-tasks"         },
-          { icon: "send",                   label: "Delegated Tasks",  path: "/tasks/delegated-tasks"  },
-          { icon: "notifications_active",   label: "Subscribed Tasks", path: "/tasks/subscribed-tasks" },
-          { icon: "layers",                 label: "All Tasks",        path: "/tasks/all-tasks"        },
-          { icon: "delete_sweep",           label: "Deleted Tasks",    path: "/tasks/deleted-tasks"    },
-        ],
-      },
-     
-      { icon: "checklist", label: "TODO", path: "/todo" },
-      {
-        icon: "score",
-        label: "Scoring",
-        children: [
-          { icon: "assignment_ind", label: "Delegation", path: "/score" },
-          {
-            icon: "analytics",
-            label: "Combined MIS Score",
-            path: "/combined-mis",
-          },
-        ],
-      },
-      {
-        icon: "folder_open",
-        label: "FMS",
-        children: [
-          { icon: "orders", label: "O2D FMS", path: "/o2d-fms" },
-          { icon: "support_agent", label: "Help Ticket", path: "/help" },
-        ],
-      },
+    () => {
+      const items = [
+        { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
+        { icon: "assignment_ind", label: "Delegation", path: "/delegation" },
+        { icon: "check_box", label: "Checklist", path: "/checklist" },
+        {
+          icon: "task_alt",
+          label: "Tasks",
+          children: [
+            { icon: "task_alt",               label: "My Tasks",         path: "/tasks/my-tasks"         },
+            { icon: "send",                   label: "Delegated Tasks",  path: "/tasks/delegated-tasks"  },
+            { icon: "notifications_active",   label: "Subscribed Tasks", path: "/tasks/subscribed-tasks" },
+            { icon: "layers",                 label: "All Tasks",        path: "/tasks/all-tasks"        },
+            { icon: "delete_sweep",           label: "Deleted Tasks",    path: "/tasks/deleted-tasks"    },
+          ],
+        },
+       
+        { icon: "checklist", label: "TODO", path: "/todo" },
+        {
+          icon: "score",
+          label: "Scoring",
+          children: [
+            { icon: "assignment_ind", label: "Delegation", path: "/score" },
+            {
+              icon: "analytics",
+              label: "Combined MIS Score",
+              path: "/combined-mis",
+            },
+          ],
+        },
+        {
+          icon: "folder_open",
+          label: "FMS",
+          children: [
+            { icon: "orders", label: "O2D FMS", path: "/o2d-fms" },
+            { icon: "support_agent", label: "Help Ticket", path: "/help" },
+          ],
+        },
+  
+        { icon: "inventory_2", label: "IMS", path: "/ims" },
+        { icon: "person", label: "Profile", path: "/profile" },
+      ];
 
-      { icon: "inventory_2", label: "IMS", path: "/ims" },
-      { icon: "person", label: "Profile", path: "/profile" },
-    ],
-    [],
+      // Insert Approval Requests for Admin/SuperAdmin
+      if (user?.role === 'Admin' || user?.role === 'SuperAdmin') {
+        const tasksMenu = items.find(item => item.label === 'Tasks');
+        if (tasksMenu && tasksMenu.children) {
+          tasksMenu.children.push({
+            icon: "verified_user",
+            label: "Approval Requests",
+            path: "/tasks/approvals"
+          });
+        }
+      }
+
+      return items;
+    },
+    [user?.role],
   );
 
 

@@ -30,6 +30,16 @@ router.get('/all', taskController.getAllTasks);
 // GET /api/tasks/deleted - View tasks in the recycle bin
 router.get('/deleted', taskController.getDeletedTasks);
 
+// -------------------------
+// APPROVAL WORKFLOW ROUTES
+// -------------------------
+router.get('/approvals/pending', authorize('SuperAdmin', 'Admin'), taskController.getPendingApprovals);
+router.get('/approvals/approved', authorize('SuperAdmin', 'Admin'), taskController.getApprovedTasks);
+router.get('/approvals/rejected', authorize('SuperAdmin', 'Admin'), taskController.getRejectedTasks);
+router.patch('/:id/approve', authorize('SuperAdmin', 'Admin'), taskController.approveTask);
+router.patch('/:id/reject', authorize('SuperAdmin', 'Admin'), taskController.rejectTask);
+
+
 // GET /api/tasks/:id - Task detail
 router.get('/:id', taskController.getTaskById);
 

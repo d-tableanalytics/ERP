@@ -1469,111 +1469,123 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
 
                   return (
                     <div className="bg-bg-card rounded-2xl border border-border-main p-4.5 shadow-sm">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="p-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-500">
-                          <Paperclip size={14} />
+                      <div className="flex items-center gap-3 mb-5 border-b border-border-main/50 pb-3">
+                        <div className="p-2 bg-gradient-to-br from-indigo-500 to-[#137fec] rounded-xl text-white shadow-md shadow-indigo-500/20">
+                          <Paperclip size={16} strokeWidth={2.5} />
                         </div>
-                        <h2 className="text-[10px] font-black text-text-main uppercase tracking-widest opacity-80">
-                          Attachments
-                        </h2>
+                        <div>
+                          <h2 className="text-xs font-black text-text-main uppercase tracking-widest">
+                            Attachments
+                          </h2>
+                          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Files and evidences linked to this task</p>
+                        </div>
                       </div>
                       
-                      <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Evidence Files */}
-                        {evidenceUrls.length > 0 && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {evidenceUrls.map((url, idx) => {
-                              const isImg = isImageFile(url);
-                              const fileName = url.split('/').pop()?.replace(/^\d+-/, '') || `Evidence ${idx + 1}`;
-                              
-                              return (
-                                <div key={`ev-${idx}`} className="group relative p-2 bg-emerald-50/30 dark:bg-emerald-900/10 rounded-xl border border-emerald-100/50 dark:border-emerald-900/30 hover:border-[#137fec]/30 transition-all">
-                                  {isImg ? (
-                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 border border-border-main mb-2">
-                                      <img src={url} alt={fileName} className="w-full h-full object-cover" />
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
-                                        <button onClick={() => setPreviewImage(url)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all">
-                                          <Maximize2 size={16} />
-                                        </button>
-                                        <a href={url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all">
-                                          <ExternalLink size={16} />
-                                        </a>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500 shrink-0">
-                                        <ImageIcon size={20} />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 truncate uppercase tracking-widest">Evidence File</p>
-                                        <p className="text-[9px] font-bold text-text-muted truncate">{fileName}</p>
-                                      </div>
-                                    </div>
-                                  )}
-                                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-1.5 bg-bg-card border border-border-main rounded-lg text-[9px] font-black text-[#137fec] uppercase tracking-widest hover:bg-blue-50 transition-all">
-                                    <Download size={10} /> Download
-                                  </a>
+                        {evidenceUrls.length > 0 && evidenceUrls.map((url, idx) => {
+                          const isImg = isImageFile(url);
+                          const fileName = url.split('/').pop()?.replace(/^\d+-/, '') || `Evidence ${idx + 1}`;
+                          
+                          return (
+                            <div key={`ev-${idx}`} className="group relative overflow-hidden bg-bg-card rounded-2xl border border-border-main hover:border-[#137fec]/40 hover:shadow-xl hover:shadow-[#137fec]/10 transition-all duration-300 flex flex-col">
+                              {isImg ? (
+                                <div className="relative h-32 w-full bg-slate-100 dark:bg-slate-800 border-b border-border-main overflow-hidden shrink-0">
+                                  <img src={url} alt={fileName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3 backdrop-blur-sm">
+                                    <button onClick={() => setPreviewImage(url)} className="p-2.5 bg-white/20 hover:bg-white text-white hover:text-black rounded-full transition-all transform translate-y-4 group-hover:translate-y-0 shadow-lg" title="Preview">
+                                      <Maximize2 size={16} />
+                                    </button>
+                                    <a href={url} target="_blank" rel="noopener noreferrer" className="p-2.5 bg-white/20 hover:bg-[#137fec] text-white rounded-full transition-all transform translate-y-4 group-hover:translate-y-0 shadow-lg delay-75" title="Open in new tab">
+                                      <ExternalLink size={16} />
+                                    </a>
+                                  </div>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                              ) : (
+                                <div className="p-5 flex items-center justify-center bg-emerald-50/50 dark:bg-emerald-900/10 border-b border-border-main shrink-0 h-32">
+                                  <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-500 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                                    <ImageIcon size={28} strokeWidth={2} />
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="p-3.5 bg-bg-card flex flex-col gap-3 flex-1 justify-between">
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Evidence
+                                  </span>
+                                  <p className="text-xs font-bold text-text-main truncate" title={fileName}>{fileName}</p>
+                                </div>
+                                <a href={url} download target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-[#137fec] hover:text-white text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                  <Download size={14} /> Download
+                                </a>
+                              </div>
+                            </div>
+                          );
+                        })}
 
                         {/* Reference Files */}
-                        {refDocs.length > 0 && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {refDocs.map((url, idx) => {
-                              const isImg = isImageFile(url);
-                              const fileName = url.split('/').pop()?.replace(/^\d+-/, '') || `Reference ${idx + 1}`;
-                              
-                              return (
-                                <div key={`ref-${idx}`} className="group relative p-2 bg-blue-50/30 dark:bg-blue-900/10 rounded-xl border border-blue-100/50 dark:border-blue-900/30 hover:border-[#137fec]/30 transition-all">
-                                  {isImg ? (
-                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 border border-border-main mb-2">
-                                      <img src={url} alt={fileName} className="w-full h-full object-cover" />
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
-                                        <button onClick={() => setPreviewImage(url)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all">
-                                          <Maximize2 size={16} />
-                                        </button>
-                                        <a href={url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-all">
-                                          <ExternalLink size={16} />
-                                        </a>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 shrink-0">
-                                        <FileText size={20} />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black text-blue-700 dark:text-blue-400 truncate uppercase tracking-widest">Reference File</p>
-                                        <p className="text-[9px] font-bold text-text-muted truncate">{fileName}</p>
-                                      </div>
-                                    </div>
-                                  )}
-                                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 py-1.5 bg-bg-card border border-border-main rounded-lg text-[9px] font-black text-[#137fec] uppercase tracking-widest hover:bg-blue-50 transition-all">
-                                    <Download size={10} /> Download
-                                  </a>
+                        {refDocs.length > 0 && refDocs.map((url, idx) => {
+                          const isImg = isImageFile(url);
+                          const fileName = url.split('/').pop()?.replace(/^\d+-/, '') || `Reference ${idx + 1}`;
+                          
+                          return (
+                            <div key={`ref-${idx}`} className="group relative overflow-hidden bg-bg-card rounded-2xl border border-border-main hover:border-[#137fec]/40 hover:shadow-xl hover:shadow-[#137fec]/10 transition-all duration-300 flex flex-col">
+                              {isImg ? (
+                                <div className="relative h-32 w-full bg-slate-100 dark:bg-slate-800 border-b border-border-main overflow-hidden shrink-0">
+                                  <img src={url} alt={fileName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3 backdrop-blur-sm">
+                                    <button onClick={() => setPreviewImage(url)} className="p-2.5 bg-white/20 hover:bg-white text-white hover:text-black rounded-full transition-all transform translate-y-4 group-hover:translate-y-0 shadow-lg" title="Preview">
+                                      <Maximize2 size={16} />
+                                    </button>
+                                    <a href={url} target="_blank" rel="noopener noreferrer" className="p-2.5 bg-white/20 hover:bg-[#137fec] text-white rounded-full transition-all transform translate-y-4 group-hover:translate-y-0 shadow-lg delay-75" title="Open in new tab">
+                                      <ExternalLink size={16} />
+                                    </a>
+                                  </div>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                              ) : (
+                                <div className="p-5 flex items-center justify-center bg-blue-50/50 dark:bg-blue-900/10 border-b border-border-main shrink-0 h-32">
+                                  <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-500 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                                    <FileText size={28} strokeWidth={2} />
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="p-3.5 bg-bg-card flex flex-col gap-3 flex-1 justify-between">
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Reference
+                                  </span>
+                                  <p className="text-xs font-bold text-text-main truncate" title={fileName}>{fileName}</p>
+                                </div>
+                                <a href={url} download target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-[#137fec] hover:text-white text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                  <Download size={14} /> Download
+                                </a>
+                              </div>
+                            </div>
+                          );
+                        })}
 
                         {/* Voice Note */}
                         {voice && (
-                          <div className="p-3.5 bg-purple-50/30 dark:bg-purple-900/10 rounded-2xl border border-purple-100/50 dark:border-purple-800/30 flex flex-col gap-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                                <Mic size={14} className="text-purple-500" />
-                                Voice Note
+                          <div className="group relative overflow-hidden bg-bg-card rounded-2xl border border-border-main hover:border-purple-500/40 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 flex flex-col md:col-span-full">
+                            <div className="p-5 flex items-center gap-4 bg-gradient-to-r from-purple-50/50 to-bg-card dark:from-purple-900/10 dark:to-bg-card">
+                              <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shadow-inner group-hover:scale-110 transition-transform duration-300 shrink-0">
+                                <Mic size={24} strokeWidth={2} />
                               </div>
-                              <a href={voice} target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-600 p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-all">
-                                <Download size={14} />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[9px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Voice Note
+                                </span>
+                                <p className="text-xs font-bold text-text-main truncate">Audio Recording</p>
+                              </div>
+                              <a href={voice} download target="_blank" rel="noopener noreferrer" className="shrink-0 flex items-center justify-center gap-2 p-3 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-600 text-purple-600 hover:text-white rounded-xl transition-all" title="Download Voice Note">
+                                <Download size={16} />
                               </a>
                             </div>
-                            <audio controls src={voice} className="w-full h-8" />
+                            <div className="px-4 pb-4">
+                              <audio controls src={voice} className="w-full h-10 custom-audio-player rounded-xl" />
+                            </div>
                           </div>
                         )}
                       </div>

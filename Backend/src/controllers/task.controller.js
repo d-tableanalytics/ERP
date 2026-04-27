@@ -222,6 +222,12 @@ exports.updateTask = async (req, res) => {
                 updates.revision_count = (existingTask.revisionCount || 0) + 1;
                 if (updates.status.toLowerCase() === 'completed') {
                     updates.completed_at = new Date();
+                    const userRole = req.user.role || req.header('role');
+                    if (userRole !== 'Admin' && userRole !== 'SuperAdmin') {
+                        updates.approval_status = 'PENDING';
+                    } else {
+                        updates.approval_status = 'APPROVED';
+                    }
                 }
             }
         }
@@ -261,6 +267,7 @@ exports.updateTask = async (req, res) => {
         if (updates.evidence_url) backendUpdates.evidence_url = updates.evidence_url;
         if (updates.completed_at) backendUpdates.completed_at = updates.completed_at;
         if (updates.revision_count !== undefined) backendUpdates.revision_count = updates.revision_count;
+        if (updates.approval_status) backendUpdates.approval_status = updates.approval_status;
 
         const client = await db.pool.connect();
         try {
@@ -332,9 +339,127 @@ exports.addTaskRemark = async (req, res) => {
         res.status(201).json({ success: true, data: newRemark });
     } catch (err) {
         console.error('Error in addTaskRemark:', err);
-        return res.status(500).json({ success: false, message: 'Error adding task remark' });
+        return res.status(500).json({ success: false, message: 'Error adding remark' });
     }
 };
+
+// -------------------------
+// APPROVAL WORKFLOW
+// -------------------------
+
+exports.getPendingApprovals = async (req, res) => {
+    try {
+        const tasks = await Task.getApprovalsByStatus('PENDING');
+        res.status(200).json({ success: true, data: tasks });
+    } catch (err) {
+        console.error('Error fetching pending approvals:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+exports.getApprovedTasks = async (req, res) => {
+    try {
+        const tasks = await Task.getApprovalsByStatus('APPROVED');
+        res.status(200).json({ success: true, data: tasks });
+    } catch (err) {
+        console.error('Error fetching approved tasks:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+exports.getRejectedTasks = async (req, res) => {
+    try {
+        const tasks = await Task.getApprovalsByStatus('REJECTED');
+        res.status(200).json({ success: true, data: tasks });
+    } catch (err) {
+        console.error('Error fetching rejected tasks:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+exports.approveTask = async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id || req.user.User_Id;
+
+    try {
+        // Fetch actual user name from DB since token might not have it
+        const userResult = await db.query('SELECT first_name, last_name FROM employees WHERE user_id = $1', [userId]);
+        const userName = userResult.rows.length > 0 ? `${userResult.rows[0].first_name} ${userResult.rows[0].last_name}` : 'Admin';
+
+        const updatedTask = await Task.updateApprovalStatus(id, 'APPROVED', userName);
+        if (!updatedTask) {
+            return res.status(404).json({ success: false, message: 'Task not found' });
+        }
+
+        // Fetch full task details for rich notification payload
+        const fullTask = await Task.findById(id);
+
+        // Notify Doer
+        await notifyUser('TASK_APPROVED', {
+            ...fullTask,
+            triggeredById: userId,
+            changedBy: userName
+        });
+
+        res.status(200).json({ success: true, data: updatedTask, message: 'Task approved successfully' });
+    } catch (err) {
+        console.error('Error approving task:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+exports.rejectTask = async (req, res) => {
+    const { id } = req.params;
+    const { remark } = req.body;
+    const userId = req.user.id || req.user.User_Id;
+
+    try {
+        // Fetch actual user name from DB since token might not have it
+        const userResult = await db.query('SELECT first_name, last_name FROM employees WHERE user_id = $1', [userId]);
+        const userName = userResult.rows.length > 0 ? `${userResult.rows[0].first_name} ${userResult.rows[0].last_name}` : 'Admin';
+
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            const updatedTask = await Task.updateApprovalStatus(id, 'REJECTED', userName, client);
+            
+            // Add comment/remark if provided
+            if (remark) {
+                await Task.addRemark(id, userId, userName, remark, client);
+            }
+            
+            // Optionally reset status to Pending or leave it as COMPLETED but REJECTED
+            // We'll revert status to 'Pending' so the employee has to work on it again.
+            await Task.update(id, { status: 'Pending' }, client);
+
+            await client.query('COMMIT');
+
+            // Fetch full task details for rich notification payload
+            const fullTask = await Task.findById(id);
+
+            // Notify Doer
+            await notifyUser('TASK_REJECTED', {
+                ...fullTask,
+                status: 'Pending',
+                triggeredById: userId,
+                changedBy: userName,
+                remark
+            });
+
+            res.status(200).json({ success: true, data: { ...updatedTask, status: 'Pending' }, message: 'Task rejected' });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error rejecting task:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 
 // 11. Subscribe to Task
 exports.subscribeToTask = async (req, res) => {

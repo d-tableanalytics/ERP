@@ -70,6 +70,36 @@ const taskService = {
         return response.data.data;
     },
 
+    // -------------------------
+    // APPROVAL WORKFLOW
+    // -------------------------
+
+    getPendingApprovals: async () => {
+        const response = await api.get('/tasks/approvals/pending');
+        return response.data.data;
+    },
+
+    getApprovedTasks: async () => {
+        const response = await api.get('/tasks/approvals/approved');
+        return response.data.data;
+    },
+
+    getRejectedTasks: async () => {
+        const response = await api.get('/tasks/approvals/rejected');
+        return response.data.data;
+    },
+
+    approveTask: async (id) => {
+        const response = await api.patch(`/tasks/${id}/approve`);
+        return response.data.data;
+    },
+
+    rejectTask: async (id, remark) => {
+        const response = await api.patch(`/tasks/${id}/reject`, { remark });
+        return response.data.data;
+    },
+
+
     // 6. Create Task
     createTask: async (formData) => {
         const response = await api.post('/tasks', formData, {

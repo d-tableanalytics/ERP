@@ -9,6 +9,8 @@ const { sendNotificationEmail } = require('../utils/emailService');
  * - TASK_DELETED
  * - TASK_REMINDER
  * - TASK_DUE_SOON
+ * - TASK_APPROVED
+ * - TASK_REJECTED
  */
 
 const notifyUser = async (eventType, taskData) => {
@@ -28,21 +30,29 @@ const notifyUser = async (eventType, taskData) => {
             changedBy
         } = taskData;
 
+        // Fallback for camelCase keys returned by Task.findById
+        const doerId = doer_id || taskData.doerId;
+        const doerName = doer_name || taskData.doerFirstName ? `${taskData.doerFirstName} ${taskData.doerLastName}` : 'Assignee';
+        const delegatorId = delegator_id || taskData.delegatorId;
+        const delegatorName = delegator_name || taskData.assignerFirstName ? `${taskData.assignerFirstName} ${taskData.assignerLastName}` : 'Assigner';
+
         const title = taskTitle || taskData.task_title || delegation_name || 'Untitled Task';
         const recipients = [];
 
         // Determine recipients
         if (eventType === 'TASK_CREATED') {
-            recipients.push({ id: doer_id, role: 'DOER' });
+            recipients.push({ id: doerId, role: 'DOER' });
         } else if (eventType === 'TASK_UPDATED') {
-            recipients.push({ id: doer_id, role: 'DOER' });
+            recipients.push({ id: doerId, role: 'DOER' });
         } else if (eventType === 'TASK_COMPLETED') {
-            recipients.push({ id: delegator_id, role: 'DELEGATOR' });
+            recipients.push({ id: delegatorId, role: 'DELEGATOR' });
         } else if (eventType === 'TASK_DELETED') {
-            recipients.push({ id: doer_id, role: 'DOER' });
-            recipients.push({ id: delegator_id, role: 'DELEGATOR' });
+            recipients.push({ id: doerId, role: 'DOER' });
+            recipients.push({ id: delegatorId, role: 'DELEGATOR' });
         } else if (eventType === 'TASK_REMINDER' || eventType === 'TASK_DUE_SOON') {
-            recipients.push({ id: doer_id, role: 'DOER' });
+            recipients.push({ id: doerId, role: 'DOER' });
+        } else if (eventType === 'TASK_APPROVED' || eventType === 'TASK_REJECTED') {
+            recipients.push({ id: doerId, role: 'DOER' });
         }
 
         // Add loop members if applicable
@@ -109,6 +119,16 @@ const getNotificationContent = (eventType, taskData, role) => {
                 title: 'Task Due Soon',
                 message: `Alert: Task "${title}" is due within 24 hours!`
             };
+        case 'TASK_APPROVED':
+            return {
+                title: 'Task Approved',
+                message: `Task "${title}" has been approved by ${actor}.`
+            };
+        case 'TASK_REJECTED':
+            return {
+                title: 'Task Rejected',
+                message: `Task "${title}" was rejected by ${actor}. Please review the remarks and revise the task.`
+            };
         default:
             return {
                 title: 'Task Update',
@@ -159,6 +179,11 @@ const generateTaskEmailTemplate = (eventType, taskData, recipient, content) => {
         status,
         updatedFields
     } = taskData;
+
+    // Fallback for camelCase aliases
+    const _doerName = doer_name || taskData.doerFirstName ? `${taskData.doerFirstName} ${taskData.doerLastName}` : 'Assignee';
+    const _delegatorName = delegator_name || taskData.assignerFirstName ? `${taskData.assignerFirstName} ${taskData.assignerLastName}` : 'Assigner';
+    const _dueDate = due_date || taskData.dueDate;
 
     // Support both snake_case (from DB/RETURNING) and camelCase (from aliased queries)
     const voiceNoteUrl = taskData.voiceNoteUrl || taskData.voice_note_url;
@@ -273,10 +298,10 @@ const generateTaskEmailTemplate = (eventType, taskData, recipient, content) => {
                         
                         <div class="details">
                             <div class="detail-item"><span class="label">Task:</span> <span class="value">${title}</span></div>
-                            <div class="detail-item"><span class="label">Status:</span> <span class="value" style="color: #4f46e5;">${status || 'N/A'}</span></div>
-                            <div class="detail-item"><span class="label">Assigned To:</span> <span class="value">${doer_name}</span></div>
-                            <div class="detail-item"><span class="label">Created By:</span> <span class="value">${delegator_name}</span></div>
-                            <div class="detail-item"><span class="label">Due Date:</span> <span class="value">${formattedDueDate}</span></div>
+                            <div class="detail-item"><span class="label">Status:</span> <span class="value" style="color: #4f46e5;">${status || taskData.approvalStatus || 'N/A'}</span></div>
+                            <div class="detail-item"><span class="label">Assigned To:</span> <span class="value">${_doerName}</span></div>
+                            <div class="detail-item"><span class="label">Created By:</span> <span class="value">${_delegatorName}</span></div>
+                            <div class="detail-item"><span class="label">Due Date:</span> <span class="value">${_dueDate ? new Date(_dueDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Not Set'}</span></div>
                         </div>
 
                         ${description ? `<div class="description-box"><span class="label" style="display:block; margin-bottom: 5px;">Description</span> <p style="margin: 0; font-size: 13px;">${description}</p></div>` : ''}

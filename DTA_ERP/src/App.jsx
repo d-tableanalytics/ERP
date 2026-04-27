@@ -37,6 +37,7 @@ const DelegatedTasks  = lazy(() => import("./pages/Tasks/DelegatedTasks"));
 const SubscribedTasks = lazy(() => import("./pages/Tasks/SubscribedTasks"));
 const AllTasks        = lazy(() => import("./pages/Tasks/AllTasks"));
 const DeletedTasks    = lazy(() => import("./pages/Tasks/DeletedTasks"));
+const ApprovalRequests = lazy(() => import("./pages/Tasks/ApprovalRequests"));
 const Notifications   = lazy(() => import("./pages/Notifications/Notifications"));
 
 const ProtectedRoute = ({ children }) => {
@@ -249,6 +250,7 @@ function App() {
           <Route path="/tasks/subscribed-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><SubscribedTasks /></Suspense></ProtectedRoute>} />
           <Route path="/tasks/all-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><AllTasks /></Suspense></ProtectedRoute>} />
           <Route path="/tasks/deleted-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DeletedTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/approvals" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><ApprovalRequests /></Suspense></ProtectedRoute>} />
 
           {/* Demo Module Routes */}
 
