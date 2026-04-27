@@ -225,6 +225,7 @@ exports.updateTask = async (req, res) => {
                     const userRole = req.user.role || req.header('role');
                     if (userRole !== 'Admin' && userRole !== 'SuperAdmin') {
                         updates.approval_status = 'PENDING';
+                        updates.actioned_by_name = null;
                     } else {
                         updates.approval_status = 'APPROVED';
                     }
@@ -268,6 +269,7 @@ exports.updateTask = async (req, res) => {
         if (updates.completed_at) backendUpdates.completed_at = updates.completed_at;
         if (updates.revision_count !== undefined) backendUpdates.revision_count = updates.revision_count;
         if (updates.approval_status) backendUpdates.approval_status = updates.approval_status;
+        if ('actioned_by_name' in updates) backendUpdates.actioned_by_name = updates.actioned_by_name;
 
         const client = await db.pool.connect();
         try {
@@ -456,6 +458,45 @@ exports.rejectTask = async (req, res) => {
         }
     } catch (err) {
         console.error('Error rejecting task:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+exports.restoreRejectedTask = async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id || req.user.User_Id;
+
+    try {
+        const userResult = await db.query('SELECT first_name, last_name FROM employees WHERE user_id = $1', [userId]);
+        const userName = userResult.rows.length > 0 ? `${userResult.rows[0].first_name} ${userResult.rows[0].last_name}` : 'Admin';
+
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            const updatedTask = await Task.updateApprovalStatus(id, 'PENDING', userName, client);
+            await Task.update(id, { status: 'Completed' }, client);
+
+            await client.query('COMMIT');
+
+            const fullTask = await Task.findById(id);
+
+            await notifyUser('TASK_RESTORED', {
+                ...fullTask,
+                status: 'Completed',
+                triggeredById: userId,
+                changedBy: userName
+            });
+
+            res.status(200).json({ success: true, data: { ...updatedTask, status: 'Completed' }, message: 'Task restored successfully' });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error restoring rejected task:', err);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };

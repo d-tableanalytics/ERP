@@ -99,6 +99,11 @@ const taskService = {
         return response.data.data;
     },
 
+    restoreRejectedTask: async (id) => {
+        const response = await api.patch(`/tasks/${id}/restore-rejected`);
+        return response.data.data;
+    },
+
 
     // 6. Create Task
     createTask: async (formData) => {

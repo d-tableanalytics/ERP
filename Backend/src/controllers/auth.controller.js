@@ -71,7 +71,7 @@ exports.login = async (req, res) => {
         // Find employee
         const result = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1 AND deleted_at IS NULL', [email]);
         if (result.rows.length === 0) {
-            return res.status(400).json({ success: false, message: 'Invalid credentials' });
+            return res.status(400).json({ success: false, message: 'Email not found' });
         }
 
         const employee = result.rows[0];
@@ -79,7 +79,7 @@ exports.login = async (req, res) => {
         // Check password
         const isMatch = await bcrypt.compare(password, employee.password);
         if (!isMatch) {
-            return res.status(400).json({ success: false, message: 'Invalid credentials' });
+            return res.status(400).json({ success: false, message: 'Incorrect password' });
         }
 
         // Generate JWT

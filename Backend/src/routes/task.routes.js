@@ -38,6 +38,7 @@ router.get('/approvals/approved', authorize('SuperAdmin', 'Admin'), taskControll
 router.get('/approvals/rejected', authorize('SuperAdmin', 'Admin'), taskController.getRejectedTasks);
 router.patch('/:id/approve', authorize('SuperAdmin', 'Admin'), taskController.approveTask);
 router.patch('/:id/reject', authorize('SuperAdmin', 'Admin'), taskController.rejectTask);
+router.patch('/:id/restore-rejected', authorize('SuperAdmin', 'Admin'), taskController.restoreRejectedTask);
 
 
 // GET /api/tasks/:id - Task detail

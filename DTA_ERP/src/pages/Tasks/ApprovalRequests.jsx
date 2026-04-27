@@ -110,6 +110,22 @@ const ApprovalRequests = () => {
         }
     };
 
+    const handleRestoreClick = async (task, e) => {
+        if (e) e.stopPropagation();
+        
+        setProcessingId(task.id);
+        try {
+            await taskService.restoreRejectedTask(task.id);
+            toast.success('Task restored to pending approvals');
+            await fetchTasks();
+        } catch (error) {
+            console.error('Restore error:', error);
+            toast.error('Failed to restore task');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
     const filteredTasks = tasks.filter(t => {
         if (search && !(t.taskTitle || '').toLowerCase().includes(search.toLowerCase())) return false;
         return true;
@@ -202,15 +218,22 @@ const ApprovalRequests = () => {
                                             </span>
                                             
                                             {/* Action Tracking Info */}
-                                            {activeTab !== 'PENDING' && task.actionedByName && (
+                                            {task.actionedByName && (
                                                 <>
                                                     <span className="text-slate-300 dark:text-slate-600 mx-0.5">•</span>
-                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${
-                                                        activeTab === 'APPROVED' ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                                                    }`}>
-                                                        {activeTab === 'APPROVED' ? <CheckCircle size={10} /> : <XCircle size={10} />}
-                                                        {activeTab === 'APPROVED' ? 'Approved By:' : 'Rejected By:'} <span className="font-bold underline decoration-dotted underline-offset-2">{task.actionedByName}</span>
-                                                    </span>
+                                                    {activeTab === 'PENDING' ? (
+                                                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400">
+                                                            <RotateCcw size={10} />
+                                                            Restored By: <span className="font-bold underline decoration-dotted underline-offset-2">{task.actionedByName}</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${
+                                                            activeTab === 'APPROVED' ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                                                        }`}>
+                                                            {activeTab === 'APPROVED' ? <CheckCircle size={10} /> : <XCircle size={10} />}
+                                                            {activeTab === 'APPROVED' ? 'Approved By:' : 'Rejected By:'} <span className="font-bold underline decoration-dotted underline-offset-2">{task.actionedByName}</span>
+                                                        </span>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -236,6 +259,18 @@ const ApprovalRequests = () => {
                                                 className="flex items-center justify-center min-w-[90px] h-9 px-4 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm"
                                             >
                                                 Reject
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'REJECTED' && (
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={(e) => handleRestoreClick(task, e)} 
+                                                disabled={processingId === task.id}
+                                                className="flex items-center justify-center min-w-[90px] h-9 px-4 bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm"
+                                            >
+                                                {processingId === task.id ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <><RotateCcw size={14} className="mr-1.5" /> Restore</>}
                                             </button>
                                         </div>
                                     )}
