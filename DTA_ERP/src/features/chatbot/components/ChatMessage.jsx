@@ -7,23 +7,21 @@ const ChatMessage = ({ message }) => {
   const isBot = message.sender === 'bot';
 
   return (
-    <div className={`flex mb-3 ${isBot ? 'justify-start' : 'justify-end'}`}>
+    <div className={`flex w-full mb-4 animate-slide-up ${isBot ? 'justify-start' : 'justify-end'}`}>
       <div
-        className={`max-w-[80%] p-3 rounded-lg text-sm ${
-          isBot
-            ? 'bg-bg-card text-text-main border border-border-main'
-            : 'bg-blue-600 text-white'
+        className={`chatbot-message-bubble ${
+          isBot ? 'chatbot-message-bot' : 'chatbot-message-user'
         }`}
       >
-        <p className="whitespace-pre-line">{message.text}</p>
-        <span className={`text-xs mt-1 block ${
-          isBot ? 'text-text-muted' : 'text-blue-100'
-        }`}>
+        <div className="whitespace-pre-line leading-relaxed">
+          {message.text}
+        </div>
+        <div className={`text-[10px] mt-1 opacity-70 flex ${isBot ? 'justify-start' : 'justify-end'}`}>
           {new Date(message.timestamp).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit'
           })}
-        </span>
+        </div>
       </div>
     </div>
   );

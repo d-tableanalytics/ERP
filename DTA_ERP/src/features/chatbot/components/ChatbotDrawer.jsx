@@ -46,61 +46,81 @@ const ChatbotDrawer = () => {
     dispatch(clearMessages());
   };
 
-  if (!isOpen) {
-    return (
-      <div className="fixed bottom-6 right-6 z-50">
+  return (
+    <>
+      {/* Toggle Button */}
+      {!isOpen && (
         <button
           onClick={() => dispatch(toggleChatbot())}
-          className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+          className="chatbot-toggle-btn group"
           aria-label="Open chatbot"
         >
-          <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">
-            chat
+          <span className="material-symbols-outlined text-2xl group-hover:rotate-12 transition-transform duration-300">
+            smart_toy
           </span>
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
         </button>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="fixed bottom-6 right-6 z-50">
-      <div className="w-80 h-96 bg-bg-card border border-border-main rounded-lg shadow-xl flex flex-col overflow-hidden">
+      {/* Main Drawer */}
+      <div className={`chatbot-drawer ${isOpen ? 'chatbot-drawer-open' : 'chatbot-drawer-closed'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border-main bg-bg-main">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-white text-sm">smart_toy</span>
+        <div className="chatbot-header">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shadow-sm">
+              <span className="material-symbols-outlined text-primary text-xl">smart_toy</span>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-text-main">ERP Assistant</h3>
-              <p className="text-xs text-text-muted">Ask me anything about the system</p>
+              <h3 className="text-sm font-bold text-text-main leading-none">ERP Assistant</h3>
+              <p className="text-[10px] text-text-muted mt-1 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                AI Powered • Ready to help
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={handleClearChat}
-              className="p-1 text-text-muted hover:text-text-main transition-colors"
-              aria-label="Clear chat"
+              className="p-2 text-text-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              title="Clear Chat"
             >
-              <span className="material-symbols-outlined text-lg">delete</span>
+              <span className="material-symbols-outlined text-xl">delete_sweep</span>
             </button>
             <button
               onClick={handleClose}
-              className="p-1 text-text-muted hover:text-text-main transition-colors"
+              className="p-2 text-text-muted hover:text-text-main hover:bg-bg-main rounded-lg transition-all"
               aria-label="Close chat"
             >
-              <span className="material-symbols-outlined text-lg">close</span>
+              <span className="material-symbols-outlined text-xl">close</span>
             </button>
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar bg-bg-card/50">
           {messages.length === 0 ? (
-            <div className="text-center text-text-muted py-8">
-              <span className="material-symbols-outlined text-4xl mb-2 block">chat</span>
-              <p className="text-sm">Hello! I'm your ERP assistant.</p>
-              <p className="text-xs mt-1">Ask me about delegations, help tickets, attendance, or checklists.</p>
+            <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
+              <div className="w-16 h-16 bg-primary/5 rounded-3xl flex items-center justify-center mb-2">
+                <span className="material-symbols-outlined text-4xl text-primary/40">chat_bubble</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-main">Welcome back!</p>
+                <p className="text-xs text-text-muted mt-1 max-w-[200px]">
+                  Ask me about your tasks, checklists, help tickets, or attendance summaries.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 w-full pt-4">
+                {['Show my tasks', 'Attendance summary'].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => handleSendMessage(suggestion)}
+                    className="text-[11px] text-primary bg-primary/5 hover:bg-primary/10 border border-primary/10 py-2 px-3 rounded-lg transition-colors text-left flex items-center justify-between group"
+                  >
+                    {suggestion}
+                    <span className="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             messages.map((message) => (
@@ -109,12 +129,12 @@ const ChatbotDrawer = () => {
           )}
 
           {isTyping && (
-            <div className="flex justify-start mb-3">
-              <div className="bg-bg-main border border-border-main p-3 rounded-lg">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-text-muted rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="flex justify-start mb-4 animate-slide-up">
+              <div className="bg-bg-main border border-border-main p-3 rounded-2xl rounded-tl-none shadow-sm">
+                <div className="flex space-x-1.5">
+                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
                 </div>
               </div>
             </div>
@@ -123,10 +143,20 @@ const ChatbotDrawer = () => {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Error State */}
+        {error && (
+          <div className="px-4 py-2 bg-red-50 border-t border-red-100 flex items-center gap-2">
+            <span className="material-symbols-outlined text-red-500 text-sm">error</span>
+            <p className="text-[10px] text-red-600 font-medium">{error}</p>
+          </div>
+        )}
+
         {/* Input */}
-        <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} />
+        <div className="chatbot-input-container">
+          <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} />
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

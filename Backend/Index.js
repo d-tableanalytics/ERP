@@ -108,43 +108,55 @@ app.use("/api/notification-settings", notificationPrefRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 
 // Initialize Database Tables and start server
-Promise.all([
-  createEmployeeTable(),
-  createDelegationTables(),
-  createDepartmentTable(),
-  createChecklistTables(),
-  createHelpTicketTables(),
-  createTodoTables(),
-  createHelpTicketConfigTable(),
-  createLocationTable(),
-  createAttendanceTable(),
-  createAdvanceTable(),
-  createExpenseMasterTable(),
-  createExpenseDaysTable(),
-  createOnboardingMasterTable(),
-  createInterviewTable(),
-  seedFullIMSData(),
-  createInventoryTables(),
-  createO2DTables(),
-  createScoreTable(),
-  createChatbotConversationsTable(),
-  createDelegationExtrasTables(),
-  createTaskTable(),
-  createNotificationsTable(),
-])
-  .then(() => {
-    console.log("Database synchronization complete");
-    startChecklistCron();
-    startTaskAutomationCron();
-    initReminderJob();
+async function initializeDatabase() {
+  const initSteps = [
+    { name: "Employees", fn: createEmployeeTable },
+    { name: "Delegation", fn: createDelegationTables },
+    { name: "Departments", fn: createDepartmentTable },
+    { name: "Checklists", fn: createChecklistTables },
+    { name: "Help Tickets", fn: createHelpTicketTables },
+    { name: "Todos", fn: createTodoTables },
+    { name: "Help Ticket Config", fn: createHelpTicketConfigTable },
+    { name: "Locations", fn: createLocationTable },
+    { name: "Attendance", fn: createAttendanceTable },
+    { name: "Advance", fn: createAdvanceTable },
+    { name: "Expense Master", fn: createExpenseMasterTable },
+    { name: "Expense Days", fn: createExpenseDaysTable },
+    { name: "Onboarding Master", fn: createOnboardingMasterTable },
+    { name: "Interviews", fn: createInterviewTable },
+    { name: "IMS Master Data", fn: seedFullIMSData },
+    { name: "Inventory", fn: createInventoryTables },
+    { name: "O2D Tables", fn: createO2DTables },
+    { name: "Score Table", fn: createScoreTable },
+    { name: "Chatbot Conversations", fn: createChatbotConversationsTable },
+    { name: "Delegation Extras", fn: createDelegationExtrasTables },
+    { name: "Tasks", fn: createTaskTable },
+    { name: "Notifications", fn: createNotificationsTable },
+  ];
 
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("Database synchronization failed:", err);
-    process.exit(1);
+  for (const step of initSteps) {
+    try {
+      // console.log(`Initializing ${step.name}...`);
+      await step.fn();
+    } catch (err) {
+      console.error(`❌ Error initializing ${step.name}:`, err.message);
+      // We continue with other tables even if one fails, unless it's critical
+    }
+  }
+
+  console.log("Database synchronization complete");
+  startChecklistCron();
+  startTaskAutomationCron();
+  initReminderJob();
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server is running on port ${PORT}`);
   });
+}
+
+initializeDatabase().catch((err) => {
+  console.error("Critical error during database initialization:", err);
+  process.exit(1);
+});
 
 module.exports = app;
