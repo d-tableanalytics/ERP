@@ -41,14 +41,26 @@ class ChatbotService {
           const intent = this.detectIntent(segment);
           if (intent !== 'unknown' && primaryIntent === 'unknown') primaryIntent = intent;
 
-          // Priority 1: Rule-based (Greetings, Help)
-          if (['greeting', 'help'].includes(intent)) {
-            responses.push(this.generateResponse(intent, userRole));
+          // Check for ambiguity (e.g., "task task task")
+          if (this.isAmbiguousQuery(segment)) {
+            responses.push(this.generateResponse('clarification', userRole));
+            if (primaryIntent === 'unknown') primaryIntent = 'clarification';
             continue;
           }
 
+          // Priority 1: Explicit Guidance check
+          if (this.isGuidanceQuery(segment)) {
+            const knowledgeEntry = this.findKnowledgeEntry(segment);
+            if (knowledgeEntry) {
+              responses.push(this.sanitizeKnowledgeContent(knowledgeEntry.content));
+              if (primaryIntent === 'unknown') primaryIntent = 'guidance';
+              continue;
+            }
+          }
+
           // Priority 2: Data Query (with list mode support)
-          if (this.isDataQuery(segment) || this.isListQuery(segment) || segment.includes('attendance')) {
+          // Refined: Only fetch if it's a data query AND not just a guidance request about a module
+          if (this.isDataQuery(segment) && !this.isGuidanceQuery(segment)) {
             const dataResult = await this.handleDataQuery(userId, segment, isAdmin, lastEntity);
             if (dataResult) {
               responses.push(dataResult.message);
@@ -58,20 +70,22 @@ class ChatbotService {
             }
           }
 
-          // Priority 3: Knowledge Base
+          // Priority 3: Knowledge Base (General search)
           const knowledgeEntry = this.findKnowledgeEntry(segment);
-          const knowledgeContent = knowledgeEntry ? this.sanitizeKnowledgeContent(knowledgeEntry.content) : null;
-          if (knowledgeContent) {
-            responses.push(knowledgeContent);
+          if (knowledgeEntry) {
+            responses.push(this.sanitizeKnowledgeContent(knowledgeEntry.content));
             if (primaryIntent === 'unknown') primaryIntent = 'knowledge';
             continue;
           }
 
-          // Priority 4: Rule-based fallback (Module info)
-          if (intent !== 'unknown') {
+          // Priority 4: Rule-based fallback (Greetings, Help, Module info)
+          if (['greeting', 'help', 'guidance', 'checklist', 'delegation', 'help_ticket', 'attendance', 'dashboard'].includes(intent)) {
             responses.push(this.generateResponse(intent, userRole));
             continue;
           }
+
+          // Priority 5: OpenAI fallback
+          // ...
 
           // Priority 5: OpenAI fallback (only if this is the only segment or nothing else matched)
           if (responses.length === 0 || segments.length === 1) {
@@ -178,17 +192,42 @@ class ChatbotService {
   }
 
   /**
+   * Detect if message is a guidance/instructional query
+   * @param {string} message - Cleaned user message
+   * @returns {boolean} True if guidance keywords are found
+   */
+  isGuidanceQuery(message) {
+    const guidanceKeywords = ['how to', 'how i can', 'how do i', 'guide me', 'steps to', 'process of', 'instructions for', 'how can i', 'show me how'];
+    return guidanceKeywords.some(keyword => message.includes(keyword));
+  }
+
+  /**
    * Detect if message is a data-based query
    * @param {string} message - Cleaned user message
    * @returns {boolean} True if data query keywords are found
    */
   isDataQuery(message) {
-    const dataKeywords = [
-      'total', 'count', 'how many', 'number', 'pending', 'completed', 
-      'statu', 'assigned', 'my tasks', 'mine', 'who has', 'most',
-      'workload', 'highest', 'busiest', 'employee', 'team', 'summary', 'information', 'details', 'about', 'who', 'profile'
+    const fetchKeywords = [
+      'total', 'count', 'how many', 'number', 'summary', 'analytics', 'who has', 'most', 
+      'highest', 'busiest', 'workload', 'report', 'list', 'show', 'all', 'details', 'who is', 'profile'
     ];
-    return dataKeywords.some(keyword => message.includes(keyword));
+    const moduleKeywords = ['task', 'checklist', 'delegation', 'ticket', 'attendance', 'employee', 'team'];
+    const statusKeywords = ['pending', 'completed', 'overdue', 'open', 'closed', 'late', 'done', 'finished'];
+    
+    // Explicit fetch intent with word boundaries (to avoid matching 'list' in 'checklist')
+    const hasFetchIntent = fetchKeywords.some(keyword => {
+      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+      return regex.test(message);
+    });
+    
+    // Module + status (e.g., "pending tasks", "completed checklists")
+    const hasStatusModule = statusKeywords.some(s => message.includes(s)) && moduleKeywords.some(m => message.includes(m));
+
+    // Self-summary/profile requests
+    const isProfileRequest = /\bmy profile\b|\bwho am i\b|\bmy summary\b/i.test(message);
+
+    return hasFetchIntent || hasStatusModule || isProfileRequest;
   }
 
   /**
@@ -207,7 +246,10 @@ class ChatbotService {
    * @returns {boolean} True if list keywords are found
    */
   isListQuery(message) {
-    const listKeywords = ['what are they', 'show', 'names', 'which ones', 'list', 'name of', 'names of'];
+    const listKeywords = [
+      'what are they', 'show', 'names', 'which ones', 'list', 'name of', 'names of', 
+      'all', 'details', 'in detail', 'give', 'show me all', 'give the details', 'next'
+    ];
     return listKeywords.some(k => message.includes(k));
   }
 
@@ -276,11 +318,25 @@ class ChatbotService {
   async handleDataQuery(userId, message, isAdmin, contextEntity = null) {
     try {
       // 1. Detect status intent first
-      const isCompleted = message.includes('completed') || message.includes('complete') || message.includes('closed') || message.includes('done') || message.includes('finished');
+      // Refine: Only match 'complete' as status if it's not part of a guidance query
+      const isCompleted = (message.includes('completed') || (message.includes('complete') && !this.isGuidanceQuery(message))) || 
+                          message.includes('closed') || message.includes('done') || message.includes('finished');
       const isOverdue = message.includes('overdue') || message.includes('late');
+      const isPending = message.includes('pending') || message.includes('open');
       const isToday = message.includes('today');
       const isCount = this.isCountQuery(message);
       const isList = !isCount && (this.isListQuery(message) || message.includes('show'));
+      const isAll = /\ball\b/i.test(message);
+      // When user asks "all tasks/checklists" with no status qualifier, show all statuses
+      const isAllStatuses = isAll && !isPending && !isCompleted && !isOverdue;
+      
+      // Handle 'next' queries explicitly
+      if (message.includes('next')) {
+        return { 
+          message: "Pagination is not available yet. Please refine your query or ask for a specific task/checklist.", 
+          type: 'info' 
+        };
+      }
       
       // Detect self-summary phrases
       const selfSummaryPhrases = [
@@ -540,48 +596,124 @@ class ChatbotService {
       if (!entity) return null;
 
       let response = '';
-      const statusText = isCompleted ? 'completed' : (isOverdue ? 'overdue' : 'pending');
+      // statusText is empty when user asks "all tasks/checklists" with no specific status
+      let statusText;
+      if (isAllStatuses) {
+        statusText = '';
+      } else if (isOverdue) {
+        statusText = 'overdue';
+      } else if (isCompleted) {
+        statusText = 'completed';
+      } else {
+        statusText = 'pending';
+      }
 
       if (entity === 'checklist') {
-        let statusFilter = isCompleted ? "status IN ('Completed', 'Verified')" : "status NOT IN ('Completed', 'Verified')";
+        // Build status filter: omit entirely when showing all statuses
+        let statusFilter;
+        if (isAllStatuses) {
+          statusFilter = "1=1";
+        } else if (isCompleted) {
+          statusFilter = "status IN ('Completed', 'Verified')";
+        } else {
+          statusFilter = "status NOT IN ('Completed', 'Verified')";
+        }
         let timeFilter = "";
         if (isOverdue) timeFilter = "AND due_date < CURRENT_TIMESTAMP";
         if (isToday) timeFilter = "AND created_at = CURRENT_DATE";
 
+        // Label used in headers (with trailing space when non-empty)
+        const statusLabel = statusText ? `${statusText} ` : '';
+
         if (isList) {
-          const q = `SELECT question FROM checklist WHERE ${statusFilter} ${timeFilter} AND doer_id = $1 LIMIT 5`;
-          const res = await pool.query(q, [targetUserId]);
+          const q = `SELECT question, status, due_date FROM checklist WHERE ${statusFilter} ${timeFilter} AND doer_id = $1 ${isAll ? '' : 'LIMIT 6'}`;
+          const countQ = `SELECT COUNT(*) FROM checklist WHERE ${statusFilter} ${timeFilter} AND doer_id = $1`;
+          
+          const [res, countRes] = await Promise.all([
+            pool.query(q, [targetUserId]),
+            pool.query(countQ, [targetUserId])
+          ]);
+          
+          const totalCount = parseInt(countRes.rows[0].count);
+
           if (res.rows.length === 0) {
-            response = `I couldn't find any ${statusText} checklists for ${fullName}.`;
+            response = statusText
+              ? `No ${statusText} checklists found.`
+              : `No checklists found for ${fullName}.`;
           } else {
-            const list = res.rows.map(r => `• ${r.question}`).join('\n');
-            response = `Here are some of the ${statusText} checklists for ${fullName}:\n${list}`;
+            const displayRows = isAll ? res.rows : res.rows.slice(0, 5);
+            const list = displayRows.map(r => {
+              const dateStr = r.due_date ? ` (Due: ${new Date(r.due_date).toLocaleDateString()})` : '';
+              return `• [Checklist] ${r.question} [${r.status}]${dateStr}`;
+            }).join('\n');
+            
+            let limitMsg;
+            if (isAll) {
+              limitMsg = `Showing all ${totalCount} ${statusLabel}checklists:\n`;
+            } else {
+              limitMsg = totalCount > 5
+                ? `Showing first 5 of ${totalCount} ${statusLabel}checklists:\n`
+                : `Found ${totalCount} ${statusLabel}checklists:\n`;
+            }
+            response = `${limitMsg}${list}`;
           }
         } else {
           const q = `SELECT COUNT(*) FROM checklist WHERE ${statusFilter} ${timeFilter} AND doer_id = $1`;
           const res = await pool.query(q, [targetUserId]);
           const count = res.rows[0].count;
-          response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${statusText} checklists${isToday ? ' for today' : ''}.`;
+          response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${statusLabel}checklists${isToday ? ' for today' : ''}.`;
         }
       } else if (entity === 'delegation') {
-        let statusFilter = isCompleted ? "status ILIKE 'completed'" : "status NOT ILIKE 'completed'";
+        // Build status filter: omit entirely when showing all statuses
+        let statusFilter;
+        if (isAllStatuses) {
+          statusFilter = "1=1";
+        } else if (isCompleted) {
+          statusFilter = "status ILIKE 'completed'";
+        } else {
+          statusFilter = "status NOT ILIKE 'completed'";
+        }
         let timeFilter = "";
         if (isOverdue) timeFilter = "AND due_date < CURRENT_TIMESTAMP";
 
+        const statusLabel = statusText ? `${statusText} ` : '';
+
         if (isList) {
-          const q = `SELECT delegation_name FROM delegation WHERE ${statusFilter} ${timeFilter} AND doer_id = $1 LIMIT 5`;
-          const res = await pool.query(q, [targetUserId]);
+          const q = `SELECT delegation_name, status, due_date FROM delegation WHERE ${statusFilter} ${timeFilter} AND doer_id = $1 ${isAll ? '' : 'LIMIT 5'}`;
+          const countQ = `SELECT COUNT(*) FROM delegation WHERE ${statusFilter} ${timeFilter} AND doer_id = $1`;
+
+          const [res, countRes] = await Promise.all([
+            pool.query(q, [targetUserId]),
+            pool.query(countQ, [targetUserId])
+          ]);
+
+          const totalCount = parseInt(countRes.rows[0].count);
+
           if (res.rows.length === 0) {
-            response = `No ${statusText} delegations found for ${fullName}.`;
+            response = statusText
+              ? `No ${statusText} delegations found for ${fullName}.`
+              : `No delegations found for ${fullName}.`;
           } else {
-            const list = res.rows.map(r => `• ${r.delegation_name}`).join('\n');
-            response = `Found these ${statusText} delegations for ${fullName}:\n${list}`;
+            const displayRows = isAll ? res.rows : res.rows.slice(0, 5);
+            const list = displayRows.map(r => {
+              const dateStr = r.due_date ? ` (Due: ${new Date(r.due_date).toLocaleDateString()})` : '';
+              return `• [Delegation] ${r.delegation_name} [${r.status}]${dateStr}`;
+            }).join('\n');
+            let limitMsg;
+            if (isAll) {
+              limitMsg = `Showing all ${totalCount} ${statusLabel}delegations:\n`;
+            } else {
+              limitMsg = totalCount > 5
+                ? `Showing first 5 of ${totalCount} ${statusLabel}delegations:\n`
+                : `Found ${totalCount} ${statusLabel}delegations:\n`;
+            }
+            response = `${limitMsg}${list}`;
           }
         } else {
           const q = `SELECT COUNT(*) FROM delegation WHERE ${statusFilter} ${timeFilter} AND doer_id = $1`;
           const res = await pool.query(q, [targetUserId]);
           const count = res.rows[0].count;
-          response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${statusText} delegations.`;
+          response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${statusLabel}delegations.`;
         }
       } else if (entity === 'help_tickets') {
         let statusFilter = isCompleted ? "status = 'CLOSED'" : "status = 'OPEN'";
@@ -602,41 +734,74 @@ class ChatbotService {
           response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${isCompleted ? 'closed' : 'open'} help tickets.`;
         }
       } else if (entity === 'task') {
-        let checklistStatus = isCompleted ? "status IN ('Completed', 'Verified')" : "status NOT IN ('Completed', 'Verified')";
-        let delegationStatus = isCompleted ? "status ILIKE 'completed'" : "status NOT ILIKE 'completed'";
+        // Build status filters: omit entirely when showing all statuses
+        let checklistStatus, delegationStatus;
+        if (isAllStatuses) {
+          checklistStatus = "1=1";
+          delegationStatus = "1=1";
+        } else if (isCompleted) {
+          checklistStatus = "status IN ('Completed', 'Verified')";
+          delegationStatus = "status ILIKE 'completed'";
+        } else {
+          checklistStatus = "status NOT IN ('Completed', 'Verified')";
+          delegationStatus = "status NOT ILIKE 'completed'";
+        }
         let timeFilter = isOverdue ? "AND due_date < CURRENT_TIMESTAMP" : "";
 
+        const statusLabel = statusText ? `${statusText} ` : '';
+
         if (isList) {
-          const q = `
-            SELECT 'Checklist' as type, question as name FROM checklist WHERE ${checklistStatus} ${timeFilter} AND doer_id = $1
+          // Note: LIMIT must be applied after UNION ALL so we wrap it
+          const innerQ = `
+            SELECT 'Checklist' as type, question as name, status, due_date FROM checklist WHERE ${checklistStatus} ${timeFilter} AND doer_id = $1
             UNION ALL
-            SELECT 'Delegation' as type, delegation_name as name FROM delegation WHERE ${delegationStatus} ${timeFilter} AND doer_id = $1
-            LIMIT 6
+            SELECT 'Delegation' as type, delegation_name as name, status, due_date FROM delegation WHERE ${delegationStatus} ${timeFilter} AND doer_id = $1
           `;
-          const res = await pool.query(q, [targetUserId]);
+          const q = isAll ? innerQ : `${innerQ} LIMIT 6`;
+
+          const countQ = `
+            SELECT 
+              (SELECT COUNT(*) FROM checklist WHERE ${checklistStatus} ${timeFilter} AND doer_id = $1) as checklist_count,
+              (SELECT COUNT(*) FROM delegation WHERE ${delegationStatus} ${timeFilter} AND doer_id = $1) as delegation_count
+          `;
+          const [res, countRes] = await Promise.all([
+            pool.query(q, [targetUserId]),
+            pool.query(countQ, [targetUserId])
+          ]);
+          const totalCount = parseInt(countRes.rows[0].checklist_count) + parseInt(countRes.rows[0].delegation_count);
+
           if (res.rows.length === 0) {
-            response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} no ${statusText} tasks.`;
+            response = statusText
+              ? `No ${statusText} tasks found.`
+              : `No tasks found for ${fullName}.`;
           } else {
-            // Get total count for the limit message
-            const countQ = `
-              SELECT 
-                (SELECT COUNT(*) FROM checklist WHERE ${checklistStatus} ${timeFilter} AND doer_id = $1) as checklist_count,
-                (SELECT COUNT(*) FROM delegation WHERE ${delegationStatus} ${timeFilter} AND doer_id = $1) as delegation_count
-            `;
-            const countRes = await pool.query(countQ, [targetUserId]);
-            const totalCount = parseInt(countRes.rows[0].checklist_count) + parseInt(countRes.rows[0].delegation_count);
+            const displayRows = isAll ? res.rows : res.rows.slice(0, 5);
+            const list = displayRows.map(r => {
+              const dateStr = r.due_date ? ` (Due: ${new Date(r.due_date).toLocaleDateString()})` : '';
+              return `• [${r.type}] ${r.name} [${r.status}]${dateStr}`;
+            }).join('\n');
             
-            const list = res.rows.slice(0, 5).map(r => `• [${r.type}] ${r.name}`).join('\n');
-            const limitMsg = totalCount > 5 ? `Showing first 5 of ${totalCount} ${statusText} tasks:\n` : `Found ${totalCount} ${statusText} tasks:\n`;
+            let limitMsg;
+            if (isAll) {
+              limitMsg = `Showing all ${totalCount} ${statusLabel}tasks:\n`;
+            } else {
+              limitMsg = totalCount > 5
+                ? `Showing first 5 of ${totalCount} ${statusLabel}tasks:\n`
+                : `Found ${totalCount} ${statusLabel}tasks:\n`;
+            }
             response = `${limitMsg}${list}`;
           }
         } else {
+          // Count summary — use pending filters for summary unless status is explicitly set
+          const summaryChecklistStatus = isAllStatuses ? "status NOT IN ('Completed', 'Verified')" : checklistStatus;
+          const summaryDelegationStatus = isAllStatuses ? "status NOT ILIKE 'completed'" : delegationStatus;
+
           const q = `
             SELECT 
-              (SELECT COUNT(*) FROM checklist WHERE ${checklistStatus} AND doer_id = $1) as pending_checklist,
-              (SELECT COUNT(*) FROM delegation WHERE ${delegationStatus} AND doer_id = $1) as pending_delegation,
-              (SELECT COUNT(*) FROM checklist WHERE ${checklistStatus} AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_checklist,
-              (SELECT COUNT(*) FROM delegation WHERE ${delegationStatus} AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_delegation
+              (SELECT COUNT(*) FROM checklist WHERE ${summaryChecklistStatus} AND doer_id = $1) as pending_checklist,
+              (SELECT COUNT(*) FROM delegation WHERE ${summaryDelegationStatus} AND doer_id = $1) as pending_delegation,
+              (SELECT COUNT(*) FROM checklist WHERE ${summaryChecklistStatus} AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_checklist,
+              (SELECT COUNT(*) FROM delegation WHERE ${summaryDelegationStatus} AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_delegation
           `;
           const res = await pool.query(q, [targetUserId]);
           const { pending_checklist, pending_delegation, overdue_checklist, overdue_delegation } = res.rows[0];
@@ -644,16 +809,19 @@ class ChatbotService {
           const totalPending = parseInt(pending_checklist) + parseInt(pending_delegation);
           const totalOverdue = parseInt(overdue_checklist) + parseInt(overdue_delegation);
           
+          const totalCount = isOverdue ? totalOverdue : (isCompleted ? totalCompleted : totalPending);
+          const statusLabel = isOverdue ? 'overdue' : (isCompleted ? 'completed' : 'pending');
+          
           if (isOverdue) {
             response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${totalOverdue} overdue tasks (${overdue_checklist} checklists and ${overdue_delegation} delegations).`;
           } else {
             let overdueNote = "";
-            if (totalPending > 0 && totalPending === totalOverdue) {
+            if (totalCount > 0 && !isCompleted && totalCount === totalOverdue) {
               overdueNote = " All pending tasks are currently overdue.";
-            } else if (totalOverdue > 0) {
+            } else if (totalOverdue > 0 && !isCompleted) {
               overdueNote = ` (${totalOverdue} of these are overdue).`;
             }
-            response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${totalPending} pending tasks${overdueNote}`;
+            response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${totalCount} ${statusLabel} tasks${overdueNote}`;
           }
         }
       }
@@ -758,6 +926,25 @@ class ChatbotService {
   sanitizeKnowledgeContent(content) {
     if (!content || typeof content !== 'string') return '';
     return content.replace(/[<>]/g, '').trim().substring(0, 1500);
+  }
+
+  /**
+   * Check if query is ambiguous or just repeating keywords
+   * @param {string} message - User message
+   * @returns {boolean} True if ambiguous
+   */
+  isAmbiguousQuery(message) {
+    if (!message) return true;
+    const words = message.split(/\s+/).filter(w => w.length > 1);
+    
+    // Very short queries (1-2 words) that are just module names
+    const moduleKeywords = ['task', 'tasks', 'checklist', 'checklists', 'ticket', 'delegation', 'attendance'];
+    if (words.length <= 2 && words.every(w => moduleKeywords.includes(w))) return true;
+
+    // Repetitive words (e.g., "task task task")
+    if (words.length >= 3 && new Set(words).size === 1) return true;
+
+    return false;
   }
 
   /**

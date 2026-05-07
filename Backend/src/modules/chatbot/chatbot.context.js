@@ -64,12 +64,13 @@ If you cannot answer a question safely or it's outside your scope, respond with:
 
   // Intent keywords mapping
   intents: {
+    guidance: ['how to', 'how i can', 'how do i', 'guide me', 'steps to', 'process of', 'instructions for', 'how can i', 'show me how', 'help me create', 'guide me to'],
     employee_list: ['name of employees', 'names of employees', 'list employees', 'show employees', 'employee names', 'show employee names', 'details about employees'],
     greeting: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening'],
     help_ticket: ['ticket', 'issue', 'problem', 'complaint', 'support ticket', 'help ticket', 'raise ticket', 'create ticket', 'submit ticket', 'helpdesk', 'log issue', 'report issue'],
-    delegation: ['delegation', 'task', 'assign', 'delegate', 'workflow', 'delegation module', 'create delegation', 'task assignment', 'assign work', 'delegate job'],
+    delegation: ['delegation', 'task', 'tasks', 'assign', 'delegate', 'workflow', 'delegation module', 'create delegation', 'task assignment', 'assign work', 'delegate job'],
     attendance: ['attendance', 'punch', 'time', 'clock in', 'clock out', 'leave', 'attendance module'],
-    checklist: ['checklist', 'daily', 'tasks', 'todo', 'list', 'checklist module', 'what is checklist used for', 'purpose of checklist'],
+    checklist: ['checklist', 'checklists', 'daily', 'todo', 'list', 'checklist module', 'what is checklist used for', 'purpose of checklist'],
     dashboard: ['dashboard', 'summary', 'overview', 'stats', 'report', 'dashboard module'],
     help: ['help', 'assist', 'support', 'guide'],
     employee_summary: ['my employees', 'employee information', 'employee summary', 'team information', 'team summary', 'my team', 'team overview', 'summary of', 'details about', 'about', 'operational summary', 'summary about', 'my operational summary', 'my work summary', 'my employee summary', 'my details', 'my summary', 'give me my summary', 'show my summary', 'show my operational summary', 'give me my operational summary', 'who is', 'who am i', 'profile of', 'employee profile of', 'tell me about', 'my profile']
@@ -81,6 +82,8 @@ If you cannot answer a question safely or it's outside your scope, respond with:
 
     help: "I can help you with various ERP modules. Try asking about:\n• Delegations and task management\n• Help tickets and support\n• Attendance tracking\n• Daily checklists\n• Dashboard overview\n\nWhat specific area interests you?",
 
+    guidance: "I can provide step-by-step guidance for various ERP tasks. Try asking:\n• How to create a delegation\n• How to raise a help ticket\n• How to complete a task\n• How to create a checklist\n\nWhat would you like to learn more about?",
+
     delegation: "The Delegation module helps you manage and assign tasks. You can create delegations, upload files, add remarks, and track progress. Access it from the sidebar menu under 'Delegation'. Need help with a specific delegation feature?",
 
     help_ticket: "For support issues, use the Help Ticket module. You can raise tickets for technical problems, feature requests, or general inquiries. Each ticket has priority levels and TAT tracking. Find it in the 'Help Ticket' section of the sidebar.",
@@ -90,6 +93,8 @@ If you cannot answer a question safely or it's outside your scope, respond with:
     checklist: "Daily checklists help you track routine tasks. Create, complete, and monitor checklists for your daily responsibilities. Access it through the 'Checklist' menu. Regular completion helps maintain productivity standards.",
 
     dashboard: "The Dashboard provides an overview of your key metrics including pending tasks, recent activities, and system status. It's your main landing page after login, showing summaries from all modules.",
+
+    clarification: "I noticed you're asking about tasks or checklists. To help you better, please specify if you want:\n• A count of your pending, completed, or overdue tasks\n• A list of specific tasks or checklists\n• Guidance on how to complete, create, or update them",
 
     unknown: "I'm not sure about that specific topic. I can help with delegations, help tickets, attendance, checklists, dashboard, or general ERP guidance. Try rephrasing your question or ask about a specific module."
   },
