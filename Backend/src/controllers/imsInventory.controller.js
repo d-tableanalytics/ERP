@@ -139,11 +139,11 @@ exports.createTransaction = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Transaction Created Successfully",
-      transaction: createdTransaction.rows[0],
+      data: createdTransaction.rows[0],
     });
   } catch (err) {
     await client.query("ROLLBACK");
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   } finally {
     client.release();
   }
@@ -328,11 +328,11 @@ exports.editTransaction = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "✅ Transaction Updated Successfully",
-      transaction: updatedTransaction.rows[0],
+      data: updatedTransaction.rows[0],
     });
   } catch (err) {
     await client.query("ROLLBACK");
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   } finally {
     client.release();
   }
@@ -347,7 +347,7 @@ exports.getAllTransactions = async (req, res) => {
     if (!userId) {
       return res
         .status(401)
-        .json({ error: "Unauthorized: User not authenticated" });
+        .json({ success: false, message: "Unauthorized: User not authenticated" });
     }
 
     let query;
@@ -379,9 +379,9 @@ exports.getAllTransactions = async (req, res) => {
     }
 
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    res.json({ success: true, data: result.rows });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -428,7 +428,7 @@ exports.deleteTransaction = async (req, res) => {
     });
   } catch (err) {
     await client.query("ROLLBACK");
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   } finally {
     client.release();
   }
@@ -472,19 +472,22 @@ exports.getAllMasters = async (req, res) => {
       "SELECT * FROM additional_detail_master ORDER BY detail_name",
     );
     res.json({
-      products: products.rows,
-      units: units.rows,
-      locations: locations.rows,
-      racks: racks.rows,
-      materials: materials.rows,
-      size1: size1.rows,
-      size2: size2.rows,
-      descriptions: descriptions.rows,
-      grades: grades.rows,
-      class_sch: classSch.rows,
-      additional_details: additionalDetails.rows,
+      success: true,
+      data: {
+        products: products.rows,
+        units: units.rows,
+        locations: locations.rows,
+        racks: racks.rows,
+        materials: materials.rows,
+        size1: size1.rows,
+        size2: size2.rows,
+        descriptions: descriptions.rows,
+        grades: grades.rows,
+        class_sch: classSch.rows,
+        additional_details: additionalDetails.rows,
+      }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };

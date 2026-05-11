@@ -60,6 +60,10 @@ const Delegation = () => {
       data = data.filter((d) => d.doer_id === userId);
     }
 
+    // New separation: Delegation page should NOT show tasks I assigned to myself
+    const currentUserId = user?.id || user?.User_Id;
+    data = data.filter(d => d.delegator_id !== d.doer_id || d.doer_id !== currentUserId);
+
     // Search (Task name / ID)
     if (searchTerm) {
       const term = searchTerm.toLowerCase();

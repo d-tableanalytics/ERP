@@ -31,12 +31,14 @@ const createEmployeeTable = async () => {
         State VARCHAR(50),
         Nationality VARCHAR(50),
         Theme VARCHAR(10) DEFAULT 'light',
+        Deleted_at TIMESTAMPTZ,
         Created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         Updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
     try {
         await pool.query(queryText);
+        await pool.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ');
         console.log('Employees table ensured in database');
     } catch (err) {
         console.error('Error creating employees table:', err);

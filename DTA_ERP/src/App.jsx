@@ -30,6 +30,16 @@ const FMS = lazy(() => import("./pages/MainFMS/FMSPage"));
 const O2D = lazy(() => import("./pages/O2D/O2D"));
 const Score = lazy(() => import("./pages/Score/Score"));
 const CombinedMIS = lazy(() => import("./pages/Score/CombinedMIS"));
+
+// ── Task Management Pages ──────────────────────────────────────────────────────
+const MyTasks         = lazy(() => import("./pages/Tasks/MyTasks"));
+const DelegatedTasks  = lazy(() => import("./pages/Tasks/DelegatedTasks"));
+const SubscribedTasks = lazy(() => import("./pages/Tasks/SubscribedTasks"));
+const AllTasks        = lazy(() => import("./pages/Tasks/AllTasks"));
+const DeletedTasks    = lazy(() => import("./pages/Tasks/DeletedTasks"));
+const ApprovalRequests = lazy(() => import("./pages/Tasks/ApprovalRequests"));
+const Notifications   = lazy(() => import("./pages/Notifications/Notifications"));
+
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
   return token ? children : <Navigate to="/login" replace />;
@@ -81,33 +91,64 @@ function App() {
       <Toaster
         position="top-right"
         reverseOrder={false}
+        gutter={10}
         toastOptions={{
+          duration: 3500,
           style: {
-            background: "#333",
-            color: "#fff",
+            background: "#1e293b",
+            color: "#f1f5f9",
+            fontWeight: "600",
+            fontSize: "13px",
+            borderRadius: "12px",
+            padding: "12px 16px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            border: "1px solid rgba(255,255,255,0.08)",
           },
           success: {
+            duration: 3000,
             style: {
-              background: "#22c55e", // Bright Green
+              background: "#16a34a",
               color: "#ffffff",
-              fontWeight: "bold",
-              border: "2px solid #166534",
+              fontWeight: "700",
+              border: "2px solid #15803d",
+              borderRadius: "12px",
+              padding: "12px 16px",
+              boxShadow: "0 8px 20px rgba(22,163,74,0.25)",
             },
             iconTheme: {
               primary: "#ffffff",
-              secondary: "#22c55e",
+              secondary: "#16a34a",
             },
           },
           error: {
+            duration: 4000,
             style: {
-              background: "#ef4444", // Bright Red
+              background: "#dc2626",
               color: "#ffffff",
-              fontWeight: "bold",
-              border: "2px solid #991b1b",
+              fontWeight: "700",
+              border: "2px solid #b91c1c",
+              borderRadius: "12px",
+              padding: "12px 16px",
+              boxShadow: "0 8px 20px rgba(220,38,38,0.25)",
             },
             iconTheme: {
               primary: "#ffffff",
-              secondary: "#ef4444",
+              secondary: "#dc2626",
+            },
+          },
+          loading: {
+            style: {
+              background: "#1d4ed8",
+              color: "#ffffff",
+              fontWeight: "700",
+              border: "2px solid #1e40af",
+              borderRadius: "12px",
+              padding: "12px 16px",
+              boxShadow: "0 8px 20px rgba(29,78,216,0.25)",
+            },
+            iconTheme: {
+              primary: "#ffffff",
+              secondary: "#1d4ed8",
             },
           },
         }}
@@ -202,7 +243,17 @@ function App() {
             }
           />
 
+
+          {/* ── Task Management Routes ── */}
+          <Route path="/tasks/my-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><MyTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/delegated-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DelegatedTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/subscribed-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><SubscribedTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/all-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><AllTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/deleted-tasks" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><DeletedTasks /></Suspense></ProtectedRoute>} />
+          <Route path="/tasks/approvals" element={<ProtectedRoute><Suspense fallback={<LoadingFallback />}><ApprovalRequests /></Suspense></ProtectedRoute>} />
+
           {/* Demo Module Routes */}
+
           <Route
             path="/attendance"
             element={
@@ -278,7 +329,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
-                  <DemoModule type="notifications" />
+                  <Notifications />
                 </Suspense>
               </ProtectedRoute>
             }

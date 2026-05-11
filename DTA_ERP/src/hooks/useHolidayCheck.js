@@ -9,20 +9,17 @@ const parseISOToLocalDate = (date) => {
   if (!date) return null;
 
   // ✅ Handle datetime-local safely
-  const isoDate = typeof date === "string"
-    ? date.split("T")[0]
-    : date;
+  const isoDate = typeof date === "string" ? date.split("T")[0] : date;
 
   const [year, month, day] = isoDate.split("-").map(Number);
   return new Date(year, month - 1, day);
 };
 
-
 const useHolidayCheck = () => {
   const dispatch = useDispatch();
 
   const { holidays = [], isLoading } = useSelector(
-    (state) => state.helpTicketConfig
+    (state) => state.helpTicketConfig,
   );
 
   useEffect(() => {
@@ -41,7 +38,7 @@ const useHolidayCheck = () => {
 
     return holidays.some((h) => {
       const holidayDate = parseISOToLocalDate(
-        h.holiday_date.slice(0, 10)
+        h.holiday_date.slice(0, 10),
       ).toDateString();
 
       return holidayDate === selectedDate;

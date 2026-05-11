@@ -19,16 +19,16 @@ export const loginUser = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await axios.post(`${API_URL}/login`, credentials);
-      if (response.data.token)
-        localStorage.setItem("token", response.data.token);
-      if (response.data.user) {
-        localStorage.setItem("user", JSON.stringify(response.data.user));
+      const { token, user } = response.data.data;
+      if (token) localStorage.setItem("token", token);
+      if (user) {
+        localStorage.setItem("user", JSON.stringify(user));
       } else {
         localStorage.removeItem("user");
       }
       localStorage.setItem("loginTime", Date.now());
 
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response.data.message || "Login failed");
     }
@@ -40,16 +40,7 @@ export const registerUser = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await axios.post(`${API_URL}/register`, userData);
-      if (response.data.token)
-        localStorage.setItem("token", response.data.token);
-      if (response.data.user) {
-        localStorage.setItem("user", JSON.stringify(response.data.user));
-      } else {
-        localStorage.removeItem("user");
-      }
-      localStorage.setItem("loginTime", Date.now());
-
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response.data.message || "Registration failed",
@@ -133,11 +124,8 @@ const authSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(registerUser.fulfilled, (state, action) => {
+      .addCase(registerUser.fulfilled, (state) => {
         state.isLoading = false;
-        state.user = action.payload?.user || null;
-        state.token = action.payload?.token || null;
-        state.theme = action.payload?.user?.theme || "light";
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;

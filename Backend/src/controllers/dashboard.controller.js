@@ -23,16 +23,16 @@ exports.getDashboardSummary = async (req, res) => {
       { total: 0 },
     );
 
-    // 2. Checklist Stats (Recent tasks - last 30 days)
-    let checklistQuery = `SELECT status, COUNT(*) as count FROM checklist`;
-    if (!isAdmin) checklistQuery += ` WHERE doer_id = $1`;
-    checklistQuery += ` GROUP BY status`;
+    // 2. Task Stats (Modern Task Management)
+    let tasksQuery = `SELECT status, COUNT(*) as count FROM tasks`;
+    if (!isAdmin) tasksQuery += ` WHERE doer_id = $1`;
+    tasksQuery += ` GROUP BY status`;
 
-    const checklistResult = await pool.query(
-      checklistQuery,
+    const tasksResult = await pool.query(
+      tasksQuery,
       isAdmin ? [] : [userId],
     );
-    const checklistStats = checklistResult.rows.reduce(
+    const tasksStats = tasksResult.rows.reduce(
       (acc, row) => {
         acc[row.status] = parseInt(row.count);
         acc.total = (acc.total || 0) + parseInt(row.count);
@@ -40,6 +40,29 @@ exports.getDashboardSummary = async (req, res) => {
       },
       { total: 0 },
     );
+
+    // 3. Legacy Checklist Stats (Backward compatibility)
+    let checklistStats = { total: 0 };
+    try {
+      let checklistQuery = `SELECT status, COUNT(*) as count FROM checklist`;
+      if (!isAdmin) checklistQuery += ` WHERE doer_id = $1`;
+      checklistQuery += ` GROUP BY status`;
+
+      const checklistResult = await pool.query(
+        checklistQuery,
+        isAdmin ? [] : [userId],
+      );
+      checklistStats = checklistResult.rows.reduce(
+        (acc, row) => {
+          acc[row.status] = parseInt(row.count);
+          acc.total = (acc.total || 0) + parseInt(row.count);
+          return acc;
+        },
+        { total: 0 },
+      );
+    } catch (e) {
+      console.log("Checklist table may not exist, skipping legacy stats.");
+    }
 
     // 3. O2D Stats
     let o2dQuery = `SELECT overall_status as status, COUNT(*) as count FROM o2d_orders`;
@@ -84,6 +107,8 @@ exports.getDashboardSummary = async (req, res) => {
     // We'll define "Done" as COMPLETED/Verified/etc. across all modules
     const doneCount =
       (delegationStats["COMPLETED"] || 0) +
+      (tasksStats["Completed"] || 0) +
+      (tasksStats["Verified"] || 0) +
       (checklistStats["Verified"] || 0) +
       (checklistStats["Completed"] || 0) +
       (o2dStats["COMPLETED"] || 0) +
@@ -92,6 +117,7 @@ exports.getDashboardSummary = async (req, res) => {
 
     const totalCount =
       delegationStats.total +
+      tasksStats.total +
       checklistStats.total +
       o2dStats.total +
       ticketStats.total;
@@ -105,15 +131,19 @@ exports.getDashboardSummary = async (req, res) => {
     };
 
     res.json({
-      delegation: delegationStats,
-      checklist: checklistStats,
-      o2d: o2dStats,
-      helpTicket: ticketStats,
-      ims: imsStats,
-      performance,
+      success: true,
+      data: {
+        delegation: delegationStats,
+        tasks: tasksStats,
+        checklist: checklistStats,
+        o2d: o2dStats,
+        helpTicket: ticketStats,
+        ims: imsStats,
+        performance,
+      }
     });
   } catch (err) {
     console.error("Error in getDashboardSummary:", err);
-    res.status(500).json({ message: "Error fetching dashboard stats" });
+    res.status(500).json({ success: false, message: "Error fetching dashboard stats" });
   }
 };

@@ -20,7 +20,7 @@ export const fetchTodos = createAsyncThunk(
         }
       );
 
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch ToDos"
@@ -39,7 +39,7 @@ export const createTodo = createAsyncThunk(
             const response = await axios.post(API_URL, todoData, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to create ToDo');
         }
@@ -55,7 +55,7 @@ export const updateTodoStatus = createAsyncThunk(
             const response = await axios.patch(`${API_URL}/${id}/status`, { status }, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            return response.data;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update status');
         }

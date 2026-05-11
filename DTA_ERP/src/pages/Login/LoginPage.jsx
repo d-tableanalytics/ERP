@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import LeftPanel from './components/LeftPanel';
 import LoginForm from './components/LoginForm';
 
 const LoginPage = () => {
+    const [selectedModule, setSelectedModule] = useState("");
+
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white h-screen overflow-hidden flex font-display w-full">
             {/* Left Section: Visual & Features */}
-            <LeftPanel />
+            <LeftPanel selectedModule={selectedModule} setSelectedModule={setSelectedModule} />
 
             {/* Right Section: Login Form */}
             <div className="w-full lg:w-1/2 flex flex-col h-full bg-white dark:bg-slate-950 overflow-y-auto">
@@ -19,7 +21,7 @@ const LoginPage = () => {
                 </div>
 
                 <div className="flex flex-1 flex-col justify-center items-center px-6 md:px-20 lg:px-24 py-10">
-                    <LoginForm />
+                    <LoginForm selectedModule={selectedModule} />
                 </div>
 
                 {/* Bottom Bar (Mobile/Tablet only) */}

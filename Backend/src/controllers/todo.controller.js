@@ -20,10 +20,10 @@ exports.createTodo = async (req, res) => {
             assigned_to || created_by
         ]);
 
-        res.status(201).json(result.rows[0]);
+        res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('Error creating todo:', err);
-        res.status(500).json({ message: 'Error creating todo' });
+        res.status(500).json({ success: false, message: 'Error creating todo' });
     }
 };
 
@@ -51,10 +51,10 @@ exports.getTodosByUserId = async (req, res) => {
     `;
 
     const result = await db.query(query, [userId]);
-    res.status(200).json(result.rows);
+    res.status(200).json({ success: true, data: result.rows });
   } catch (err) {
     console.error("Error fetching todos:", err);
-    res.status(500).json({ message: "Error fetching todos" });
+    res.status(500).json({ success: false, message: "Error fetching todos" });
   }
 };
 
@@ -82,10 +82,10 @@ exports.updateTodoStatus = async (req, res) => {
             WHERE t.todo_id = $1
         `;
         const detailedResult = await db.query(detailedQuery, [id]);
-        res.status(200).json(detailedResult.rows[0]);
+        res.status(200).json({ success: true, data: detailedResult.rows[0] });
     } catch (err) {
         console.error('Error updating status:', err);
-        res.status(500).json({ message: 'Error updating status' });
+        res.status(500).json({ success: false, message: 'Error updating status' });
     }
 };
 
@@ -93,10 +93,10 @@ exports.deleteTodo = async (req, res) => {
     const { id } = req.params;
     try {
         const result = await db.query('DELETE FROM todos WHERE todo_id = $1 RETURNING *', [id]);
-        if (result.rows.length === 0) return res.status(404).json({ message: 'Todo not found' });
-        res.status(200).json({ message: 'Todo deleted successfully' });
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Todo not found' });
+        res.status(200).json({ success: true, message: 'Todo deleted successfully' });
     } catch (err) {
         console.error('Error deleting todo:', err);
-        res.status(500).json({ message: 'Error deleting todo' });
+        res.status(500).json({ success: false, message: 'Error deleting todo' });
     }
 };

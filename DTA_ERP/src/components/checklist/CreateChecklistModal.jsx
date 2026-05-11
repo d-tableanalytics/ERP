@@ -104,7 +104,7 @@ const CreateChecklistModal = ({
       const empRes = await axios.get(`${API_BASE_URL}/api/master/employees`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setEmployees(empRes.data);
+      setEmployees(Array.isArray(empRes.data) ? empRes.data : (empRes.data.data || []));
 
       // Fetch departments
       const deptRes = await axios.get(
@@ -113,7 +113,7 @@ const CreateChecklistModal = ({
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      setDepartments(deptRes.data);
+      setDepartments(Array.isArray(deptRes.data) ? deptRes.data : (deptRes.data.data || []));
     } catch (error) {
       console.error("Error fetching initial data:", error);
     }

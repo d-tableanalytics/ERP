@@ -1,6 +1,6 @@
 import React from 'react';
 
-const LeftPanel = () => {
+const LeftPanel = ({ selectedModule, setSelectedModule }) => {
     return (
         <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden bg-slate-900">
             {/* Background Image with Overlay */}
@@ -29,10 +29,34 @@ const LeftPanel = () => {
                 <p className="text-slate-300 text-lg">Streamline your workflow with our integrated modules designed for efficiency and role-based security.</p>
 
                 <div className="grid grid-cols-2 gap-4 mt-4">
-                    <ModuleItem icon="badge" label="HRMS & Attendance" iconColor="text-blue-300" />
-                    <ModuleItem icon="payments" label="Finance & Salary" iconColor="text-emerald-300" />
-                    <ModuleItem icon="inventory_2" label="IMS & FMS" iconColor="text-amber-300" />
-                    <ModuleItem icon="checklist" label="Tasks & Delegation" iconColor="text-purple-300" />
+                    <ModuleItem 
+                        icon="badge" 
+                        label="HRMS & Attendance" 
+                        iconColor="text-blue-300" 
+                        isSelected={selectedModule === "HRMS & Attendance"}
+                        onClick={() => setSelectedModule(selectedModule === "HRMS & Attendance" ? "" : "HRMS & Attendance")}
+                    />
+                    <ModuleItem 
+                        icon="payments" 
+                        label="Finance & Salary" 
+                        iconColor="text-emerald-300" 
+                        isSelected={selectedModule === "Finance & Salary"}
+                        onClick={() => setSelectedModule(selectedModule === "Finance & Salary" ? "" : "Finance & Salary")}
+                    />
+                    <ModuleItem 
+                        icon="inventory_2" 
+                        label="IMS & FMS" 
+                        iconColor="text-amber-300" 
+                        isSelected={selectedModule === "IMS & FMS"}
+                        onClick={() => setSelectedModule(selectedModule === "IMS & FMS" ? "" : "IMS & FMS")}
+                    />
+                    <ModuleItem 
+                        icon="checklist" 
+                        label="Task Management System" 
+                        iconColor="text-purple-300" 
+                        isSelected={selectedModule === "Task Management System"}
+                        onClick={() => setSelectedModule(selectedModule === "Task Management System" ? "" : "Task Management System")}
+                    />
                 </div>
             </div>
 
@@ -47,8 +71,15 @@ const LeftPanel = () => {
     );
 };
 
-const ModuleItem = ({ icon, label, iconColor }) => (
-    <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl flex items-center gap-3">
+const ModuleItem = ({ icon, label, iconColor, isSelected, onClick }) => (
+    <div 
+        onClick={onClick}
+        className={`backdrop-blur-md border p-4 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${
+            isSelected 
+            ? "bg-white/20 border-white/40 ring-2 ring-blue-400/50 scale-[1.02]" 
+            : "bg-white/10 border-white/20 hover:bg-white/15"
+        }`}
+    >
         <span className={`material-symbols-outlined ${iconColor}`}>{icon}</span>
         <span className="text-white font-medium text-sm">{label}</span>
     </div>

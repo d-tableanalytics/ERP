@@ -23,7 +23,7 @@ export const fetchScoreData = createAsyncThunk(
       console.log("✅ Score API Response:", res.data);
       
       // ✅ Return the complete internal response
-      return res.data;
+      return res.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch Score Data"
@@ -48,7 +48,7 @@ export const fetchScoreSummary = createAsyncThunk(
         },
       });
 
-      return res.data;
+      return res.data.data;
     } catch {
       return rejectWithValue("Failed to fetch summary");
     }

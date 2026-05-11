@@ -14,38 +14,92 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
   /* ================= MENU STRUCTURE ================= */
 
   const menuItems = useMemo(
-    () => [
-      { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
-      { icon: "assignment_ind", label: "Delegation", path: "/delegation" },
-      { icon: "check_box", label: "Checklist", path: "/checklist" },
-      { icon: "checklist", label: "TODO", path: "/todo" },
-      {
-        icon: "score",
-        label: "Scoring",
-        children: [
-          { icon: "assignment_ind", label: "Delegation", path: "/score" },
-          {
-            icon: "analytics",
-            label: "Combined MIS Score",
-            path: "/combined-mis",
-          },
-        ],
-      },
-      {
-        icon: "folder_open",
-        label: "FMS",
-        children: [
-          { icon: "orders", label: "O2D FMS", path: "/o2d-fms" },
-          // { icon: 'orders', label: 'O2D', path: '/o2d' },
-          { icon: "support_agent", label: "Help Ticket", path: "/help" },
-        ],
-      },
+    () => {
+      const selectedModule = localStorage.getItem("selectedModule");
+      
+      const allItems = [
+        { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
+        { icon: "assignment_ind", label: "Delegation", path: "/delegation" },
+        { icon: "check_box", label: "Checklist", path: "/checklist" },
+        {
+          icon: "task_alt",
+          label: "Tasks",
+          children: [
+            { icon: "task_alt",               label: "My Tasks",         path: "/tasks/my-tasks"         },
+            { icon: "send",                   label: "Delegated Tasks",  path: "/tasks/delegated-tasks"  },
+            { icon: "notifications_active",   label: "Subscribed Tasks", path: "/tasks/subscribed-tasks" },
+            { icon: "layers",                 label: "All Tasks",        path: "/tasks/all-tasks"        },
+            { icon: "delete_sweep",           label: "Deleted Tasks",    path: "/tasks/deleted-tasks"    },
+          ],
+        },
+       
+        { icon: "checklist", label: "TODO", path: "/todo" },
+        {
+          icon: "score",
+          label: "Scoring",
+          children: [
+            { icon: "assignment_ind", label: "Delegation", path: "/score" },
+            {
+              icon: "analytics",
+              label: "Combined MIS Score",
+              path: "/combined-mis",
+            },
+          ],
+        },
+        {
+          icon: "folder_open",
+          label: "FMS",
+          children: [
+            { icon: "orders", label: "O2D FMS", path: "/o2d-fms" },
+            { icon: "support_agent", label: "Help Ticket", path: "/help" },
+          ],
+        },
+  
+        { icon: "inventory_2", label: "IMS", path: "/ims" },
+        { icon: "person", label: "Profile", path: "/profile" },
+      ];
 
-      { icon: "inventory_2", label: "IMS", path: "/ims" },
-      { icon: "person", label: "Profile", path: "/profile" },
-    ],
-    [],
+      // Filtering logic based on selected module
+      let filteredItems = allItems;
+      
+      if (selectedModule === "Task Management System") {
+        filteredItems = allItems.filter(item => 
+          ["Dashboard", "Delegation", "Checklist", "Tasks", "TODO", "Profile"].includes(item.label)
+        );
+      } else if (selectedModule === "IMS & FMS") {
+        filteredItems = allItems.filter(item => 
+          ["Dashboard", "IMS", "FMS", "Profile"].includes(item.label)
+        );
+      } else if (selectedModule === "Finance & Salary") {
+        filteredItems = allItems.filter(item => 
+          ["Dashboard", "Scoring", "FMS", "Profile"].includes(item.label)
+        );
+      } else if (selectedModule === "HRMS & Attendance") {
+        filteredItems = allItems.filter(item => 
+          ["Dashboard", "Profile"].includes(item.label)
+        );
+      }
+
+      // Insert Approval Requests for Admin/SuperAdmin
+      if (user?.role === 'Admin' || user?.role === 'SuperAdmin') {
+        const tasksMenu = filteredItems.find(item => item.label === 'Tasks');
+        if (tasksMenu && tasksMenu.children) {
+          // Check if it already exists to avoid duplicates (though useMemo should handle it)
+          if (!tasksMenu.children.find(child => child.label === "Approval Requests")) {
+            tasksMenu.children.push({
+              icon: "verified_user",
+              label: "Approval Requests",
+              path: "/tasks/approvals"
+            });
+          }
+        }
+      }
+
+      return filteredItems;
+    },
+    [user?.role],
   );
+
 
   /* ================= AUTO OPEN PARENT IF CHILD ACTIVE ================= */
 
@@ -65,6 +119,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
   /* ================= LOGOUT ================= */
 
   const handleLogout = () => {
+    localStorage.removeItem("selectedModule");
     dispatch(logout());
     navigate("/login");
   };

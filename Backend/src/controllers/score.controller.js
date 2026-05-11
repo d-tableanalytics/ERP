@@ -24,10 +24,13 @@ exports.getScore = async (req, res) => {
 
         if (total === 0) {
             return res.json({
-                totalTasks: 0,
-                scores: { pending: 0, late: 0, completed: 0 },
-                counts: { pending: 0, late: 0, onTime: 0 },
-                tasks: []
+                success: true,
+                data: {
+                    totalTasks: 0,
+                    scores: { pending: 0, late: 0, completed: 0 },
+                    counts: { pending: 0, late: 0, onTime: 0 },
+                    tasks: []
+                }
             });
         }
 
@@ -92,13 +95,16 @@ exports.getScore = async (req, res) => {
         }));
 
         res.json({
-            totalTasks: total,
-            tasks: scoreRows
+            success: true,
+            data: {
+                totalTasks: total,
+                tasks: scoreRows
+            }
         });
 
     } catch (err) {
         console.error('Error in getScore:', err);
-        res.status(500).json({ message: 'Error calculating scores' });
+        res.status(500).json({ success: false, message: 'Error calculating scores' });
     }
 };
 
@@ -120,13 +126,16 @@ exports.getScoreSummary = async (req, res) => {
             total > 0 ? ((count / total) * 100).toFixed(1) : 0;
 
         res.json({
-            totalTasks: total,
-            red: { count: redTasks, percent: percent(redTasks) },
-            yellow: { count: yellowTasks, percent: percent(yellowTasks) },
-            green: { count: greenTasks, percent: percent(greenTasks) }
+            success: true,
+            data: {
+                totalTasks: total,
+                red: { count: redTasks, percent: percent(redTasks) },
+                yellow: { count: yellowTasks, percent: percent(yellowTasks) },
+                green: { count: greenTasks, percent: percent(greenTasks) }
+            }
         });
     } catch (err) {
         console.error('Error in getScoreSummary:', err);
-        res.status(500).json({ message: 'Error fetching score summary' });
+        res.status(500).json({ success: false, message: 'Error fetching score summary' });
     }
 };

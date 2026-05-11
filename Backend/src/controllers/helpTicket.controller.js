@@ -124,10 +124,10 @@ exports.raiseTicket = async (req, res) => {
         }
 
        
-        res.status(201).json(result.rows[0]);
+        res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error raising ticket' });
+        res.status(500).json({ success: false, message: 'Error raising ticket' });
     }
 };
 
@@ -147,7 +147,7 @@ exports.pcPlanning = async (req, res) => {
 
         // Authorization Check: Only assigned PC can edit
         if (oldValues.pc_accountable !== actionBy) {
-            throw new Error('Unauthorized: Only the assigned PC can perform this action');
+            return res.status(403).json({ success: false, message: 'Unauthorized: Only the assigned PC can perform this action' });
         }
 
         const query = `
@@ -168,11 +168,11 @@ exports.pcPlanning = async (req, res) => {
         await recordHistory(client, id, oldValues.help_ticket_no, 2, oldValues,newValues , 'PC_PLANNING_COMPLETE', actionBy, pc_remark);
 
         await client.query('COMMIT');
-        res.json(result.rows[0]);
+        res.json({ success: true, data: result.rows[0] });
     } catch (err) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ message: err.message || 'Error in PC planning' });
+        res.status(500).json({ success: false, message: err.message || 'Error in PC planning' });
     } finally {
         client.release();
     }
@@ -227,11 +227,11 @@ exports.solveTicket = async (req, res) => {
         await recordHistory(client, id, oldValues.help_ticket_no, 3, oldValues, newValues, 'TICKET_SOLVED', actionBy, solver_remark);
 
         await client.query('COMMIT');
-        res.json(result.rows[0]);
+        res.json({ success: true, data: result.rows[0] });
     } catch (err) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ message: err.message || 'Error solving ticket' });
+        res.status(500).json({ success: false, message: err.message || 'Error solving ticket' });
     } finally {
         client.release();
     }
@@ -265,11 +265,11 @@ exports.reviseTicketDate = async (req, res) => {
        
          
         await client.query('COMMIT');
-        res.json(result.rows[0]);
+        res.json({ success: true, data: result.rows[0] });
     } catch (err) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ message: err.message || 'Error revising date' });
+        res.status(500).json({ success: false, message: err.message || 'Error revising date' });
     } finally {
         client.release();
     }
@@ -310,11 +310,11 @@ exports.pcConfirmation = async (req, res) => {
         await recordHistory(client, id, oldValues.help_ticket_no, 4, oldValues, newValues, 'PC_CONFIRMED', actionBy, pc_remark_stage4);
 
         await client.query('COMMIT');
-        res.json(result.rows[0]);
+        res.json({ success: true, data: result.rows[0] });
     } catch (err) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ message: err.message || 'Error in PC confirmation' });
+        res.status(500).json({ success: false, message: err.message || 'Error in PC confirmation' });
     } finally {
         client.release();
     }
@@ -350,11 +350,11 @@ exports.closeTicket = async (req, res) => {
         await recordHistory(client, id, oldValues.help_ticket_no, 5, oldValues, newValues, 'TICKET_CLOSED', actionBy, remarks || 'Ticket closed');
 
         await client.query('COMMIT');
-        res.json(result.rows[0]);
+        res.json({ success: true, data: result.rows[0] });
     } catch (err) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ message: err.message || 'Error closing ticket' });
+        res.status(500).json({ success: false, message: err.message || 'Error closing ticket' });
     } finally {
         client.release();
     }
@@ -388,11 +388,11 @@ exports.reraiseTicket = async (req, res) => {
         await recordHistory(client, id, oldValues.help_ticket_no, 5, oldValues, newValues, 'TICKET_RERAISED', actionBy, remarks);
 
         await client.query('COMMIT');
-        res.json(result.rows[0]);
+        res.json({ success: true, data: result.rows[0] });
     } catch (err) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ message: err.message || 'Error re-raising ticket' });
+        res.status(500).json({ success: false, message: err.message || 'Error re-raising ticket' });
     } finally {
         client.release();
     }
@@ -485,10 +485,10 @@ exports.getTickets = async (req, res) => {
 
         query += " ORDER BY t.created_at DESC";
         const result = await db.query(query, params);
-        res.json(result.rows);
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching tickets' });
+        res.status(500).json({ success: false, message: 'Error fetching tickets' });
     }
 };
 
@@ -507,7 +507,7 @@ exports.getTicketById = async (req, res) => {
             LEFT JOIN employees e3 ON t.problem_solver = e3."User_Id"
             WHERE t.id = $1`, [id]);
 
-        if (ticketRes.rows.length === 0) return res.status(404).json({ message: 'Ticket not found' });
+        if (ticketRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Ticket not found' });
 
         const historyRes = await db.query(`
             SELECT h.*, e.First_Name || ' ' || e.Last_Name as action_by_name
@@ -516,11 +516,14 @@ exports.getTicketById = async (req, res) => {
             WHERE h.ticket_id = $1 ORDER BY h.action_date DESC`, [id]);
 
         res.json({
-            ...ticketRes.rows[0],
-            history: historyRes.rows
+            success: true,
+            data: {
+                ...ticketRes.rows[0],
+                history: historyRes.rows
+            }
         });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Error fetching ticket detail' });
+        res.status(500).json({ success: false, message: 'Error fetching ticket detail' });
     }
 };

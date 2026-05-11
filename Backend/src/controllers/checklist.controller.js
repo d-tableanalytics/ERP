@@ -39,10 +39,10 @@ exports.createChecklistMaster = async (req, res) => {
         ];
 
         const result = await db.query(query, values);
-        res.status(201).json(result.rows[0]);
+        res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('Error creating checklist master:', err);
-        res.status(500).json({ message: 'Error creating checklist master' });
+        res.status(500).json({ success: false, message: 'Error creating checklist master' });
     }
 };
 
@@ -85,11 +85,11 @@ exports.updateChecklistMaster = async (req, res) => {
         ];
 
         const result = await db.query(query, values);
-        if (result.rows.length === 0) return res.status(404).json({ message: 'Template not found' });
-        res.status(200).json(result.rows[0]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Template not found' });
+        res.status(200).json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('Error updating checklist master:', err);
-        res.status(500).json({ message: 'Error updating checklist master' });
+        res.status(500).json({ success: false, message: 'Error updating checklist master' });
     }
 };
 
@@ -99,10 +99,10 @@ exports.deleteChecklistMaster = async (req, res) => {
 
     try {
         await db.query('DELETE FROM checklist_master WHERE id = $1', [id]);
-        res.status(200).json({ message: 'Template deleted successfully' });
+        res.status(200).json({ success: true, message: 'Template deleted successfully' });
     } catch (err) {
         console.error('Error deleting checklist master:', err);
-        res.status(500).json({ message: 'Error deleting checklist master' });
+        res.status(500).json({ success: false, message: 'Error deleting checklist master' });
     }
 };
 
@@ -150,20 +150,20 @@ exports.updateChecklistStatus = async (req, res) => {
         const completedAt = status === 'Completed' ? new Date() : null;
         const query = `
             UPDATE checklist 
-            SET status = $1, 
+            SET status = $1::VARCHAR, 
                 proof_file_url = COALESCE($2, proof_file_url), 
-                completed_at = CASE WHEN $1 = 'Completed' THEN COALESCE($4, NOW()) ELSE completed_at END,
+                completed_at = CASE WHEN $1::VARCHAR = 'Completed' THEN COALESCE($4, NOW()) ELSE completed_at END,
                 revision_count = $5
             WHERE id = $3 RETURNING *`;
         const result = await db.query(query, [status, proofFileUrl, id, completedAt, newRevisionCount]);
-       if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Checklist task not found' });
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Checklist task not found' });
         }
 
-        res.status(200).json(result.rows[0]);
+        res.status(200).json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('Error updating checklist status:', err);
-        res.status(500).json({ message: 'Error updating checklist status' });
+        res.status(500).json({ success: false, message: 'Error updating checklist status' });
     }
 };
 
@@ -212,11 +212,11 @@ exports.updateChecklistTaskDetails = async (req, res) => {
 
         const result = await db.query(query, values);
 
-        if (result.rows.length === 0) return res.status(404).json({ message: 'Checklist task not found' });
-        res.status(200).json(result.rows[0]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Checklist task not found' });
+        res.status(200).json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('Error updating checklist details:', err);
-        res.status(500).json({ message: 'Error updating checklist details' });
+        res.status(500).json({ success: false, message: 'Error updating checklist details' });
     }
 };
 
@@ -226,10 +226,10 @@ exports.deleteChecklistTask = async (req, res) => {
 
     try {
         await db.query('DELETE FROM checklist WHERE id = $1', [id]);
-        res.status(200).json({ message: 'Checklist task deleted successfully' });
+        res.status(200).json({ success: true, message: 'Checklist task deleted successfully' });
     } catch (err) {
         console.error('Error deleting checklist task:', err);
-        res.status(500).json({ message: 'Error deleting checklist task' });
+        res.status(500).json({ success: false, message: 'Error deleting checklist task' });
     }
 };
 
@@ -270,10 +270,10 @@ exports.getChecklists = async (req, res) => {
         }
 
         const result = await db.query(query, queryParams);
-        res.status(200).json(result.rows);
+        res.status(200).json({ success: true, data: result.rows });
     } catch (err) {
         console.error('Error fetching checklists:', err);
-        res.status(500).json({ message: 'Error fetching checklists' });
+        res.status(500).json({ success: false, message: 'Error fetching checklists' });
     }
 };
 

@@ -22,7 +22,7 @@ const updateConstraints = async () => {
         await pool.query(`
             ALTER TABLE delegation 
             ADD CONSTRAINT delegation_status_check 
-            CHECK (status IN ('NEED CLARITY', 'APPROVAL WAITING', 'COMPLETED', 'NEED REVISION', 'HOLD'));
+            CHECK (status IN ('Pending', 'pending', 'NEED CLARITY', 'need clarity', 'APPROVAL WAITING', 'approval waiting', 'COMPLETED', 'Completed', 'completed', 'NEED REVISION', 'need revision', 'HOLD', 'Hold', 'hold', 'In Progress', 'in progress', 'Overdue', 'overdue'));
         `);
 
         console.log('✅ Database constraints updated successfully.');

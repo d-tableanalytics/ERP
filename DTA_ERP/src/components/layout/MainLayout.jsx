@@ -2,6 +2,7 @@ import { useSelector } from 'react-redux';
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { ChatbotDrawer } from '../../features/chatbot';
 
 const MainLayout = ({ children, title }) => {
     const { theme } = useSelector((state) => state.auth);
@@ -67,6 +68,9 @@ const MainLayout = ({ children, title }) => {
                     </div>
                 </div>
             )}
+
+            {/* Chatbot Drawer */}
+            <ChatbotDrawer />
         </div>
     );
 };

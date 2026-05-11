@@ -12,7 +12,7 @@ export const fetchDashboardSummary = createAsyncThunk(
       const response = await axios.get(`${API_URL}/summary`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch dashboard summary",

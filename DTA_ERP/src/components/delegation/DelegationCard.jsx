@@ -150,3 +150,6 @@ const DelegationCard = ({ delegation, user, isAdmin, onEdit, onDelete }) => {
 };
 
 export default DelegationCard;
+
+
+

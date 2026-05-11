@@ -1,19 +1,18 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../components/layout/MainLayout";
 import StatCard from "../components/dashboard/StatCard";
 import ModuleTrends from "../components/dashboard/ModuleTrends";
-import RecentActivity from "../components/dashboard/RecentActivity";
 import QuickActions from "../components/dashboard/QuickActions";
 import TodoSummary from "../components/dashboard/TodoSummary";
 import Loader from "../components/common/Loader";
 import { fetchDashboardSummary } from "../store/slices/dashboardSlice";
+import TaskCreationForm from "../components/delegation/TaskCreationForm";
 
 // Helper for mini charts defined outside render to avoid recreation
 const MiniPerfChart = ({ title, done, total }) => {
   const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-  const notDonePercent = 100 - percent;
   return (
     <div className="flex flex-col items-center bg-bg-card border border-border-main p-4 rounded-2xl shadow-sm">
       <p className="text-[10px] font-bold text-text-muted uppercase mb-3 text-center">
@@ -21,82 +20,74 @@ const MiniPerfChart = ({ title, done, total }) => {
       </p>
       <div className="relative w-20 h-20">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-          {/* Red (Not Done) */}
           <circle
             cx="50"
             cy="50"
             r="40"
             fill="none"
-            stroke="#ef4444"
+            stroke="currentColor"
             strokeWidth="10"
-            strokeDasharray="251.2"
-            className="opacity-20"
+            className="text-border-main"
           />
-          {/* Green (Done) */}
           <circle
             cx="50"
             cy="50"
             r="40"
             fill="none"
-            stroke="#22c55e"
+            stroke="currentColor"
             strokeWidth="10"
             strokeDasharray="251.2"
             strokeDashoffset={251.2 * (1 - percent / 100)}
             strokeLinecap="round"
-            className="transition-all duration-1000"
+            className="text-primary transition-all duration-1000"
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-bold text-text-main">{percent}%</span>
+          <span className="text-xs font-black text-text-main">{percent}%</span>
         </div>
-      </div>
-      <div className="flex justify-between w-full mt-3 text-[9px] font-bold">
-        <span className="text-green-500">{percent}% Done</span>
-        <span className="text-red-500">{notDonePercent}% Not Done</span>
       </div>
     </div>
   );
 };
 
 const Dashboard = () => {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { summary, isLoading } = useSelector((state) => state.dashboard);
+  
+  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
 
   useEffect(() => {
     dispatch(fetchDashboardSummary());
   }, [dispatch]);
 
-  if (isLoading && !summary) {
+  if (isLoading) {
     return (
-      <MainLayout title="Dashboard Overview">
-        <div className="flex justify-center items-center h-[400px]">
-          <Loader />
-        </div>
-      </MainLayout>
+      <div className="flex items-center justify-center h-screen bg-bg-main">
+        <Loader className="w-64 h-64" />
+      </div>
     );
   }
 
-  // Simulated data for demonstration if real data is empty
+  // Fallback data for stats
   const dStats = {
-    total: summary?.delegation?.total || 12,
-    done: summary?.delegation?.COMPLETED || 8,
+    total: (summary?.delegation?.TOTAL || 0) + (summary?.delegation?.DONE || 0) || 42,
+    done: summary?.delegation?.DONE || 28,
   };
   const cStats = {
-    total: summary?.checklist?.total || 45,
-    done:
-      (summary?.checklist?.Completed || 0) +
-        (summary?.checklist?.Verified || 0) || 32,
+    total: (summary?.checklist?.TOTAL || 0) + (summary?.checklist?.DONE || 0) || 12,
+    done: summary?.checklist?.DONE || 10,
   };
   const oStats = {
-    total: summary?.o2d?.total || 24,
-    done: summary?.o2d?.COMPLETED || 15,
+    total: (summary?.o2d?.TOTAL || 0) + (summary?.o2d?.DONE || 0) || 85,
+    done: summary?.o2d?.DONE || 62,
   };
   const hStats = {
-    total: summary?.helpTicket?.total || 18,
+    total:
+      (summary?.helpTicket?.TOTAL || 0) +
+        (summary?.helpTicket?.CLOSED || 0) || 18,
     done:
-      (summary?.helpTicket?.RESOLVED || 0) +
         (summary?.helpTicket?.CLOSED || 0) || 14,
   };
   const iStats = {
@@ -139,7 +130,7 @@ const Dashboard = () => {
             trend={`${dStats.done} Done`}
             trendLabel="Completed tasks"
             color="blue"
-            onClick={() => navigate("/delegation")}
+            onClick={() => navigate("/tasks/all-tasks")}
           />
           <StatCard
             title="Checklists"
@@ -179,7 +170,7 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Module Performance Breakdown (New Section with multiple graphs) */}
+        {/* Module Performance Breakdown */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
           <MiniPerfChart
             title="Delegation Performance"
@@ -205,7 +196,6 @@ const Dashboard = () => {
 
         {/* Graphical Report Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Performance Visualization (60/40 Chart) */}
           <div className="lg:col-span-1 bg-bg-card border border-border-main rounded-2xl p-6 shadow-sm">
             <div className="mb-6">
               <h3 className="text-lg font-bold text-text-main">
@@ -217,10 +207,8 @@ const Dashboard = () => {
             </div>
 
             <div className="flex flex-col items-center justify-center py-4">
-              {/* Circular Progress SVG */}
               <div className="relative w-48 h-48">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  {/* Red Background (Not Done - 40%) */}
                   <circle
                     cx="50"
                     cy="50"
@@ -231,7 +219,6 @@ const Dashboard = () => {
                     strokeDasharray="251.2"
                     className="opacity-20"
                   />
-                  {/* Green Trace (Done - 60%) */}
                   <circle
                     cx="50"
                     cy="50"
@@ -276,7 +263,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Module Trends replaced Attendance Trends */}
           <div className="lg:col-span-2">
             <ModuleTrends />
           </div>
@@ -285,13 +271,23 @@ const Dashboard = () => {
         {/* Bottom Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <QuickActions />
+            <QuickActions onNewTask={() => setIsTaskFormOpen(true)} />
           </div>
           <div className="lg:col-span-2">
-            <TodoSummary />
+            <TodoSummary onCreateTask={() => setIsTaskFormOpen(true)} />
           </div>
         </div>
       </div>
+
+      <TaskCreationForm 
+        isOpen={isTaskFormOpen}
+        onClose={() => setIsTaskFormOpen(false)}
+        onSuccess={() => {
+          setIsTaskFormOpen(false);
+          dispatch(fetchDashboardSummary());
+          // Refreshing dashboard summary will also indirectly trigger updates if needed
+        }}
+      />
     </MainLayout>
   );
 };

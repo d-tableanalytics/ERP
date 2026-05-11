@@ -1,6 +1,8 @@
 import MainLayout from "../components/layout/MainLayout";
 import StatCard from "../components/dashboard/StatCard";
+import DeleteModal from "../components/common/DeleteModal";
 import { getModuleConfig, formatTime12h } from "./dummyData";
+import { formatTimeAgo } from "../utils/formatters";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
@@ -12,6 +14,30 @@ import {
   removeHoliday,
 } from "../../src/store/slices/helpTicketConfigSlice";
 import { registerUser } from "../../src/store/slices/authSlice";
+import { getMe } from "../../src/services/auth";
+import {
+  fetchDepartments,
+  fetchEmployees,
+  deleteEmployee,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+} from "../../src/store/slices/masterSlice";
+import notificationService from "../../src/services/notificationService";
+
+const getTodayDate = () => new Date().toISOString().split("T")[0];
+
+const getDefaultRegisterForm = () => ({
+  First_Name: "",
+  Last_Name: "",
+  Work_Email: "",
+  Password: "",
+  Role: "Employee",
+  Designation: "",
+  Department: "",
+  Joining_Date: getTodayDate(),
+});
+
 const DemoModule = ({ type }) => {
   const dispatch = useDispatch();
   const config = getModuleConfig(type);
@@ -20,6 +46,12 @@ const DemoModule = ({ type }) => {
   const { settings, holidays, isSaving } = useSelector(
     (state) => state.helpTicketConfig,
   );
+  const {
+    departments,
+    employees,
+    isLoading: isMasterLoading,
+    isSavingDepartment,
+  } = useSelector((state) => state.master);
   const [form, setForm] = useState({
     auto_close_days: "",
     reminder_days: "",
@@ -29,26 +61,64 @@ const DemoModule = ({ type }) => {
     holiday_date: "",
     description: "",
   });
-  const [registerForm, setRegisterForm] = useState({
-    First_Name: "",
-    Last_Name: "",
-    Work_Email: "",
-    Password: "",
-    Role: "Employee",
-    Designation: "",
-    Department: "",
-    Joining_Date: new Date().toISOString().split("T")[0],
+  const [registerForm, setRegisterForm] = useState(getDefaultRegisterForm);
+  const [departmentForm, setDepartmentForm] = useState({ name: "" });
+  const [editingDepartmentId, setEditingDepartmentId] = useState(null);
+  const [teamSearchTerm, setTeamSearchTerm] = useState("");
+  const [notificationSettings, setNotificationSettings] = useState({
+    whatsapp_notifications: false,
+    email_notifications: false,
+    timezone: 'Asia/Kolkata',
+    daily_reminder_time: '09:00',
+    whatsapp_reminders: false,
+    email_reminders: false,
+    daily_task_report: false,
+    weekly_offs: ['Sunday'],
+    notification_channels: {
+      newTask: { admin: true, manager: true, member: true },
+      taskEdit: { admin: true, manager: true, member: true },
+      taskComment: { admin: true, manager: true, member: true },
+      taskInProgress: { admin: true, manager: true, member: true },
+      taskComplete: { admin: true, manager: true, member: true },
+      taskReOpen: { admin: true, manager: true, member: true }
+    }
+  });
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [deleteModalConfig, setDeleteModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
   });
 
   useEffect(() => {
     if (
       activeSetting === "Help Ticket Setting" ||
-      activeSetting === "Add Holiday" ||
-      activeSetting === "Add Users"
+      activeSetting === "Add Holiday"
     ) {
       dispatch(fetchHelpTicketConfig());
     }
-  }, [activeSetting, dispatch]);
+    if (activeSetting === "Notifications") {
+      fetchNotificationSettings();
+    }
+    if (activeSetting === "Team") {
+      dispatch(fetchEmployees());
+    }
+    if (type === "profile") {
+      fetchActivities();
+      fetchFreshProfile();
+    }
+  }, [activeSetting, dispatch, type]);
+
+  useEffect(() => {
+    if (
+      (activeSetting === "Add Users" || activeSetting === "Departments") &&
+      departments.length === 0
+    ) {
+      dispatch(fetchDepartments());
+    }
+  }, [activeSetting, departments.length, dispatch]);
 
   useEffect(() => {
     if (!settings) return;
@@ -108,13 +178,62 @@ const DemoModule = ({ type }) => {
   };
 
   const handleDeleteHoliday = async (id) => {
-    if (!window.confirm("Delete this holiday?")) return;
+    setDeleteModalConfig({
+      isOpen: true,
+      title: "Delete Holiday?",
+      message: "Are you sure you want to delete this holiday? This will affect SLA and TAT calculations.",
+      onConfirm: async () => {
+        try {
+          await dispatch(removeHoliday(id)).unwrap();
+          toast.success("Holiday removed");
+          dispatch(fetchHelpTicketConfig());
+        } catch {
+          toast.error("Failed to remove holiday");
+        }
+      }
+    });
+  };
 
+  const fetchNotificationSettings = async () => {
     try {
-      await dispatch(removeHoliday(id)).unwrap();
-      toast.success("Holiday removed");
-    } catch {
-      toast.error("Failed to remove holiday");
+      const settings = await notificationService.getSettings();
+      setNotificationSettings(settings);
+    } catch (error) {
+      console.error('Error fetching notification settings:', error);
+      toast.error('Failed to load notification settings');
+    }
+  };
+
+  const handleNotificationChange = (field, value) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleChannelChange = (channel, role, value) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      notification_channels: {
+        ...prev.notification_channels,
+        [channel]: {
+          ...prev.notification_channels[channel],
+          [role]: value
+        }
+      }
+    }));
+  };
+
+  const handleSaveNotificationSettings = async () => {
+    setNotificationLoading(true);
+    try {
+      await notificationService.updateSettings(notificationSettings);
+      toast.success('Notification settings saved successfully');
+    } catch (error) {
+      console.error('Error saving notification settings:', error);
+      toast.error('Failed to save notification settings');
+    } finally {
+      setNotificationLoading(false);
     }
   };
 
@@ -139,47 +258,167 @@ const DemoModule = ({ type }) => {
     try {
       await dispatch(registerUser(registerForm)).unwrap();
       toast.success("User registered successfully");
-      setRegisterForm({
-        First_Name: "",
-        Last_Name: "",
-        Work_Email: "",
-        Password: "",
-        Role: "Employee",
-        Designation: "",
-        Department: "",
-        Joining_Date: new Date().toISOString().split("T")[0],
-      });
+      setRegisterForm(getDefaultRegisterForm());
     } catch (err) {
       toast.error(err || "Failed to register user");
     }
   };
 
+  const resetDepartmentForm = () => {
+    setDepartmentForm({ name: "" });
+    setEditingDepartmentId(null);
+  };
+
+  const handleDepartmentFormChange = (e) => {
+    setDepartmentForm({ name: e.target.value });
+  };
+
+  const handleSaveDepartment = async () => {
+    if (!departmentForm.name.trim()) {
+      toast.error("Department name is required");
+      return;
+    }
+
+    try {
+      const previousDepartmentName = departments.find(
+        (department) => department.id === editingDepartmentId,
+      )?.name;
+
+      if (editingDepartmentId) {
+        const updatedDepartment = await dispatch(
+          updateDepartment({
+            id: editingDepartmentId,
+            name: departmentForm.name,
+          }),
+        ).unwrap();
+
+        setRegisterForm((prev) =>
+          previousDepartmentName &&
+          prev.Department === previousDepartmentName
+            ? { ...prev, Department: updatedDepartment.name }
+            : prev,
+        );
+
+        toast.success("Department updated successfully");
+      } else {
+        await dispatch(
+          createDepartment({
+            name: departmentForm.name,
+          }),
+        ).unwrap();
+        toast.success("Department created successfully");
+      }
+
+      resetDepartmentForm();
+    } catch (err) {
+      toast.error(err || "Failed to save department");
+    }
+  };
+
+  const handleEditDepartment = (department) => {
+    setEditingDepartmentId(department.id);
+    setDepartmentForm({ name: department.name });
+  };
+
+  const handleDeleteDepartment = async (department) => {
+    setDeleteModalConfig({
+      isOpen: true,
+      title: "Delete Department?",
+      message: `Are you sure you want to delete department "${department.name}"? This will clear the department for all assigned employees.`,
+      onConfirm: async () => {
+        try {
+          await dispatch(deleteDepartment(department.id)).unwrap();
+          toast.success("Department deleted successfully");
+
+          setRegisterForm((prev) =>
+            prev.Department === department.name ? { ...prev, Department: "" } : prev
+          );
+
+          if (editingDepartmentId === department.id) {
+            resetDepartmentForm();
+          }
+        } catch (err) {
+          toast.error(err || "Failed to delete department");
+        }
+      }
+    });
+  };
+
+  const [activities, setActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [profileData, setProfileData] = useState(null);
+
+  const fetchFreshProfile = async () => {
+    try {
+      const data = await getMe();
+      setProfileData(data);
+    } catch (error) {
+      console.error('Error fetching fresh profile:', error);
+    }
+  };
+
+  const fetchActivities = async () => {
+    try {
+      setLoadingActivities(true);
+      const res = await notificationService.getNotifications();
+      const list = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
+      setActivities(list.slice(0, 5));
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (emp) => {
+    setDeleteModalConfig({
+      isOpen: true,
+      title: "Delete Member?",
+      message: `Are you sure you want to delete ${emp.First_Name} ${emp.Last_Name}? This action cannot be undone and they will lose all system access.`,
+      onConfirm: async () => {
+        try {
+          await dispatch(deleteEmployee(emp.id)).unwrap();
+          toast.success("Employee deleted successfully");
+        } catch (err) {
+          toast.error(err || "Failed to delete employee");
+        }
+      }
+    });
+  };
+
   // Profile Layout
+  // Use either the fresh profile data or the session user
+  const displayUser = profileData || user;
+
   if (type === "profile") {
     return (
-      <MainLayout title="User Profile">
+      <>
+        <MainLayout title="User Profile">
         <div className="flex flex-col gap-6 max-w-5xl mx-auto">
           {/* Header Card */}
           <div className="bg-bg-card border border-border-main rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
             <div className="relative">
-              <div className="size-24 rounded-full bg-primary/20 flex items-center justify-center text-primary text-3xl font-bold border-4 border-bg-card shadow-lg">
-                SJ
+              <div className="size-24 rounded-full bg-primary/20 flex items-center justify-center text-primary text-3xl font-bold border-4 border-bg-card shadow-lg uppercase">
+                {displayUser?.First_Name?.[0] || displayUser?.name?.[0] || 'U'}
+                {displayUser?.Last_Name?.[0] || displayUser?.name?.split(' ')?.[1]?.[0] || ''}
               </div>
               <span className="absolute bottom-1 right-1 size-5 bg-green-500 border-2 border-white rounded-full"></span>
             </div>
             <div className="text-center md:text-left flex-1">
-              <h2 className="text-2xl font-bold text-text-main">
-                Sanchit Jain
+              <h2 className="text-2xl font-bold text-text-main capitalize">
+                {displayUser?.First_Name && displayUser?.Last_Name ? `${displayUser.First_Name} ${displayUser.Last_Name}` : (displayUser?.name || 'User')}
               </h2>
-              <p className="text-text-muted font-medium">
-                Senior Administrator
+              <p className="text-text-muted font-medium capitalize">
+                {displayUser?.designation || displayUser?.Designation || ''} 
+                {(displayUser?.designation || displayUser?.Designation) && (displayUser?.role || displayUser?.Role) ? ' • ' : ''}
+                {displayUser?.role || displayUser?.Role || 'Team Member'}
               </p>
               <div className="flex items-center justify-center md:justify-start gap-4 mt-3">
                 <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
-                  IT Department
+                  {displayUser?.Department || displayUser?.department || 'Not Specified'}
                 </span>
-                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">
-                  New York
+                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold capitalize">
+                  {displayUser?.location || 'Office'}
                 </span>
               </div>
             </div>
@@ -198,19 +437,37 @@ const DemoModule = ({ type }) => {
                     <span className="material-symbols-outlined text-text-muted">
                       mail
                     </span>
-                    <span className="text-text-main">sanchit@d-table.com</span>
+                    <span className="text-text-main">{displayUser?.email || displayUser?.Work_Email || 'No email provided'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-text-muted">
+                      fingerprint
+                    </span>
+                    <span className="text-text-main">User ID: {displayUser?.id || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-text-muted">
+                      badge
+                    </span>
+                    <span className="text-text-main">Designation: {displayUser?.designation || displayUser?.Designation || 'Not provided'}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-text-muted">
                       call
                     </span>
-                    <span className="text-text-main">+1 (555) 123-4567</span>
+                    <span className="text-text-main">{displayUser?.phone || displayUser?.Phone || 'Not provided'}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-text-muted">
                       location_on
                     </span>
-                    <span className="text-text-main">123 Tech Park, NY</span>
+                    <span className="text-text-main">{displayUser?.address || displayUser?.Address || 'Not provided'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-text-muted">
+                      business
+                    </span>
+                    <span className="text-text-main">Dept: {displayUser?.Department || displayUser?.department || 'Not provided'}</span>
                   </div>
                 </div>
               </div>
@@ -223,61 +480,87 @@ const DemoModule = ({ type }) => {
                   Recent Activity
                 </h3>
                 <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="flex gap-4 items-start pb-4 border-b border-border-main last:border-0 last:pb-0"
-                    >
-                      <div className="size-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-sm text-text-muted">
-                          history
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-text-main">
-                          Updated system configurations
-                        </p>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          Changed default theme settings for the engineering
-                          team.
-                        </p>
-                        <span className="text-[10px] text-text-muted mt-2 block">
-                          2 hours ago
-                        </span>
-                      </div>
+                  {loadingActivities ? (
+                    <div className="py-10 text-center animate-pulse text-text-muted text-xs font-bold uppercase tracking-widest">
+                      Loading activity...
                     </div>
-                  ))}
+                  ) : activities.length === 0 ? (
+                    <div className="py-10 text-center text-text-muted text-xs font-bold">
+                      No recent activities found
+                    </div>
+                  ) : (
+                    activities.map((activity) => (
+                      <div
+                        key={activity.id}
+                        className="flex gap-4 items-start pb-4 border-b border-border-main last:border-0 last:pb-0"
+                      >
+                        <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${activity.is_read ? 'bg-slate-100 dark:bg-slate-800' : 'bg-primary/10'}`}>
+                          <span className={`material-symbols-outlined text-sm ${activity.is_read ? 'text-text-muted' : 'text-primary'}`}>
+                            {activity.type === 'task' ? 'task_alt' : 'history'}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-text-main">
+                            {activity.title}
+                          </p>
+                          <p className="text-xs text-text-muted mt-0.5 line-clamp-2">
+                            {activity.message}
+                          </p>
+                          <span className="text-[10px] text-text-muted mt-2 block font-medium">
+                            {formatTimeAgo(activity.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </MainLayout>
+      <DeleteModal
+        isOpen={deleteModalConfig.isOpen}
+        onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={deleteModalConfig.onConfirm}
+        title={deleteModalConfig.title}
+        message={deleteModalConfig.message}
+      />
+      </>
     );
   }
 
   // Settings Layout
   if (type === "settings") {
-    const SETTINGS = [
+    const canManageDepartments =
+      user?.role === "Admin" || user?.role === "SuperAdmin";
+    const canManageHolidays =
+      user?.role === "Admin" ||
+      user?.role === "SuperAdmin" ||
+      user?.role === "PC";
+    const renderedSettings = [
       "General",
-      "Security",
       "Notifications",
       "Team",
-      "Billing",
-      "Integrations",
-      ...(user?.role === "Admin" || user?.role === "SuperAdmin"
-        ? ["Add Users"]
-        : []),
-      ...(user?.role === "Admin" ||
-      user?.role === "SuperAdmin" ||
-      user?.role === "PC"
-        ? ["Add Holiday"]
-        : []),
+      "Help Ticket Setting",
+      "Add Users",
+      "Departments",
+      "Add Holiday",
+    ];
+    const SETTINGS = [
+      "General",
+      "Notifications",
+      ...(canManageDepartments ? ["Team"] : []),
+      
+      "Add Users",
+      "Departments",
+      ...(canManageHolidays ? ["Add Holiday"] : []),
       "Help Ticket Setting",
     ];
 
     return (
-      <MainLayout title="Application Settings">
+      <>
+        <MainLayout title="Application Settings">
         <div className="max-w-4xl mx-auto bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-4 min-h-[600px]">
             {/* ================= Sidebar ================= */}
@@ -333,6 +616,162 @@ const DemoModule = ({ type }) => {
                         <option>Spanish</option>
                         <option>French</option>
                       </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ========= Notifications ========= */}
+              {activeSetting === "Notifications" && (
+                <>
+                  <div>
+                    <h3 className="text-lg font-bold text-text-main mb-1">
+                      Notification Settings
+                    </h3>
+                    <p className="text-text-muted text-sm pb-4 border-b border-border-main">
+                      Configure how you receive notifications and reminders.
+                    </p>
+                  </div>
+
+                  <div className="space-y-6 max-w-2xl">
+                    {/* Notification Channels */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-bold text-text-main">Notification Channels</h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="whatsapp_notifications"
+                            checked={notificationSettings.whatsapp_notifications}
+                            onChange={(e) => handleNotificationChange('whatsapp_notifications', e.target.checked)}
+                            className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                          />
+                          <label htmlFor="whatsapp_notifications" className="text-sm font-medium text-text-main">
+                            WhatsApp Notifications
+                          </label>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="email_notifications"
+                            checked={notificationSettings.email_notifications}
+                            onChange={(e) => handleNotificationChange('email_notifications', e.target.checked)}
+                            className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                          />
+                          <label htmlFor="email_notifications" className="text-sm font-medium text-text-main">
+                            Email Notifications
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reminder Settings */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-bold text-text-main">Reminder Settings</h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="whatsapp_reminders"
+                            checked={notificationSettings.whatsapp_reminders}
+                            onChange={(e) => handleNotificationChange('whatsapp_reminders', e.target.checked)}
+                            className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                          />
+                          <label htmlFor="whatsapp_reminders" className="text-sm font-medium text-text-main">
+                            WhatsApp Reminders
+                          </label>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="email_reminders"
+                            checked={notificationSettings.email_reminders}
+                            onChange={(e) => handleNotificationChange('email_reminders', e.target.checked)}
+                            className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                          />
+                          <label htmlFor="email_reminders" className="text-sm font-medium text-text-main">
+                            Email Reminders
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2 max-w-xs">
+                        <label className="text-sm font-bold text-text-main">
+                          Daily Reminder Time
+                        </label>
+                        <input
+                          type="time"
+                          value={notificationSettings.daily_reminder_time}
+                          onChange={(e) => handleNotificationChange('daily_reminder_time', e.target.value)}
+                          className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Notification Channels by Role */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-bold text-text-main">Notification Types by Role</h4>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full border border-border-main rounded-lg">
+                          <thead className="bg-bg-main">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-sm font-bold text-text-main">Event Type</th>
+                              <th className="px-4 py-2 text-center text-sm font-bold text-text-main">Admin</th>
+                              <th className="px-4 py-2 text-center text-sm font-bold text-text-main">Manager</th>
+                              <th className="px-4 py-2 text-center text-sm font-bold text-text-main">Member</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(notificationSettings.notification_channels).map(([event, roles]) => (
+                              <tr key={event} className="border-t border-border-main">
+                                <td className="px-4 py-2 text-sm text-text-main capitalize">
+                                  {event.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={roles.admin}
+                                    onChange={(e) => handleChannelChange(event, 'admin', e.target.checked)}
+                                    className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                                  />
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={roles.manager}
+                                    onChange={(e) => handleChannelChange(event, 'manager', e.target.checked)}
+                                    className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                                  />
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={roles.member}
+                                    onChange={(e) => handleChannelChange(event, 'member', e.target.checked)}
+                                    className="w-4 h-4 text-primary border-border-main rounded focus:ring-primary"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <div className="flex justify-end pt-4">
+                      <button
+                        onClick={handleSaveNotificationSettings}
+                        disabled={notificationLoading}
+                        className="bg-primary text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50 hover:bg-primary/90 transition-colors"
+                      >
+                        {notificationLoading ? "Saving..." : "Save Settings"}
+                      </button>
                     </div>
                   </div>
                 </>
@@ -498,7 +937,7 @@ const DemoModule = ({ type }) => {
 
                   <div className="space-y-6 max-w-md">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
+                      <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-bold text-text-main">
                           First Name
                         </label>
@@ -511,7 +950,7 @@ const DemoModule = ({ type }) => {
                           className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
                         />
                       </div>
-                      <div className="grid gap-2">
+                      <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-bold text-text-main">
                           Last Name
                         </label>
@@ -526,7 +965,7 @@ const DemoModule = ({ type }) => {
                       </div>
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-bold text-text-main">
                         Email Address
                       </label>
@@ -540,21 +979,32 @@ const DemoModule = ({ type }) => {
                       />
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-bold text-text-main">
                         Password
                       </label>
-                      <input
-                        type="password"
-                        name="Password"
-                        value={registerForm.Password}
-                        onChange={handleRegisterChange}
-                        placeholder="••••••••"
-                        className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          name="Password"
+                          value={registerForm.Password}
+                          onChange={handleRegisterChange}
+                          placeholder="••••••••"
+                          className="w-full px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-lg">
+                            {showPassword ? "visibility" : "visibility_off"}
+                          </span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-bold text-text-main">
                         Designation
                       </label>
@@ -568,18 +1018,43 @@ const DemoModule = ({ type }) => {
                       />
                     </div>
 
-                    <div className="grid gap-2">
-                      <label className="text-sm font-bold text-text-main">
-                        Department
-                      </label>
-                      <input
-                        type="text"
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="text-sm font-bold text-text-main">
+                          Department
+                        </label>
+                        {canManageDepartments && (
+                          <button
+                            type="button"
+                            onClick={() => setActiveSetting("Departments")}
+                            className="text-xs font-bold text-primary hover:underline"
+                          >
+                            Manage Departments
+                          </button>
+                        )}
+                      </div>
+                      <select
                         name="Department"
                         value={registerForm.Department}
                         onChange={handleRegisterChange}
-                        placeholder="e.g. Engineering"
                         className="px-4 py-2 bg-bg-main border border-border-main rounded-lg outline-none focus:border-primary"
-                      />
+                      >
+                        <option value="">
+                          {isMasterLoading && departments.length === 0
+                            ? "Loading departments..."
+                            : departments.length === 0
+                              ? "No departments available"
+                              : "Select Department"}
+                        </option>
+                        {departments.map((department) => (
+                          <option key={department.id} value={department.name}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-text-muted">
+                        Departments are loaded from the master list.
+                      </p>
                     </div>
 
                     <div className="grid gap-2">
@@ -620,6 +1095,125 @@ const DemoModule = ({ type }) => {
                       >
                         Register Employee
                       </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ========= Departments ========= */}
+              {activeSetting === "Departments" && (
+                <>
+                  <div>
+                    <h3 className="text-lg font-bold text-text-main mb-1">
+                      Department Management
+                    </h3>
+                    <p className="text-text-muted text-sm pb-4 border-b border-border-main">
+                      Create, update, and delete departments used in user and
+                      task forms.
+                    </p>
+                  </div>
+
+                  <div className="space-y-8 max-w-2xl">
+                    <div className="bg-bg-main/60 border border-border-main rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <h4 className="text-sm font-bold text-text-main">
+                          {editingDepartmentId
+                            ? "Edit Department"
+                            : "Create Department"}
+                        </h4>
+                        {editingDepartmentId && (
+                          <button
+                            type="button"
+                            onClick={resetDepartmentForm}
+                            className="text-xs font-bold text-text-muted hover:text-text-main"
+                          >
+                            Cancel Edit
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <input
+                          type="text"
+                          value={departmentForm.name}
+                          onChange={handleDepartmentFormChange}
+                          placeholder="Enter department name"
+                          className="flex-1 px-4 py-2 bg-bg-card border border-border-main rounded-lg outline-none focus:border-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveDepartment}
+                          disabled={isSavingDepartment}
+                          className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {isSavingDepartment
+                            ? "Saving..."
+                            : editingDepartmentId
+                              ? "Update"
+                              : "Add Department"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <h4 className="text-sm font-bold text-text-main">
+                          Department List
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => dispatch(fetchDepartments())}
+                          className="text-xs font-bold text-primary hover:underline"
+                        >
+                          Refresh
+                        </button>
+                      </div>
+
+                      {isMasterLoading && departments.length === 0 ? (
+                        <div className="text-sm text-text-muted bg-bg-main border border-border-main rounded-xl p-4">
+                          Loading departments...
+                        </div>
+                      ) : departments.length === 0 ? (
+                        <div className="text-sm text-text-muted bg-bg-main border border-border-main rounded-xl p-4">
+                          No departments found. Add a department to use it in
+                          the Add Users form.
+                        </div>
+                      ) : (
+                        departments.map((department) => (
+                          <div
+                            key={department.id}
+                            className="flex items-center justify-between gap-4 bg-bg-main border border-border-main rounded-xl p-4"
+                          >
+                            <div>
+                              <p className="font-bold text-text-main">
+                                {department.name}
+                              </p>
+                              <p className="text-xs text-text-muted">
+                                ID: {department.id}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleEditDepartment(department)}
+                                className="text-sm font-bold text-primary hover:underline"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteDepartment(department)
+                                }
+                                className="text-sm font-bold text-red-500 hover:underline"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>
@@ -717,10 +1311,134 @@ const DemoModule = ({ type }) => {
                 </>
               )}
 
+              {/* ========= Team View ========= */}
+              {activeSetting === "Team" && (
+                <>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-border-main">
+                    <div>
+                      <h3 className="text-lg font-bold text-text-main mb-1">
+                        Team Members
+                      </h3>
+                      <p className="text-text-muted text-sm">
+                        Manage and view all registered employees.
+                      </p>
+                    </div>
+                    
+                    <div className="relative max-w-xs w-full">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg">
+                        search
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Search members..."
+                        value={teamSearchTerm}
+                        onChange={(e) => setTeamSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-bg-main border border-border-main rounded-xl outline-none focus:border-primary text-sm transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {isMasterLoading && employees?.length === 0 ? (
+                      <div className="flex items-center justify-center h-48 text-text-muted italic">
+                        Loading team members...
+                      </div>
+                    ) : (employees || []).length === 0 ? (
+                      <div className="flex items-center justify-center h-48 text-text-muted italic">
+                        No team members found.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="text-text-muted text-[11px] font-bold uppercase tracking-wider border-b border-border-main">
+                              <th className="px-4 py-3">ID</th>
+                              <th className="px-4 py-3">Member</th>
+                              <th className="px-4 py-3">Work Email</th>
+                              <th className="px-4 py-3">Department</th>
+                              <th className="px-4 py-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border-main/50">
+                            {(employees || [])
+                              .filter(emp => 
+                                `${emp.First_Name || ''} ${emp.Last_Name || ''}`.toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
+                                (emp.Work_Email || '').toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
+                                (emp.Department || '').toLowerCase().includes(teamSearchTerm.toLowerCase())
+                              )
+                              .map((emp) => (
+                                <tr key={emp.id} className="hover:bg-bg-main/30 transition-colors group">
+                                  <td className="px-4 py-4">
+                                    <span className="text-xs font-bold text-text-muted">
+                                      #{emp.id}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold border border-primary/20 shadow-sm shrink-0">
+                                        {emp.First_Name?.[0] || '?'}{emp.Last_Name?.[0] || ''}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-text-main truncate">
+                                          {emp.First_Name} {emp.Last_Name}
+                                        </p>
+                                        <div className="mt-1">
+                                          {(() => {
+                                            const displayRole = emp.Role || emp.role;
+                                            return (
+                                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider shadow-sm
+                                                ${displayRole === 'SuperAdmin' ? 'bg-purple-500 text-white' : 
+                                                  displayRole === 'Admin' ? 'bg-blue-600 text-white' : 
+                                                  displayRole === 'PC' ? 'bg-orange-500 text-white' :
+                                                  'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}
+                                              >
+                                                {displayRole}
+                                              </span>
+                                            );
+                                          })()}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-4">
+                                    <div className="flex items-center gap-2 text-text-muted">
+                                      <span className="material-symbols-outlined text-sm">mail</span>
+                                      <span className="text-sm truncate">{emp.Work_Email || emp.email}</span>
+                                    </div>
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-text-main">
+                                        {emp.Department}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button 
+                                        onClick={() => handleDeleteEmployee(emp)}
+                                        className="text-text-muted hover:text-red-500 transition-colors"
+                                        title="Delete Member"
+                                      >
+                                        <span className="material-symbols-outlined text-lg">
+                                          delete
+                                        </span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               {/* ========= Coming Soon ========= */}
-              {!["General", "Help Ticket Setting", "Add Holiday"].includes(
-                activeSetting,
-              ) && (
+              {!renderedSettings.includes(activeSetting) && (
                 <div className="flex items-center justify-center h-[300px] text-text-muted font-bold">
                   {activeSetting} settings coming soon 🚧
                 </div>
@@ -729,195 +1447,222 @@ const DemoModule = ({ type }) => {
           </div>
         </div>
       </MainLayout>
+      <DeleteModal
+        isOpen={deleteModalConfig.isOpen}
+        onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={deleteModalConfig.onConfirm}
+        title={deleteModalConfig.title}
+        message={deleteModalConfig.message}
+      />
+      </>
     );
   }
 
   // Notifications Layout
   if (type === "notifications") {
     return (
-      <MainLayout title="Notifications">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
-              <button className="px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-full">
-                All
-              </button>
-              <button className="px-4 py-1.5 bg-bg-card border border-border-main text-text-muted text-xs font-bold rounded-full hover:bg-bg-main">
-                Unread
-              </button>
-              <button className="px-4 py-1.5 bg-bg-card border border-border-main text-text-muted text-xs font-bold rounded-full hover:bg-bg-main">
-                Mentioned
+      <>
+        <MainLayout title="Notifications">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div className="flex justify-between items-center">
+              <div className="flex gap-2">
+                <button className="px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-full">
+                  All
+                </button>
+                <button className="px-4 py-1.5 bg-bg-card border border-border-main text-text-muted text-xs font-bold rounded-full hover:bg-bg-main">
+                  Unread
+                </button>
+                <button className="px-4 py-1.5 bg-bg-card border border-border-main text-text-muted text-xs font-bold rounded-full hover:bg-bg-main">
+                  Mentioned
+                </button>
+              </div>
+              <button className="text-primary text-xs font-bold hover:underline">
+                Mark all as read
               </button>
             </div>
-            <button className="text-primary text-xs font-bold hover:underline">
-              Mark all as read
-            </button>
-          </div>
 
-          <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
-            {[
-              {
-                title: "New leave request",
-                desc: "John Doe requested sick leave for tomorrow.",
-                time: "10 mins ago",
-                icon: "event_busy",
-                color: "bg-orange-100 text-orange-600",
-              },
-              {
-                title: "Project Milestone",
-                desc: "Design phase completed for Client X.",
-                time: "2 hours ago",
-                icon: "flag",
-                color: "bg-green-100 text-green-600",
-              },
-              {
-                title: "System Update",
-                desc: "Server maintenance scheduled for Sunday.",
-                time: "5 hours ago",
-                icon: "dns",
-                color: "bg-blue-100 text-blue-600",
-              },
-              {
-                title: "New Comment",
-                desc: "Sarah replied to your task in Marketing.",
-                time: "1 day ago",
-                icon: "chat",
-                color: "bg-purple-100 text-purple-600",
-              },
-            ].map((n, i) => (
-              <div
-                key={i}
-                className="flex gap-4 p-4 border-b border-border-main last:border-0 hover:bg-bg-main/50 transition-colors cursor-pointer group"
-              >
+            <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-sm">
+              {[
+                {
+                  title: "New leave request",
+                  desc: "John Doe requested sick leave for tomorrow.",
+                  time: "10 mins ago",
+                  icon: "event_busy",
+                  color: "bg-orange-100 text-orange-600",
+                },
+                {
+                  title: "Project Milestone",
+                  desc: "Design phase completed for Client X.",
+                  time: "2 hours ago",
+                  icon: "flag",
+                  color: "bg-green-100 text-green-600",
+                },
+                {
+                  title: "System Update",
+                  desc: "Server maintenance scheduled for Sunday.",
+                  time: "5 hours ago",
+                  icon: "dns",
+                  color: "bg-blue-100 text-blue-600",
+                },
+                {
+                  title: "New Comment",
+                  desc: "Sarah replied to your task in Marketing.",
+                  time: "1 day ago",
+                  icon: "chat",
+                  color: "bg-purple-100 text-purple-600",
+                },
+              ].map((n, i) => (
                 <div
-                  className={`size-10 rounded-full flex items-center justify-center shrink-0 ${n.color}`}
+                  key={i}
+                  className="flex gap-4 p-4 border-b border-border-main last:border-0 hover:bg-bg-main/50 transition-colors cursor-pointer group"
                 >
-                  <span className="material-symbols-outlined text-lg">
-                    {n.icon}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h4 className="text-sm font-bold text-text-main group-hover:text-primary transition-colors">
-                      {n.title}
-                    </h4>
-                    <span className="text-[10px] text-text-muted">
-                      {n.time}
+                  <div
+                    className={`size-10 rounded-full flex items-center justify-center shrink-0 ${n.color}`}
+                  >
+                    <span className="material-symbols-outlined text-lg">
+                      {n.icon}
                     </span>
                   </div>
-                  <p className="text-sm text-text-muted mt-0.5">{n.desc}</p>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <h4 className="text-sm font-bold text-text-main group-hover:text-primary transition-colors">
+                        {n.title}
+                      </h4>
+                      <span className="text-[10px] text-text-muted">
+                        {n.time}
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-muted mt-0.5">{n.desc}</p>
+                  </div>
+                  <div className="size-2 rounded-full bg-primary mt-2"></div>
                 </div>
-                <div className="size-2 rounded-full bg-primary mt-2"></div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </MainLayout>
+        </MainLayout>
+        <DeleteModal
+          isOpen={deleteModalConfig.isOpen}
+          onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={deleteModalConfig.onConfirm}
+          title={deleteModalConfig.title}
+          message={deleteModalConfig.message}
+        />
+      </>
     );
   }
 
   // Internal Help Layout
   if (type === "help") {
     return (
-      <MainLayout title="Internal Help Desk">
-        <div className="max-w-5xl mx-auto space-y-8">
-          {/* Search Hero */}
-          <div className="bg-gradient-to-r from-blue-600 to-primary rounded-2xl p-10 text-center text-white shadow-lg">
-            <h2 className="text-3xl font-bold mb-2">
-              How can we help you, Sanchit?
-            </h2>
-            <p className="text-blue-100 mb-6">
-              Search our knowledge base or contact IT support.
-            </p>
-            <div className="bg-white rounded-xl p-2 max-w-xl mx-auto flex items-center shadow-md">
-              <span className="material-symbols-outlined text-slate-400 ml-2">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Search for guides, errors, or policies..."
-                className="flex-1 p-2 text-slate-900 outline-none placeholder:text-slate-400"
-              />
-              <button className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90">
-                Search
-              </button>
+      <>
+        <MainLayout title="Internal Help Desk">
+          <div className="max-w-5xl mx-auto space-y-8">
+            {/* Search Hero */}
+            <div className="bg-gradient-to-r from-blue-600 to-primary rounded-2xl p-10 text-center text-white shadow-lg">
+              <h2 className="text-3xl font-bold mb-2">
+                How can we help you, Sanchit?
+              </h2>
+              <p className="text-blue-100 mb-6">
+                Search our knowledge base or contact IT support.
+              </p>
+              <div className="bg-white rounded-xl p-2 max-w-xl mx-auto flex items-center shadow-md">
+                <span className="material-symbols-outlined text-slate-400 ml-2">
+                  search
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search for guides, errors, or policies..."
+                  className="flex-1 p-2 text-slate-900 outline-none placeholder:text-slate-400"
+                />
+                <button className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90">
+                  Search
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Quick Guides */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
-              <div className="size-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <span className="material-symbols-outlined text-2xl">
-                  menu_book
-                </span>
-              </div>
-              <h3 className="font-bold text-text-main mb-2">User Guides</h3>
-              <p className="text-sm text-text-muted">
-                Step-by-step tutorials for using all ERP modules efficiently.
-              </p>
-            </div>
-            {/* IT Support */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
-              <div className="size-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mb-4 group-hover:bg-green-600 group-hover:text-white transition-colors">
-                <span className="material-symbols-outlined text-2xl">
-                  support_agent
-                </span>
-              </div>
-              <h3 className="font-bold text-text-main mb-2">Contact IT</h3>
-              <p className="text-sm text-text-muted">
-                Raise a ticket for hardware issues, software bugs, or access
-                requests.
-              </p>
-            </div>
-            {/* Policies */}
-            <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
-              <div className="size-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                <span className="material-symbols-outlined text-2xl">
-                  policy
-                </span>
-              </div>
-              <h3 className="font-bold text-text-main mb-2">Company Policy</h3>
-              <p className="text-sm text-text-muted">
-                Review HR guidelines, leave policies, and security protocols.
-              </p>
-            </div>
-          </div>
-
-          {/* FAQ */}
-          <div className="bg-bg-card border border-border-main rounded-2xl p-6">
-            <h3 className="font-bold text-text-main mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">
-                quiz
-              </span>
-              Frequently Asked Questions
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                "How do I reset my password?",
-                "How to apply for leave?",
-                "Where to find payslips?",
-                "How to update profile info?",
-              ].map((q, i) => (
-                <div
-                  key={i}
-                  className="p-4 bg-bg-main rounded-xl flex justify-between items-center cursor-pointer hover:bg-border-main/50 transition-colors"
-                >
-                  <span className="text-sm font-bold text-text-muted">{q}</span>
-                  <span className="material-symbols-outlined text-text-muted text-sm">
-                    arrow_forward_ios
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Quick Guides */}
+              <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
+                <div className="size-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined text-2xl">
+                    menu_book
                   </span>
                 </div>
-              ))}
+                <h3 className="font-bold text-text-main mb-2">User Guides</h3>
+                <p className="text-sm text-text-muted">
+                  Step-by-step tutorials for using all ERP modules efficiently.
+                </p>
+              </div>
+              {/* IT Support */}
+              <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
+                <div className="size-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center mb-4 group-hover:bg-green-600 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined text-2xl">
+                    support_agent
+                  </span>
+                </div>
+                <h3 className="font-bold text-text-main mb-2">Contact IT</h3>
+                <p className="text-sm text-text-muted">
+                  Raise a ticket for hardware issues, software bugs, or access
+                  requests.
+                </p>
+              </div>
+              {/* Policies */}
+              <div className="bg-bg-card border border-border-main rounded-2xl p-6 hover:border-primary transition-colors cursor-pointer group h-full">
+                <div className="size-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined text-2xl">
+                    policy
+                  </span>
+                </div>
+                <h3 className="font-bold text-text-main mb-2">Company Policy</h3>
+                <p className="text-sm text-text-muted">
+                  Review HR guidelines, leave policies, and security protocols.
+                </p>
+              </div>
+            </div>
+
+            {/* FAQ */}
+            <div className="bg-bg-card border border-border-main rounded-2xl p-6">
+              <h3 className="font-bold text-text-main mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">
+                  quiz
+                </span>
+                Frequently Asked Questions
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  "How do I reset my password?",
+                  "How to apply for leave?",
+                  "Where to find payslips?",
+                  "How to update profile info?",
+                ].map((q, i) => (
+                  <div
+                    key={i}
+                    className="p-4 bg-bg-main rounded-xl flex justify-between items-center cursor-pointer hover:bg-border-main/50 transition-colors"
+                  >
+                    <span className="text-sm font-bold text-text-muted">{q}</span>
+                    <span className="material-symbols-outlined text-text-muted text-sm">
+                      arrow_forward_ios
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </MainLayout>
+        </MainLayout>
+        <DeleteModal
+          isOpen={deleteModalConfig.isOpen}
+          onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={deleteModalConfig.onConfirm}
+          title={deleteModalConfig.title}
+          message={deleteModalConfig.message}
+        />
+      </>
     );
   }
 
   return (
-    <MainLayout title={config.title}>
+    <>
+      <MainLayout title={config.title}>
       <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Header Actions */}
         <div className="flex justify-between items-center bg-bg-card p-4 rounded-xl border border-border-main shadow-sm">
@@ -1081,6 +1826,14 @@ const DemoModule = ({ type }) => {
         </div>
       </div>
     </MainLayout>
+    <DeleteModal
+      isOpen={deleteModalConfig.isOpen}
+      onClose={() => setDeleteModalConfig(prev => ({ ...prev, isOpen: false }))}
+      onConfirm={deleteModalConfig.onConfirm}
+      title={deleteModalConfig.title}
+      message={deleteModalConfig.message}
+    />
+    </>
   );
 };
 

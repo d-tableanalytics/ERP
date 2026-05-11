@@ -9,6 +9,8 @@ import imsReducer from "./slices/imsSlice";
 import o2dReducer from "./slices/o2dSlice";
 import scoreReducer from "./slices/scoreSlice";
 import dashboardReducer from "./slices/dashboardSlice";
+import taskReducer from "./slices/taskSlice";
+import chatbotReducer from "../features/chatbot/store/chatbotSlice";
 
 export const store = configureStore({
   reducer: {
@@ -22,5 +24,7 @@ export const store = configureStore({
     o2d: o2dReducer,
     score: scoreReducer,
     dashboard: dashboardReducer,
+    chatbot: chatbotReducer,
+    tasks: taskReducer,
   },
 });

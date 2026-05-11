@@ -4,7 +4,6 @@ const delegationController = require('../controllers/delegation.controller');
 const { verifyToken, authorize } = require('../middlewares/auth.middleware');
 
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
 
 // Ensure uploads directory exists (skipped on Vercel)
@@ -22,6 +21,20 @@ router.get('/audio/:fileId', delegationController.streamAudio);
 // All routes require authentication
 router.use(verifyToken);
 
+// ── Task Management Filtered Views ────────────────────────────────────────────
+// (Removed: Handled by task.routes.js)
+
+// ── Subscribe to a delegation ─────────────────────────────────────────────────
+router.patch('/:id/subscribe',  delegationController.subscribeToDelegation);
+
+// ── Soft Delete / Restore ─────────────────────────────────────────────────────
+router.patch('/:id/trash',
+    authorize('SuperAdmin', 'Admin'),
+    delegationController.softDeleteDelegation
+);
+router.patch('/:id/restore',    delegationController.restoreDelegation);
+
+// ── Standard CRUD ─────────────────────────────────────────────────────────────
 // GET /api/delegations - Get all (Admin/SuperAdmin) or assigned (Doer)
 router.get('/', delegationController.getDelegations);
 
@@ -43,18 +56,31 @@ router.post('/:id/remarks', delegationController.addRemark);
 
 // PUT /api/delegations/:id - Update delegation
 router.put('/:id',
-    authorize('SuperAdmin', 'Admin', 'Employee'), // Allow Employees to update status/upload evidence
+    authorize('SuperAdmin', 'Admin', 'Employee'),
     upload.fields([
         { name: 'voice_note', maxCount: 1 },
-        { name: 'reference_docs', maxCount: 20 }
+        { name: 'reference_docs', maxCount: 20 },
+        { name: 'evidence_files', maxCount: 20 }
     ]),
     delegationController.updateDelegation
 );
 
-// DELETE /api/delegations/:id - Delete delegation
+// PATCH /api/delegations/:id - Partial update delegation
+router.patch('/:id',
+    authorize('SuperAdmin', 'Admin', 'Employee'),
+    upload.fields([
+        { name: 'voice_note', maxCount: 1 },
+        { name: 'reference_docs', maxCount: 20 },
+        { name: 'evidence_files', maxCount: 20 }
+    ]),
+    delegationController.updateDelegation
+);
+
+// DELETE /api/delegations/:id - Hard delete (Admin only)
 router.delete('/:id',
     authorize('SuperAdmin', 'Admin'),
     delegationController.deleteDelegation
 );
 
 module.exports = router;
+

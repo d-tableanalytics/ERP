@@ -5,6 +5,9 @@ import { API_BASE_URL } from "../../config";
 // Use relative path to let Vite proxy handle the base URL
 const API_URL = `${API_BASE_URL}/api/master`;
 
+const sortByName = (items) =>
+  [...items].sort((a, b) => (a?.name || "").localeCompare(b?.name || ""));
+
 export const fetchEmployees = createAsyncThunk(
   "master/fetchEmployees",
   async (_, { getState, rejectWithValue }) => {
@@ -13,7 +16,7 @@ export const fetchEmployees = createAsyncThunk(
       const response = await axios.get(`${API_URL}/employees`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch employees",
@@ -30,10 +33,77 @@ export const fetchDepartments = createAsyncThunk(
       const response = await axios.get(`${API_URL}/departments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch departments",
+      );
+    }
+  },
+);
+
+export const createDepartment = createAsyncThunk(
+  "master/createDepartment",
+  async (payload, { getState, rejectWithValue }) => {
+    const { token } = getState().auth;
+    try {
+      const response = await axios.post(`${API_URL}/departments`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to create department",
+      );
+    }
+  },
+);
+
+export const updateDepartment = createAsyncThunk(
+  "master/updateDepartment",
+  async ({ id, ...payload }, { getState, rejectWithValue }) => {
+    const { token } = getState().auth;
+    try {
+      const response = await axios.put(`${API_URL}/departments/${id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update department",
+      );
+    }
+  },
+);
+export const deleteDepartment = createAsyncThunk(
+  "master/deleteDepartment",
+  async (id, { getState, rejectWithValue }) => {
+    const { token } = getState().auth;
+    try {
+      await axios.delete(`${API_URL}/departments/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return id;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete department",
+      );
+    }
+  },
+);
+
+export const deleteEmployee = createAsyncThunk(
+  "master/deleteEmployee",
+  async (id, { getState, rejectWithValue }) => {
+    const { token } = getState().auth;
+    try {
+      await axios.delete(`${API_URL}/employees/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return id;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete employee",
       );
     }
   },
@@ -48,7 +118,7 @@ export const fetchLocations = createAsyncThunk(
       const response = await axios.get(`${API_URL}/locations`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch locations",
@@ -65,7 +135,7 @@ export const fetchPCAccountables = createAsyncThunk(
       const response = await axios.get(`${API_URL}/pc-accountables`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch PC accountables",
@@ -82,7 +152,7 @@ export const fetchProblemSolvers = createAsyncThunk(
       const response = await axios.get(`${API_URL}/problem-solvers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch problem solvers",
@@ -105,7 +175,7 @@ export const getHelpTicketHistoryById = createAsyncThunk(
         }
       );
 
-      return response.data;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch help ticket history"
@@ -125,6 +195,7 @@ const masterSlice = createSlice({
     pcAccountables: [],
     problemSolvers: [],
     isLoading: false,
+    isSavingDepartment: false,
     error: null,
     lastFetchedDetails: {
       employees: 0,
@@ -151,6 +222,18 @@ const masterSlice = createSlice({
       state.isLoading = false;
       state.error = action.payload;
     })
+    .addCase(deleteEmployee.pending, (state) => {
+      state.isLoading = true;
+      state.error = null;
+    })
+    .addCase(deleteEmployee.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.employees = (state.employees || []).filter((emp) => emp.id !== action.payload);
+    })
+    .addCase(deleteEmployee.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload;
+    })
 
     // Departments
     .addCase(fetchDepartments.pending, (state) => {
@@ -164,6 +247,48 @@ const masterSlice = createSlice({
     })
     .addCase(fetchDepartments.rejected, (state, action) => {
       state.isLoading = false;
+      state.error = action.payload;
+    })
+    .addCase(createDepartment.pending, (state) => {
+      state.isSavingDepartment = true;
+      state.error = null;
+    })
+    .addCase(createDepartment.fulfilled, (state, action) => {
+      state.isSavingDepartment = false;
+      state.departments = sortByName([...state.departments, action.payload]);
+    })
+    .addCase(createDepartment.rejected, (state, action) => {
+      state.isSavingDepartment = false;
+      state.error = action.payload;
+    })
+    .addCase(updateDepartment.pending, (state) => {
+      state.isSavingDepartment = true;
+      state.error = null;
+    })
+    .addCase(updateDepartment.fulfilled, (state, action) => {
+      state.isSavingDepartment = false;
+      state.departments = sortByName(
+        state.departments.map((department) =>
+          department.id === action.payload.id ? action.payload : department,
+        ),
+      );
+    })
+    .addCase(updateDepartment.rejected, (state, action) => {
+      state.isSavingDepartment = false;
+      state.error = action.payload;
+    })
+    .addCase(deleteDepartment.pending, (state) => {
+      state.isSavingDepartment = true;
+      state.error = null;
+    })
+    .addCase(deleteDepartment.fulfilled, (state, action) => {
+      state.isSavingDepartment = false;
+      state.departments = state.departments.filter(
+        (department) => department.id !== action.payload,
+      );
+    })
+    .addCase(deleteDepartment.rejected, (state, action) => {
+      state.isSavingDepartment = false;
       state.error = action.payload;
     })
 

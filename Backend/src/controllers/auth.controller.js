@@ -4,17 +4,25 @@ const db = require('../config/db.config');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key_erp';
 
+const normalizeEmail = (value) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : '';
+
 // Register Employee
 exports.register = async (req, res) => {
     const {
         First_Name, Last_Name, Work_Email, Password, Role, Designation, Department, Joining_Date
     } = req.body;
+    const normalizedEmail = normalizeEmail(Work_Email || req.body.email);
 
     try {
+        if (!normalizedEmail || !Password) {
+            return res.status(400).json({ success: false, message: 'Work email and password are required' });
+        }
+
         // Check if user exists
-        const userExists = await db.query('SELECT * FROM employees WHERE Work_Email = $1', [Work_Email]);
+        const userExists = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1', [normalizedEmail]);
         if (userExists.rows.length > 0) {
-            return res.status(400).json({ message: 'Employee with this email already exists' });
+            return res.status(400).json({ success: false, message: 'Employee with this email already exists' });
         }
 
         // Hash password
@@ -26,44 +34,52 @@ exports.register = async (req, res) => {
             `INSERT INTO employees (First_Name, Last_Name, Work_Email, Password, Role, Designation, Department, Joining_Date) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
             [
-                First_Name, Last_Name, Work_Email, hashedPassword,
+                First_Name, Last_Name, normalizedEmail, hashedPassword,
                 Role || 'Employee', Designation, Department,
                 Joining_Date || new Date()
             ]
         );
 
         res.status(201).json({
+            success: true,
             message: 'Employee registered successfully',
-            user: {
-                id: newEmployee.rows[0].user_id,
-                email: newEmployee.rows[0].work_email,
-                role: newEmployee.rows[0].role
+            data: {
+                user: {
+                    id: newEmployee.rows[0].user_id,
+                    email: newEmployee.rows[0].work_email,
+                    role: newEmployee.rows[0].role
+                }
             }
         });
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error during registration' });
+        res.status(500).json({ success: false, message: 'Server error during registration' });
     }
 };
 
 // Login Employee
 exports.login = async (req, res) => {
-    const { Work_Email, Password } = req.body;
+    const email = normalizeEmail(req.body.Work_Email || req.body.email);
+    const password = req.body.Password || req.body.password;
 
     try {
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: 'Work email and password are required' });
+        }
+
         // Find employee
-        const result = await db.query('SELECT * FROM employees WHERE Work_Email = $1', [Work_Email]);
+        const result = await db.query('SELECT * FROM employees WHERE LOWER(Work_Email) = $1 AND deleted_at IS NULL', [email]);
         if (result.rows.length === 0) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            return res.status(400).json({ success: false, message: 'Email not found' });
         }
 
         const employee = result.rows[0];
 
         // Check password
-        const isMatch = await bcrypt.compare(Password, employee.password);
+        const isMatch = await bcrypt.compare(password, employee.password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            return res.status(400).json({ success: false, message: 'Incorrect password' });
         }
 
         // Generate JWT
@@ -74,19 +90,26 @@ exports.login = async (req, res) => {
         );
 
         res.json({
-            token,
-            user: {
-                id: employee.user_id,
-                email: employee.work_email,
-                role: employee.role,
-                name: `${employee.first_name} ${employee.last_name}`,
-                theme: employee.theme || 'light'
+            success: true,
+            data: {
+                token,
+                user: {
+                    id: employee.user_id,
+                    email: employee.work_email,
+                    role: employee.role,
+                    name: `${employee.first_name} ${employee.last_name}`,
+                    firstName: employee.first_name,
+                    lastName: employee.last_name,
+                    designation: employee.designation,
+                    department: employee.department,
+                    theme: employee.theme || 'light'
+                }
             }
         });
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error during login' });
+        res.status(500).json({ success: false, message: 'Server error during login' });
     }
 };
 
@@ -97,9 +120,60 @@ exports.updateTheme = async (req, res) => {
 
     try {
         await db.query('UPDATE employees SET theme = $1 WHERE user_id = $2', [theme, userId]);
-        res.json({ message: 'Theme updated successfully' });
+        res.json({ success: true, message: 'Theme updated successfully' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error while updating theme' });
+        res.status(500).json({ success: false, message: 'Server error while updating theme' });
+    }
+};
+
+// Get All Users
+exports.getUsers = async (req, res) => {
+    try {
+        const result = await db.query('SELECT user_id, first_name, last_name, work_email, role, designation, department FROM employees WHERE deleted_at IS NULL');
+        // Normalize names for frontend
+        const users = result.rows.map(u => ({
+            ...u,
+            id: u.user_id,
+            name: `${u.first_name} ${u.last_name}`,
+            firstName: u.first_name,
+            lastName: u.last_name,
+            email: u.work_email,
+            role: u.role,
+            designation: u.designation,
+            department: u.department
+        }));
+        res.json({ success: true, data: users });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Error fetching users' });
+    }
+};
+
+// Get current user profile
+exports.getMe = async (req, res) => {
+    try {
+        const result = await db.query('SELECT user_id, first_name, last_name, work_email, role, designation, department, theme FROM employees WHERE user_id = $1', [req.user.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const u = result.rows[0];
+        res.json({
+            success: true,
+            data: {
+                id: u.user_id,
+                email: u.work_email,
+                role: u.role,
+                name: `${u.first_name} ${u.last_name}`,
+                firstName: u.first_name,
+                lastName: u.last_name,
+                designation: u.designation,
+                department: u.department,
+                theme: u.theme || 'light'
+            }
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Error fetching user profile' });
     }
 };
