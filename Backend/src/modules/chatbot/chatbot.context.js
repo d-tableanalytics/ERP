@@ -1,7 +1,5 @@
 /**
  * Chatbot Context - Centralized configuration for chatbot behavior
- * Stores intents, responses, and system instructions
- * Designed to be easily extensible for OpenAI integration in the future
  */
 
 const CHATBOT_CONTEXT = {
@@ -20,6 +18,12 @@ Your role:
 - Answer questions about company processes and policies
 - Be professional, helpful, and concise in all responses
 
+Important formatting rules:
+- USE PLAIN TEXT ONLY.
+- DO NOT use Markdown syntax (no ###, no **bold**, no *italic*, no ---).
+- Use spacing, indentation, and simple bullet points (•) for structure.
+- Ensure your response is readable in a plain text chat bubble.
+
 Important restrictions:
 - Only answer questions related to DTA_RACPL ERP system and company processes
 - Do not provide general knowledge or unrelated information
@@ -35,7 +39,7 @@ Allowed topics:
 - Module usage instructions
 - Best practices for using the system
 
-If you cannot answer a question safely or it's outside your scope, respond with: "I'm sorry, I can only assist with questions about the DTA_RACPL ERP system and related workflows. Please ask about delegations, help tickets, attendance, checklists, or dashboard features."`,
+If you cannot answer a question safely or it's outside your scope, respond with a professional fallback message.`,
 
   // Instruction for using company knowledge in OpenAI prompts
   knowledgeInstruction: `Use the following company knowledge to answer the user's question. Answer using the ERP context, be accurate, concise, and do not hallucinate beyond the provided knowledge. If the question is outside the knowledge scope, say you can only assist with ERP-related workflows and modules.`,
@@ -78,37 +82,110 @@ If you cannot answer a question safely or it's outside your scope, respond with:
 
   // Response templates for each intent
   responses: {
-    greeting: "Hello! I'm your ERP assistant. I can help you with delegations, help tickets, attendance, checklists, and more. What would you like to know about?",
+    greeting: {
+      title: 'Welcome to ERP Assistant',
+      intro: "Hello! I'm your professional ERP assistant for DTA_RACPL.",
+      steps: [
+        'Manage **Delegations** and tasks',
+        'Track **Daily Checklists**',
+        'Raise and monitor **Help Tickets**',
+        'View **Attendance** and workload summaries'
+      ],
+      closing: 'How can I assist you today?'
+    },
 
-    help: "I can help you with various ERP modules. Try asking about:\n• Delegations and task management\n• Help tickets and support\n• Attendance tracking\n• Daily checklists\n• Dashboard overview\n\nWhat specific area interests you?",
+    help: {
+      title: 'How I Can Help',
+      intro: 'I can assist you with various modules and workflows within the ERP system:',
+      steps: [
+        '**Delegations**: Assign tasks, track progress, and update statuses.',
+        '**Help Tickets**: Report technical issues or request support.',
+        '**Attendance**: Check punch records and leave status.',
+        '**Checklists**: Manage routine tasks and recurring lists.',
+        '**Dashboard**: View operational summaries and metrics.'
+      ],
+      closing: 'Try asking "Show my pending tasks" or "How to create a checklist".'
+    },
 
-    guidance: "I can provide step-by-step guidance for various ERP tasks. Try asking:\n• How to create a delegation\n• How to raise a help ticket\n• How to complete a task\n• How to create a checklist\n\nWhat would you like to learn more about?",
+    guidance: {
+      title: 'Guidance & Tutorials',
+      intro: 'I can provide step-by-step instructions for common ERP tasks:',
+      steps: [
+        'How to create a delegation',
+        'How to raise a help ticket',
+        'How to complete a task',
+        'How to manage recurring checklists'
+      ],
+      closing: 'What specific workflow would you like to learn about?'
+    },
 
-    delegation: "The Delegation module helps you manage and assign tasks. You can create delegations, upload files, add remarks, and track progress. Access it from the sidebar menu under 'Delegation'. Need help with a specific delegation feature?",
+    delegation: {
+      title: 'Delegation Module',
+      intro: 'The Delegation module helps you manage and assign tasks efficiently.',
+      steps: [
+        'Create new delegations for your team.',
+        'Upload supporting documents and files.',
+        'Add remarks and track status updates.',
+        'Monitor completion deadlines.'
+      ],
+      closing: 'Access it from the sidebar menu under "Delegation".'
+    },
 
-    help_ticket: "For support issues, use the Help Ticket module. You can raise tickets for technical problems, feature requests, or general inquiries. Each ticket has priority levels and TAT tracking. Find it in the 'Help Ticket' section of the sidebar.",
+    help_ticket: {
+      title: 'Help Ticket Module',
+      intro: 'Use this module for technical support and issue tracking:',
+      steps: [
+        'Raise tickets for system problems.',
+        'Track resolution progress and TAT.',
+        'Communicate with the support team through remarks.'
+      ],
+      closing: 'Find it in the "Help Ticket" section of the sidebar.'
+    },
 
-    attendance: "The Attendance module tracks your work hours. You can punch in/out, view your attendance history, and request leaves. It's available under 'Attendance' in the sidebar. Make sure to punch in at the start of your workday!",
+    attendance: {
+      title: 'Attendance Module',
+      intro: 'Track your work hours and manage leaves:',
+      steps: [
+        'Punch In/Out to record daily work hours.',
+        'View historical attendance logs.',
+        'Request and track leave applications.'
+      ],
+      closing: 'Make sure to punch in at the start of your workday!'
+    },
 
-    checklist: "Daily checklists help you track routine tasks. Create, complete, and monitor checklists for your daily responsibilities. Access it through the 'Checklist' menu. Regular completion helps maintain productivity standards.",
+    checklist: {
+      title: 'Checklist Module',
+      intro: 'Stay organized with daily and recurring checklists:',
+      steps: [
+        'Create lists for routine operations.',
+        'Mark items as completed in real-time.',
+        'Set up recurring lists for daily tasks.'
+      ],
+      closing: 'Access it through the "Checklist" menu in the sidebar.'
+    },
 
-    dashboard: "The Dashboard provides an overview of your key metrics including pending tasks, recent activities, and system status. It's your main landing page after login, showing summaries from all modules.",
+    dashboard: {
+      title: 'ERP Dashboard',
+      intro: 'Your central hub for operational metrics:',
+      steps: [
+        'View pending task and checklist counts.',
+        'Monitor recent activities and ticket statuses.',
+        'Check today\'s attendance summary.'
+      ],
+      closing: 'The dashboard is your main landing page after login.'
+    },
 
-    clarification: "I noticed you're asking about tasks or checklists. To help you better, please specify if you want:\n• A count of your pending, completed, or overdue tasks\n• A list of specific tasks or checklists\n• Guidance on how to complete, create, or update them",
+    clarification: {
+      intro: "I noticed you're asking about tasks or checklists. To help you better, please specify what you'd like to do:",
+      options: [
+        'Show my pending tasks',
+        'Show my overdue checklists',
+        'How to complete a task',
+        'How to create a checklist'
+      ]
+    },
 
-    unknown: "I'm not sure about that specific topic. I can help with delegations, help tickets, attendance, checklists, dashboard, or general ERP guidance. Try rephrasing your question or ask about a specific module."
-  },
-
-  // Configuration for input validation
-  validation: {
-    maxMessageLength: 500,
-    minMessageLength: 1
-  },
-
-  // Configuration for rate limiting and performance
-  performance: {
-    conversationLogBatchSize: 10,
-    cacheResponseMs: 300000 // 5 minutes
+    unknown: "I'm sorry, I can only assist with questions about the DTA_RACPL ERP system and related workflows. Please ask about delegations, help tickets, attendance, checklists, or dashboard features."
   }
 };
 

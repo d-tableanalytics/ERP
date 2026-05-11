@@ -2,12 +2,116 @@ const { pool } = require("../../config/db.config");
 const CHATBOT_CONTEXT = require("./chatbot.context");
 const chatbotOpenAI = require("./chatbot.openai");
 const KNOWLEDGE_BASE = require("./chatbot.knowledge");
+const chatbotFormatter = require("./chatbot.formatter");
 
 /**
  * Chatbot Service - Handles rule-based intent detection, knowledge search, and OpenAI integration
  * Uses hybrid approach: rule-based first, knowledge-aware OpenAI as fallback
  */
 class ChatbotService {
+  constructor() {
+    this.sessions = new Map();
+    this.CONTEXT_EXPIRY = 10 * 60 * 1000; // 10 minutes
+  }
+
+  /**
+   * Get session context for a user
+   * @param {number} userId 
+   * @returns {Object|null}
+   */
+  getSession(userId) {
+    if (!userId) return null;
+    const now = Date.now();
+    const session = this.sessions.get(userId);
+
+    if (session && now - session.timestamp > this.CONTEXT_EXPIRY) {
+      this.sessions.delete(userId);
+      return null;
+    }
+
+    return session || null;
+  }
+
+  /**
+   * Update session context for a user
+   * @param {number} userId 
+   * @param {Object} data 
+   */
+  updateSession(userId, data) {
+    if (!userId) return;
+    const current = this.sessions.get(userId) || { confidence: 0 };
+    
+    // Confidence logic: Reset or increase based on new data
+    let newConfidence = data.lastEntity ? 1.0 : (current.confidence || 0);
+    
+    this.sessions.set(userId, {
+      ...current,
+      ...data,
+      confidence: newConfidence,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Resolve pronouns in message using session context
+   * @param {string} message 
+   * @param {Object} session 
+   * @returns {string}
+   */
+  resolvePronouns(message, session) {
+    if (!session || !session.lastEntity || (session.confidence || 0) < 0.5) return message;
+    
+    const pronouns = ['it', 'them', 'those', 'these', 'that'];
+    let resolved = message;
+    
+    const entityMapping = {
+      'checklist': 'checklist',
+      'task': 'task',
+      'delegation': 'delegation',
+      'help_tickets': 'ticket'
+    };
+    
+    const replacement = entityMapping[session.lastEntity] || session.lastEntity;
+
+    // Check for strong module switch - if current message has a different module keyword, don't resolve
+    const moduleKeywords = ['task', 'checklist', 'delegation', 'ticket', 'attendance', 'payroll', 'salary'];
+    const hasOtherModule = moduleKeywords.some(k => k !== replacement && message.includes(k));
+    if (hasOtherModule) return message;
+
+    for (const pronoun of pronouns) {
+      const regex = new RegExp(`\\b${pronoun}\\b`, 'gi');
+      if (regex.test(resolved)) {
+        resolved = resolved.replace(regex, replacement);
+      }
+    }
+    
+    return resolved.trim();
+  }
+
+  /**
+   * Detect and resolve follow-up phrases
+   * @param {string} message 
+   * @param {Object} session 
+   * @returns {string}
+   */
+  detectFollowUp(message, session) {
+    if (!session || !session.lastEntity) return message;
+
+    const followUps = [
+      'show details', 'show in details', 'explain more', 'continue', 
+      'more info', 'show all', 'expand this', 'list them', 'open them'
+    ];
+
+    if (followUps.some(f => message.includes(f))) {
+      // Injected context keywords to trigger data list logic
+      const entity = session.lastEntity === 'help_tickets' ? 'ticket' : session.lastEntity;
+      const status = session.lastStatus || 'pending';
+      return `show ${status} ${entity} details`;
+    }
+
+    return message;
+  }
+
   /**
    * Process user message and generate response using hybrid approach
    * @param {number} userId - User ID from JWT
@@ -28,10 +132,19 @@ class ChatbotService {
       const cleanMessage = this.sanitizeInput(message);
       if (!cleanMessage) return { success: true, message: "How can I help you today?", type: 'greeting' };
 
+      // Retrieve session context
+      const session = this.getSession(userId);
+      
+      // Resolve context (follow-ups and pronouns)
+      let resolvedMessage = this.detectFollowUp(cleanMessage, session);
+      resolvedMessage = this.resolvePronouns(resolvedMessage, session);
+      
       // Split queries for multi-intent handling
-      const segments = this.splitQueries(cleanMessage);
+      const segments = this.splitQueries(resolvedMessage);
       let responses = [];
-      let lastEntity = null;
+      let lastEntity = session?.lastEntity || null;
+      let lastStatus = session?.lastStatus || 'pending';
+      let lastQueryType = session?.lastQueryType || 'unknown';
       let totalTokens = 0;
       let primaryIntent = 'unknown';
 
@@ -41,6 +154,13 @@ class ChatbotService {
           const intent = this.detectIntent(segment);
           if (intent !== 'unknown' && primaryIntent === 'unknown') primaryIntent = intent;
 
+          // Priority 0: Safety check (Blocked topics)
+          if (this.containsBlockedTopics(segment)) {
+            responses.push(this.getFallbackResponse());
+            if (primaryIntent === 'unknown') primaryIntent = 'fallback';
+            continue;
+          }
+
           // Check for ambiguity (e.g., "task task task")
           if (this.isAmbiguousQuery(segment)) {
             responses.push(this.generateResponse('clarification', userRole));
@@ -48,14 +168,29 @@ class ChatbotService {
             continue;
           }
 
-          // Priority 1: Explicit Guidance check
           if (this.isGuidanceQuery(segment)) {
             const knowledgeEntry = this.findKnowledgeEntry(segment);
             if (knowledgeEntry) {
-              responses.push(this.sanitizeKnowledgeContent(knowledgeEntry.content));
+              responses.push(this.formatKnowledgeResponse(knowledgeEntry, session));
               if (primaryIntent === 'unknown') primaryIntent = 'guidance';
+              
+              // Extract entity from knowledge keywords to update context
+              const entryKeywords = knowledgeEntry.keywords.join(' ').toLowerCase();
+              if (entryKeywords.includes('checklist')) lastEntity = 'checklist';
+              else if (entryKeywords.includes('delegation')) lastEntity = 'delegation';
+              else if (entryKeywords.includes('ticket')) lastEntity = 'help_tickets';
+              else if (entryKeywords.includes('task')) lastEntity = 'task';
+              
+              // Reset status for new guidance queries
+              lastStatus = null;
+              
               continue;
             }
+          }
+
+          // Analytics protection
+          if (this.isAnalyticsQuery(segment)) {
+            lastQueryType = 'analytics';
           }
 
           // Priority 2: Data Query (with list mode support)
@@ -65,16 +200,28 @@ class ChatbotService {
             if (dataResult) {
               responses.push(dataResult.message);
               if (dataResult.entity) lastEntity = dataResult.entity;
+              if (dataResult.status) lastStatus = dataResult.status;
+              lastQueryType = dataResult.isList ? 'list' : (dataResult.isCount ? 'count' : 'data_query');
               if (primaryIntent === 'unknown') primaryIntent = 'data_query';
               continue;
             }
           }
 
-          // Priority 3: Knowledge Base (General search)
           const knowledgeEntry = this.findKnowledgeEntry(segment);
           if (knowledgeEntry) {
-            responses.push(this.sanitizeKnowledgeContent(knowledgeEntry.content));
+            responses.push(this.formatKnowledgeResponse(knowledgeEntry, session));
             if (primaryIntent === 'unknown') primaryIntent = 'knowledge';
+            
+            // Extract entity from knowledge keywords to update context
+            const entryKeywords = knowledgeEntry.keywords.join(' ').toLowerCase();
+            if (entryKeywords.includes('checklist')) lastEntity = 'checklist';
+            else if (entryKeywords.includes('delegation')) lastEntity = 'delegation';
+            else if (entryKeywords.includes('ticket')) lastEntity = 'help_tickets';
+            else if (entryKeywords.includes('task')) lastEntity = 'task';
+            
+            // Reset status for new knowledge queries
+            lastStatus = null;
+            
             continue;
           }
 
@@ -90,9 +237,14 @@ class ChatbotService {
           // Priority 5: OpenAI fallback (only if this is the only segment or nothing else matched)
           if (responses.length === 0 || segments.length === 1) {
             try {
+              // Try to find knowledge for the fallback prompt context
+              const knowledgeEntry = this.findKnowledgeEntry(segment);
+              const knowledgeContent = knowledgeEntry ? (typeof knowledgeEntry.content === 'string' ? knowledgeEntry.content : JSON.stringify(knowledgeEntry.content)) : null;
+              
               const openaiResult = await this.generateOpenAIResponse(segment, userRole, knowledgeContent);
               if (openaiResult.success) {
-                responses.push(openaiResult.message);
+                // Sanitize OpenAI response to ensure no markdown symbols
+                responses.push(chatbotFormatter.stripMarkdown(openaiResult.message));
                 totalTokens += (openaiResult.tokens || 0);
               } else if (responses.length === 0) {
                 responses.push(this.getFallbackResponse());
@@ -108,8 +260,24 @@ class ChatbotService {
         }
       }
 
-      const finalResponse = responses.length > 0 ? responses.join('\n\n') : this.getFallbackResponse();
+      // Format final response using the mixed response builder
+      let finalResponse = responses.length > 0 
+        ? chatbotFormatter.formatMixedResponse(responses) 
+        : this.getFallbackResponse();
+      
+      // Final sanitization to ensure no raw markdown symbols ever reach the UI
+      finalResponse = chatbotFormatter.stripMarkdown(finalResponse);
+      
       const responseType = responses.length > 1 ? 'multi-intent' : 'standard';
+
+      // Update session context
+      this.updateSession(userId, {
+        lastEntity,
+        lastStatus,
+        lastQueryType,
+        lastIntent: primaryIntent,
+        lastModule: lastEntity // Basic module mapping
+      });
 
       // Log conversation with aggregated response
       await this.logConversation(userId, cleanMessage, finalResponse, primaryIntent, responseType, totalTokens);
@@ -231,6 +399,16 @@ class ChatbotService {
   }
 
   /**
+   * Detect if message is an analytics-related query
+   * @param {string} message - Cleaned user message
+   * @returns {boolean} True if analytics keywords are found
+   */
+  isAnalyticsQuery(message) {
+    const analyticsKeywords = ['productivity', 'statistics', 'stats', 'performance', 'summary of team', 'completion rate'];
+    return analyticsKeywords.some(k => message.includes(k));
+  }
+
+  /**
    * Detect if message is explicitly a count query
    * @param {string} message - Cleaned user message
    * @returns {boolean} True if count keywords are found
@@ -326,7 +504,7 @@ class ChatbotService {
       const isToday = message.includes('today');
       const isCount = this.isCountQuery(message);
       const isList = !isCount && (this.isListQuery(message) || message.includes('show'));
-      const isAll = /\ball\b/i.test(message);
+      const isAll = /\ball\b/i.test(message) || message.includes('total');
       // When user asks "all tasks/checklists" with no status qualifier, show all statuses
       const isAllStatuses = isAll && !isPending && !isCompleted && !isOverdue;
       
@@ -375,7 +553,13 @@ class ChatbotService {
         const res = await pool.query(q);
         if (res.rows.length > 0) {
           const top = res.rows[0];
-          return { message: `${top.first_name} ${top.last_name} has the highest workload with a total of ${top.total_workload} pending items across all modules.`, type: 'analytics' };
+          return { 
+            message: chatbotFormatter.formatSection(
+              'High Workload Alert', 
+              `${top.first_name} ${top.last_name} has the highest workload with a total of ${top.total_workload} pending items across all modules.`
+            ), 
+            type: 'analytics' 
+          };
         }
         return { message: "No pending workload found for any employee.", type: 'analytics' };
       }
@@ -401,7 +585,13 @@ class ChatbotService {
           return { message: "No attendance records found for today.", type: 'analytics' };
         }
         
-        return { message: `Today's Attendance Summary (${localDate}): ${total_present} employees are present and ${on_leave} are on leave.`, type: 'analytics' };
+        return { 
+          message: chatbotFormatter.formatSection(
+            `Attendance Summary (${localDate})`, 
+            `${total_present} employees are present and ${on_leave} are on leave today.`
+          ), 
+          type: 'analytics' 
+        };
       }
 
       // 4. Check for Employee List Request (Admin only)
@@ -415,10 +605,14 @@ class ChatbotService {
         const countRes = await pool.query(`SELECT COUNT(*) FROM employees`);
         const total = countRes.rows[0].count;
 
-        const listRes = await pool.query(`SELECT first_name, last_name FROM employees ORDER BY first_name ASC LIMIT 10`);
-        const names = listRes.rows.map(r => `• ${r.first_name} ${r.last_name}`).join('\n');
-        
-        return { message: `Showing first 10 of ${total} employees:\n${names}`, type: 'analytics' };
+        const names = listRes.rows.map(r => `${r.first_name} ${r.last_name}`);
+        return { 
+          message: chatbotFormatter.formatSection(
+            `Employee Directory (Showing 10 of ${total})`,
+            names.map(n => `• ${n}`).join('\n')
+          ), 
+          type: 'analytics' 
+        };
       }
 
       // 5. Check for Employee/Team Summary (Admin only)
@@ -440,10 +634,15 @@ class ChatbotService {
         const totalPending = parseInt(s.total_pending_checklists) + parseInt(s.total_pending_delegations);
         
         return { 
-          message: `Operational Team Summary:\n` +
-                   `• Total Employees: ${s.total_employees}\n` +
-                   `• Employees with Pending Workload: ${s.employees_with_workload}\n` +
-                   `• Total Pending Items: ${totalPending} (${s.total_pending_checklists} checklists, ${s.total_pending_delegations} delegations)`,
+          message: chatbotFormatter.formatSummaryCount(
+            'Operational Team Summary',
+            [
+              { label: 'Total Employees', count: s.total_employees },
+              { label: 'Employees with Pending Workload', count: s.employees_with_workload },
+              { label: 'Pending Checklists', count: s.total_pending_checklists },
+              { label: 'Pending Delegations', count: s.total_pending_delegations }
+            ]
+          ),
           type: 'analytics' 
         };
       }
@@ -579,16 +778,21 @@ class ChatbotService {
         const designation = s.designation || "Not available";
         const department = s.department || "Not available";
 
-        const response = `Employee profile for ${s.first_name} ${s.last_name}:\n` +
-                   `• Designation: ${designation}\n` +
-                   `• Department: ${department}\n` +
-                   `• Pending Items: ${totalPending}\n` +
-                   `• Completed Items: ${totalCompleted}\n` +
-                   `• Overdue Items: ${totalOverdue}\n` +
-                   `• Pending Checklists: ${s.pending_checklists}\n` +
-                   `• Pending Delegations: ${s.pending_delegations}\n` +
-                   `• Open Help Tickets: ${s.open_tickets}\n` +
-                   `• Today's Attendance: ${attendanceStatus}`;
+        const response = chatbotFormatter.formatGuidance({
+          title: `Employee Profile: ${s.first_name} ${s.last_name}`,
+          intro: `Details for ${s.first_name} ${s.last_name} from the ${department} department:`,
+          steps: [
+            `Designation: **${designation}**`,
+            `Department: **${department}**`,
+            `Today's Attendance: **${attendanceStatus}**`
+          ],
+          notes: [
+            `Pending Items: ${totalPending} (${s.pending_checklists} checklists, ${s.pending_delegations} delegations)`,
+            `Completed Items: ${totalCompleted}`,
+            `Overdue Items: ${totalOverdue}`,
+            `Open Help Tickets: ${s.open_tickets}`
+          ]
+        });
         
         return { message: response, type: 'analytics', entity: 'employee_summary' };
       }
@@ -642,26 +846,35 @@ class ChatbotService {
               : `No checklists found for ${fullName}.`;
           } else {
             const displayRows = isAll ? res.rows : res.rows.slice(0, 5);
-            const list = displayRows.map(r => {
-              const dateStr = r.due_date ? ` (Due: ${new Date(r.due_date).toLocaleDateString()})` : '';
-              return `• [Checklist] ${r.question} [${r.status}]${dateStr}`;
-            }).join('\n');
-            
-            let limitMsg;
-            if (isAll) {
-              limitMsg = `Showing all ${totalCount} ${statusLabel}checklists:\n`;
-            } else {
-              limitMsg = totalCount > 5
-                ? `Showing first 5 of ${totalCount} ${statusLabel}checklists:\n`
-                : `Found ${totalCount} ${statusLabel}checklists:\n`;
-            }
-            response = `${limitMsg}${list}`;
+            response = chatbotFormatter.formatChecklistList(
+              displayRows, 
+              isAll ? `All ${totalCount} ${statusLabel}checklists` : `Found ${totalCount} ${statusLabel}checklists`
+            );
           }
         } else {
-          const q = `SELECT COUNT(*) FROM checklist WHERE ${statusFilter} ${timeFilter} AND doer_id = $1`;
-          const res = await pool.query(q, [targetUserId]);
-          const count = res.rows[0].count;
-          response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${statusLabel}checklists${isToday ? ' for today' : ''}.`;
+          if (isAllStatuses) {
+            const q = `
+              SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN status NOT IN ('Completed', 'Verified') THEN 1 END) as pending,
+                COUNT(CASE WHEN status IN ('Completed', 'Verified') THEN 1 END) as completed,
+                COUNT(CASE WHEN status NOT IN ('Completed', 'Verified') AND due_date < CURRENT_TIMESTAMP THEN 1 END) as overdue
+              FROM checklist WHERE doer_id = $1
+            `;
+            const res = await pool.query(q, [targetUserId]);
+            const s = res.rows[0];
+            response = chatbotFormatter.formatSummaryCount(`${fullName}'s Checklist Summary`, [
+              { label: 'Total Checklists', count: s.total },
+              { label: 'Pending', count: s.pending },
+              { label: 'Completed', count: s.completed },
+              { label: 'Overdue', count: s.overdue }
+            ]);
+          } else {
+            const q = `SELECT COUNT(*) FROM checklist WHERE ${statusFilter} ${timeFilter} AND doer_id = $1`;
+            const res = await pool.query(q, [targetUserId]);
+            const count = res.rows[0].count;
+            response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${statusLabel}checklists${isToday ? ' for today' : ''}.`;
+          }
         }
       } else if (entity === 'delegation') {
         // Build status filter: omit entirely when showing all statuses
@@ -695,25 +908,35 @@ class ChatbotService {
               : `No delegations found for ${fullName}.`;
           } else {
             const displayRows = isAll ? res.rows : res.rows.slice(0, 5);
-            const list = displayRows.map(r => {
-              const dateStr = r.due_date ? ` (Due: ${new Date(r.due_date).toLocaleDateString()})` : '';
-              return `• [Delegation] ${r.delegation_name} [${r.status}]${dateStr}`;
-            }).join('\n');
-            let limitMsg;
-            if (isAll) {
-              limitMsg = `Showing all ${totalCount} ${statusLabel}delegations:\n`;
-            } else {
-              limitMsg = totalCount > 5
-                ? `Showing first 5 of ${totalCount} ${statusLabel}delegations:\n`
-                : `Found ${totalCount} ${statusLabel}delegations:\n`;
-            }
-            response = `${limitMsg}${list}`;
+            response = chatbotFormatter.formatDelegationList(
+              displayRows,
+              isAll ? `All ${totalCount} ${statusLabel}delegations` : `Found ${totalCount} ${statusLabel}delegations`
+            );
           }
         } else {
-          const q = `SELECT COUNT(*) FROM delegation WHERE ${statusFilter} ${timeFilter} AND doer_id = $1`;
-          const res = await pool.query(q, [targetUserId]);
-          const count = res.rows[0].count;
-          response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${statusLabel}delegations.`;
+          if (isAllStatuses) {
+            const q = `
+              SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN status ILIKE 'completed' THEN 1 END) as completed,
+                COUNT(CASE WHEN status NOT ILIKE 'completed' THEN 1 END) as pending,
+                COUNT(CASE WHEN status NOT ILIKE 'completed' AND due_date < CURRENT_TIMESTAMP THEN 1 END) as overdue
+              FROM delegation WHERE doer_id = $1
+            `;
+            const res = await pool.query(q, [targetUserId]);
+            const s = res.rows[0];
+            response = chatbotFormatter.formatSummaryCount(`${fullName}'s Delegation Summary`, [
+              { label: 'Total Delegations', count: s.total },
+              { label: 'Pending', count: s.pending },
+              { label: 'Completed', count: s.completed },
+              { label: 'Overdue', count: s.overdue }
+            ]);
+          } else {
+            const q = `SELECT COUNT(*) FROM delegation WHERE ${statusFilter} ${timeFilter} AND doer_id = $1`;
+            const res = await pool.query(q, [targetUserId]);
+            const count = res.rows[0].count;
+            response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${count} ${statusLabel}delegations.`;
+          }
         }
       } else if (entity === 'help_tickets') {
         let statusFilter = isCompleted ? "status = 'CLOSED'" : "status = 'OPEN'";
@@ -724,8 +947,8 @@ class ChatbotService {
           if (res.rows.length === 0) {
             response = `No ${isCompleted ? 'closed' : 'open'} help tickets found for ${fullName}.`;
           } else {
-            const list = res.rows.map(r => `• ${r.help_ticket_no}: ${r.issue_description.substring(0, 50)}...`).join('\n');
-            response = `Here are some ${isCompleted ? 'closed' : 'open'} help tickets related to ${fullName}:\n${list}`;
+            const listData = res.rows.map(r => ({ name: r.issue_description, status: 'OPEN', id: r.help_ticket_no }));
+            response = chatbotFormatter.formatList(listData, `Open Help Tickets for ${fullName}`, 'ticket');
           }
         } else {
           const q = `SELECT COUNT(*) FROM help_tickets WHERE ${statusFilter} AND (raised_by = $1 OR pc_accountable = $1 OR problem_solver = $1)`;
@@ -776,60 +999,86 @@ class ChatbotService {
               : `No tasks found for ${fullName}.`;
           } else {
             const displayRows = isAll ? res.rows : res.rows.slice(0, 5);
-            const list = displayRows.map(r => {
-              const dateStr = r.due_date ? ` (Due: ${new Date(r.due_date).toLocaleDateString()})` : '';
-              return `• [${r.type}] ${r.name} [${r.status}]${dateStr}`;
-            }).join('\n');
-            
-            let limitMsg;
-            if (isAll) {
-              limitMsg = `Showing all ${totalCount} ${statusLabel}tasks:\n`;
-            } else {
-              limitMsg = totalCount > 5
-                ? `Showing first 5 of ${totalCount} ${statusLabel}tasks:\n`
-                : `Found ${totalCount} ${statusLabel}tasks:\n`;
-            }
-            response = `${limitMsg}${list}`;
+            response = chatbotFormatter.formatTaskList(
+              displayRows,
+              isAll ? `All ${totalCount} ${statusLabel}tasks` : `Found ${totalCount} ${statusLabel}tasks`
+            );
           }
         } else {
-          // Count summary — use pending filters for summary unless status is explicitly set
-          const summaryChecklistStatus = isAllStatuses ? "status NOT IN ('Completed', 'Verified')" : checklistStatus;
-          const summaryDelegationStatus = isAllStatuses ? "status NOT ILIKE 'completed'" : delegationStatus;
-
-          const q = `
-            SELECT 
-              (SELECT COUNT(*) FROM checklist WHERE ${summaryChecklistStatus} AND doer_id = $1) as pending_checklist,
-              (SELECT COUNT(*) FROM delegation WHERE ${summaryDelegationStatus} AND doer_id = $1) as pending_delegation,
-              (SELECT COUNT(*) FROM checklist WHERE ${summaryChecklistStatus} AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_checklist,
-              (SELECT COUNT(*) FROM delegation WHERE ${summaryDelegationStatus} AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_delegation
-          `;
-          const res = await pool.query(q, [targetUserId]);
-          const { pending_checklist, pending_delegation, overdue_checklist, overdue_delegation } = res.rows[0];
-          
-          const totalPending = parseInt(pending_checklist) + parseInt(pending_delegation);
-          const totalOverdue = parseInt(overdue_checklist) + parseInt(overdue_delegation);
-          
-          const totalCount = isOverdue ? totalOverdue : (isCompleted ? totalCompleted : totalPending);
-          const statusLabel = isOverdue ? 'overdue' : (isCompleted ? 'completed' : 'pending');
-          
-          if (isOverdue) {
-            response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${totalOverdue} overdue tasks (${overdue_checklist} checklists and ${overdue_delegation} delegations).`;
+          if (isAllStatuses) {
+            const q = `
+              SELECT 
+                (SELECT COUNT(*) FROM checklist WHERE doer_id = $1) as total_checklist,
+                (SELECT COUNT(*) FROM delegation WHERE doer_id = $1) as total_delegation,
+                (SELECT COUNT(*) FROM checklist WHERE status NOT IN ('Completed', 'Verified') AND doer_id = $1) as pending_checklist,
+                (SELECT COUNT(*) FROM delegation WHERE status NOT ILIKE 'completed' AND doer_id = $1) as pending_delegation,
+                (SELECT COUNT(*) FROM checklist WHERE status IN ('Completed', 'Verified') AND doer_id = $1) as completed_checklist,
+                (SELECT COUNT(*) FROM delegation WHERE status ILIKE 'completed' AND doer_id = $1) as completed_delegation,
+                (SELECT COUNT(*) FROM checklist WHERE status NOT IN ('Completed', 'Verified') AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_checklist,
+                (SELECT COUNT(*) FROM delegation WHERE status NOT ILIKE 'completed' AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_delegation
+            `;
+            const res = await pool.query(q, [targetUserId]);
+            const s = res.rows[0];
+            
+            const counts = [
+              { label: 'Total Tasks', count: parseInt(s.total_checklist) + parseInt(s.total_delegation) },
+              { label: 'Pending', count: parseInt(s.pending_checklist) + parseInt(s.pending_delegation) },
+              { label: 'Completed', count: parseInt(s.completed_checklist) + parseInt(s.completed_delegation) },
+              { label: 'Overdue', count: parseInt(s.overdue_checklist) + parseInt(s.overdue_delegation) }
+            ];
+            
+            response = chatbotFormatter.formatSummaryCount(`${fullName}'s Work Overview`, counts);
           } else {
-            let overdueNote = "";
-            if (totalCount > 0 && !isCompleted && totalCount === totalOverdue) {
-              overdueNote = " All pending tasks are currently overdue.";
-            } else if (totalOverdue > 0 && !isCompleted) {
-              overdueNote = ` (${totalOverdue} of these are overdue).`;
+            // Count summary — use pending filters for summary unless status is explicitly set
+            const summaryChecklistStatus = isAllStatuses ? "status NOT IN ('Completed', 'Verified')" : checklistStatus;
+            const summaryDelegationStatus = isAllStatuses ? "status NOT ILIKE 'completed'" : delegationStatus;
+
+            const q = `
+              SELECT 
+                (SELECT COUNT(*) FROM checklist WHERE ${summaryChecklistStatus} AND doer_id = $1) as pending_checklist,
+                (SELECT COUNT(*) FROM delegation WHERE ${summaryDelegationStatus} AND doer_id = $1) as pending_delegation,
+                (SELECT COUNT(*) FROM checklist WHERE ${summaryChecklistStatus} AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_checklist,
+                (SELECT COUNT(*) FROM delegation WHERE ${summaryDelegationStatus} AND due_date < CURRENT_TIMESTAMP AND doer_id = $1) as overdue_delegation
+            `;
+            const res = await pool.query(q, [targetUserId]);
+            const { pending_checklist, pending_delegation, overdue_checklist, overdue_delegation } = res.rows[0];
+            
+            const totalPending = parseInt(pending_checklist) + parseInt(pending_delegation);
+            const totalOverdue = parseInt(overdue_checklist) + parseInt(overdue_delegation);
+            
+            const totalCount = isOverdue ? totalOverdue : (isCompleted ? totalCompleted : totalPending);
+            const statusLabel = isOverdue ? 'overdue' : (isCompleted ? 'completed' : 'pending');
+            
+            const counts = [
+              { label: 'Pending Checklists', count: pending_checklist },
+              { label: 'Pending Delegations', count: pending_delegation }
+            ];
+            if (overdue_checklist > 0 || overdue_delegation > 0) {
+              counts.push({ label: 'Overdue Items', count: parseInt(overdue_checklist) + parseInt(overdue_delegation) });
             }
-            response = `${fullName} ${fullName === 'You' ? 'have' : 'has'} ${totalCount} ${statusLabel} tasks${overdueNote}`;
+            
+            response = chatbotFormatter.formatSummaryCount(`${fullName}'s Work Summary`, counts);
+            if (isOverdue) {
+              response = chatbotFormatter.formatSummaryCount(`${fullName}'s Overdue Summary`, [
+                { label: 'Overdue Checklists', count: overdue_checklist },
+                { label: 'Overdue Delegations', count: overdue_delegation }
+              ]);
+            }
           }
         }
       }
 
-      return response ? { message: response, type: 'data-query', entity } : null;
+      return response ? { 
+        message: response, 
+        type: 'data-query', 
+        entity, 
+        status: statusText,
+        isList,
+        isCount
+      } : null;
     } catch (error) {
       console.error('Data query handling error:', error);
-      return { message: "I'm sorry, I encountered an error while fetching the data. Please try again later.", type: 'error' };
+      return { message: chatbotFormatter.stripMarkdown("I'm sorry, I encountered an error while fetching the data. Please try again later."), type: 'error' };
     }
   }
 
@@ -841,7 +1090,58 @@ class ChatbotService {
    */
   generateResponse(intent, userRole) {
     const responses = CHATBOT_CONTEXT.responses;
-    return responses[intent] || responses.unknown;
+    const response = responses[intent] || responses.unknown;
+
+    if (typeof response === 'string') return response;
+
+    // Handle structured response objects
+    if (intent === 'clarification') {
+      return chatbotFormatter.formatClarification(response.intro, response.options);
+    }
+
+    return chatbotFormatter.formatGuidance({
+      title: response.title,
+      intro: response.intro,
+      steps: response.steps,
+      closing: response.closing
+    });
+  }
+
+  /**
+   * Format knowledge base entry using the formatter
+   * @param {Object} entry - Knowledge base entry
+   * @param {Object} session - Active session context
+   * @returns {string} Formatted response
+   */
+  formatKnowledgeResponse(entry, session = null) {
+    if (!entry) return '';
+    
+    const content = entry.content;
+    let title = entry.title;
+    let intro = content.intro;
+    let closing = content.closing;
+
+    // Tailor for overdue context if confidence is high
+    if (session && session.lastStatus === 'overdue' && (session.confidence || 0) > 0.7) {
+      if (title.toLowerCase().includes('task') || title.toLowerCase().includes('checklist')) {
+        title = `Guidance for Overdue ${session.lastEntity === 'task' ? 'Tasks' : 'Checklists'}`;
+        if (typeof intro === 'string') {
+          intro = `Regarding your overdue items, here is how to proceed: ${intro}`;
+        }
+      }
+    }
+
+    if (typeof content === 'string') {
+      return chatbotFormatter.formatSection(title, this.sanitizeKnowledgeContent(content));
+    }
+
+    return chatbotFormatter.formatGuidance({
+      title: title,
+      intro: intro,
+      steps: content.steps,
+      notes: content.notes,
+      closing: closing
+    });
   }
 
   /**
