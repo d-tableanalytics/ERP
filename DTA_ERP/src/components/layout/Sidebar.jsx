@@ -15,7 +15,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
 
   const menuItems = useMemo(
     () => {
-      const items = [
+      const selectedModule = localStorage.getItem("selectedModule");
+      
+      const allItems = [
         { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
         { icon: "assignment_ind", label: "Delegation", path: "/delegation" },
         { icon: "check_box", label: "Checklist", path: "/checklist" },
@@ -57,19 +59,43 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
         { icon: "person", label: "Profile", path: "/profile" },
       ];
 
+      // Filtering logic based on selected module
+      let filteredItems = allItems;
+      
+      if (selectedModule === "Task Management System") {
+        filteredItems = allItems.filter(item => 
+          ["Dashboard", "Delegation", "Checklist", "Tasks", "TODO", "Profile"].includes(item.label)
+        );
+      } else if (selectedModule === "IMS & FMS") {
+        filteredItems = allItems.filter(item => 
+          ["Dashboard", "IMS", "FMS", "Profile"].includes(item.label)
+        );
+      } else if (selectedModule === "Finance & Salary") {
+        filteredItems = allItems.filter(item => 
+          ["Dashboard", "Scoring", "FMS", "Profile"].includes(item.label)
+        );
+      } else if (selectedModule === "HRMS & Attendance") {
+        filteredItems = allItems.filter(item => 
+          ["Dashboard", "Profile"].includes(item.label)
+        );
+      }
+
       // Insert Approval Requests for Admin/SuperAdmin
       if (user?.role === 'Admin' || user?.role === 'SuperAdmin') {
-        const tasksMenu = items.find(item => item.label === 'Tasks');
+        const tasksMenu = filteredItems.find(item => item.label === 'Tasks');
         if (tasksMenu && tasksMenu.children) {
-          tasksMenu.children.push({
-            icon: "verified_user",
-            label: "Approval Requests",
-            path: "/tasks/approvals"
-          });
+          // Check if it already exists to avoid duplicates (though useMemo should handle it)
+          if (!tasksMenu.children.find(child => child.label === "Approval Requests")) {
+            tasksMenu.children.push({
+              icon: "verified_user",
+              label: "Approval Requests",
+              path: "/tasks/approvals"
+            });
+          }
         }
       }
 
-      return items;
+      return filteredItems;
     },
     [user?.role],
   );
@@ -93,6 +119,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile = false }) => {
   /* ================= LOGOUT ================= */
 
   const handleLogout = () => {
+    localStorage.removeItem("selectedModule");
     dispatch(logout());
     navigate("/login");
   };

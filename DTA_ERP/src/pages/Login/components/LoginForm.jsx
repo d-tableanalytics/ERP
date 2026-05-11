@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { loginUser, clearError } from "../../../store/slices/authSlice";
 import { useNavigate } from "react-router-dom";
 
-const LoginForm = () => {
+const LoginForm = ({ selectedModule }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -13,9 +13,15 @@ const LoginForm = () => {
 
   useEffect(() => {
     if (token) {
+      // Persist selection to localStorage when token is received
+      if (selectedModule) {
+        localStorage.setItem("selectedModule", selectedModule);
+      } else {
+        localStorage.removeItem("selectedModule");
+      }
       navigate("/dashboard", { replace: true });
     }
-  }, [token, navigate]);
+  }, [token, navigate, selectedModule]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -41,7 +47,7 @@ const LoginForm = () => {
       {/* Header */}
       <div className="flex flex-col gap-2">
         <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-          Welcome back
+          Welcome back {selectedModule ? ` ${selectedModule}` : ""}
         </h2>
         <p className="text-slate-500 dark:text-slate-400 text-base">
           Please enter your credentials to access your dashboard.
