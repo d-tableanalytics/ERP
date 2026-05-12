@@ -19,7 +19,11 @@ export const loginUser = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await axios.post(`${API_URL}/login`, credentials);
-      const { token, user } = response.data || {};
+      
+      // Robustly handle both { data: { token } } and { token } formats
+      const result = response.data.data || response.data;
+      const { token, user } = result || {};
+
       if (token) localStorage.setItem("token", token);
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -28,7 +32,7 @@ export const loginUser = createAsyncThunk(
       }
       localStorage.setItem("loginTime", Date.now());
 
-      return response.data;
+      return result;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Login failed");
     }
@@ -40,7 +44,7 @@ export const registerUser = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await axios.post(`${API_URL}/register`, userData);
-      return response.data;
+      return response.data.data || response.data;
     } catch (error) {
       return rejectWithValue(
         error.response.data.message || "Registration failed",
