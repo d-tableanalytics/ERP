@@ -9,7 +9,7 @@ const Notifications = () => {
     const [filter, setFilter] = useState('all'); // all, unread
 
     useEffect(() => {
-        fetchNotifications();
+        fetchNotifications();   
     }, []);
 
     const fetchNotifications = async () => {
