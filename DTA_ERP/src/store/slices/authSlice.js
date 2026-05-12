@@ -19,7 +19,7 @@ export const loginUser = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await axios.post(`${API_URL}/login`, credentials);
-      const { token, user } = response.data.data;
+      const { token, user } = response.data || {};
       if (token) localStorage.setItem("token", token);
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -28,9 +28,9 @@ export const loginUser = createAsyncThunk(
       }
       localStorage.setItem("loginTime", Date.now());
 
-      return response.data.data;
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.response.data.message || "Login failed");
+      return rejectWithValue(error.response?.data?.message || "Login failed");
     }
   },
 );
@@ -40,7 +40,7 @@ export const registerUser = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await axios.post(`${API_URL}/register`, userData);
-      return response.data.data;
+      return response.data;
     } catch (error) {
       return rejectWithValue(
         error.response.data.message || "Registration failed",
@@ -77,9 +77,9 @@ const user = safeParseJSON(userStr);
 const authSlice = createSlice({
   name: "auth",
   initialState: {
-    user: token && user ? user : null,
-    token: token && user ? token : null,
-    theme: token && user ? user.theme || "light" : "light",
+    user: user || null,
+    token: token || null,
+    theme: user?.theme || "light",
     isLoading: false,
     error: null,
   },

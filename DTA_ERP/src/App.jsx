@@ -53,6 +53,8 @@ const LoadingFallback = () => (
 
 function App() {
   const dispatch = useDispatch();
+  const { token } = useSelector((state) => state.auth);
+
   useEffect(() => {
     checkAutoLogout(dispatch, logout);
 
@@ -155,7 +157,10 @@ function App() {
       />
       <Router>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route 
+            path="/login" 
+            element={token ? <Navigate to="/dashboard" replace /> : <LoginPage />} 
+          />
           <Route
             path="/dashboard"
             element={
