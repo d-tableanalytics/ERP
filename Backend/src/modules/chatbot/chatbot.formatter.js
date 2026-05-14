@@ -85,19 +85,23 @@ class ChatbotFormatter {
    */
   formatList(items, title, type = 'item') {
     if (!items || items.length === 0) {
-      return `No ${type}s found.`;
+      return `You currently do not have any ${type}s.`;
     }
 
     let output = this.formatHeading(title);
-    
+
     const listContent = items.map(item => {
       const name = this.stripMarkdown(item.name || item.question || item.delegation_name || 'Unnamed Item');
-      const status = item.status || 'Unknown';
-      const dueDate = item.due_date ? new Date(item.due_date).toLocaleDateString() : 'Not set';
-      
-      const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
-      return `${this.bullet} ${typeLabel}: ${name}\n  Status: ${status}\n  Due Date: ${dueDate}`;
-    }).join('\n\n');
+      const dueDate = item.due_date
+        ? new Date(item.due_date).toLocaleDateString('en-GB')
+        : 'No due date';
+
+      // For combined task lists, prefix with the sub-type (Checklist / Delegation)
+      if (type === 'task' && item.type) {
+        return `${this.bullet} [${item.type}] ${name} — Due: ${dueDate}`;
+      }
+      return `${this.bullet} ${name} — Due: ${dueDate}`;
+    }).join('\n');
 
     return output + listContent;
   }

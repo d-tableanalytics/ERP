@@ -3,66 +3,66 @@ import { useSelector, useDispatch } from 'react-redux';
 import {
   toggleChatbot,
   closeChatbot,
-  sendMessage,
-  clearMessages,
-  clearError
+  sendMessageStream,
+  resetSession,
+  clearError,
 } from '../store/chatbotSlice';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import TypingIndicator from './TypingIndicator';
+
+const STARTER_PROMPTS = [
+  'Show my pending tasks',
+  'What\'s overdue?',
+  'My attendance this week',
+  'Show my dashboard',
+];
 
 /**
- * ChatbotDrawer Component - Main floating chatbot interface
+ * ChatbotDrawer Component - Main floating chatbot interface.
+ * Wires the new streaming pipeline, renders cards, quick actions, and suggestions.
  */
 const ChatbotDrawer = () => {
   const dispatch = useDispatch();
-  const { messages, isOpen, isTyping, error } = useSelector((state) => state.chatbot);
+  const { messages, isOpen, isTyping, error, sessionId } = useSelector((s) => s.chatbot);
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isTyping]);
 
-  // Clear error when component unmounts or chat closes
-  useEffect(() => {
-    return () => {
-      if (error) {
-        dispatch(clearError());
-      }
-    };
-  }, [error, dispatch]);
+  useEffect(() => () => { if (error) dispatch(clearError()); }, [error, dispatch]);
 
   const handleSendMessage = (message) => {
-    dispatch(sendMessage(message));
+    if (!message) return;
+    dispatch(sendMessageStream(message));
   };
 
-  const handleClose = () => {
-    dispatch(closeChatbot());
-  };
+  const handleClose = () => dispatch(closeChatbot());
+  const handleNewChat = () => dispatch(resetSession());
 
-  const handleClearChat = () => {
-    dispatch(clearMessages());
-  };
+  // The bot bubble is created lazily on the first delta/card/done. So while we're
+  // still waiting, the last message is the user's turn — show typing indicator.
+  // Once the bot bubble appears (with content), hide the indicator.
+  const lastMsg = messages[messages.length - 1];
+  const noBotBubbleYet = !lastMsg || lastMsg.sender === 'user';
+  const showTyping = isTyping && noBotBubbleYet;
 
   return (
     <>
-      {/* Toggle Button */}
       {!isOpen && (
         <button
           onClick={() => dispatch(toggleChatbot())}
           className="chatbot-toggle-btn group"
           aria-label="Open chatbot"
         >
-          <span className="material-symbols-outlined text-2xl group-hover:rotate-12 transition-transform duration-300">
-            smart_toy
-          </span>
+          <span className="material-symbols-outlined text-2xl group-hover:rotate-12 transition-transform duration-300">smart_toy</span>
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
         </button>
       )}
 
-      {/* Main Drawer */}
       <div className={`chatbot-drawer ${isOpen ? 'chatbot-drawer-open' : 'chatbot-drawer-closed'}`}>
         {/* Header */}
         <div className="chatbot-header">
@@ -71,20 +71,20 @@ const ChatbotDrawer = () => {
               <span className="material-symbols-outlined text-primary text-xl">smart_toy</span>
             </div>
             <div>
-              <h3 className="text-sm font-bold text-text-main leading-none">ERP Assistant</h3>
+              <h3 className="text-sm font-bold text-text-main leading-none">ADA · ERP Assistant</h3>
               <p className="text-[10px] text-text-muted mt-1 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                AI Powered • Ready to help
+                {sessionId ? 'Conversation in progress' : 'AI Powered · Ready to help'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={handleClearChat}
-              className="p-2 text-text-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-              title="Clear Chat"
+              onClick={handleNewChat}
+              className="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+              title="New chat"
             >
-              <span className="material-symbols-outlined text-xl">delete_sweep</span>
+              <span className="material-symbols-outlined text-xl">edit_square</span>
             </button>
             <button
               onClick={handleClose}
@@ -104,13 +104,13 @@ const ChatbotDrawer = () => {
                 <span className="material-symbols-outlined text-4xl text-primary/40">chat_bubble</span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-main">Welcome back!</p>
-                <p className="text-xs text-text-muted mt-1 max-w-[200px]">
-                  Ask me about your tasks, checklists, help tickets, or attendance summaries.
+                <p className="text-sm font-semibold text-text-main">Hi, I'm ADA.</p>
+                <p className="text-xs text-text-muted mt-1 max-w-[220px]">
+                  Ask me about your tasks, checklists, attendance, tickets, or your dashboard. I understand follow-ups — try a question, then ask "show details".
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-2 w-full pt-4">
-                {['Show my tasks', 'Attendance summary'].map((suggestion) => (
+                {STARTER_PROMPTS.map((suggestion) => (
                   <button
                     key={suggestion}
                     onClick={() => handleSendMessage(suggestion)}
@@ -124,26 +124,20 @@ const ChatbotDrawer = () => {
             </div>
           ) : (
             messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage
+                key={message.id}
+                message={message}
+                onSuggestionPick={handleSendMessage}
+                onQuickAction={(a) => handleSendMessage(a.prompt || a.label)}
+              />
             ))
           )}
 
-          {isTyping && (
-            <div className="flex justify-start mb-4 animate-slide-up">
-              <div className="bg-bg-main border border-border-main p-3 rounded-2xl rounded-tl-none shadow-sm">
-                <div className="flex space-x-1.5">
-                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce"></div>
-                  <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                </div>
-              </div>
-            </div>
-          )}
+          {showTyping && <TypingIndicator />}
 
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Error State */}
         {error && (
           <div className="px-4 py-2 bg-red-50 border-t border-red-100 flex items-center gap-2">
             <span className="material-symbols-outlined text-red-500 text-sm">error</span>
@@ -151,7 +145,6 @@ const ChatbotDrawer = () => {
           </div>
         )}
 
-        {/* Input */}
         <div className="chatbot-input-container">
           <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} />
         </div>

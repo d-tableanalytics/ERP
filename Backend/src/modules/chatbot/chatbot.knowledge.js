@@ -153,7 +153,7 @@ const KNOWLEDGE_BASE = [
 
   // --- GENERAL MODULE DESCRIPTIONS (FALLBACKS) ---
   {
-    keywords: ['delegation module', 'delegation', 'delegation workflow', 'assign task', 'how to delegate', 'what is delegation used for', 'purpose of delegation', 'assign work', 'task delegation', 'create task assignment', 'request support for delegation'],
+    keywords: ['delegation module', 'what is delegation', 'delegation overview', 'what is delegation used for', 'purpose of delegation', 'describe delegation', 'about delegation module'],
     title: 'Delegation Module Overview',
     content: {
       intro: 'The Delegation module is used to assign and track work tasks across teams.',
@@ -165,7 +165,7 @@ const KNOWLEDGE_BASE = [
     }
   },
   {
-    keywords: ['help ticket module', 'help ticket', 'support ticket', 'support request', 'raise ticket', 'create ticket', 'open ticket', 'submit ticket', 'how do i raise a help ticket', 'how to raise a help ticket', 'how to create ticket', 'log issue', 'report issue', 'ticket support', 'helpdesk ticket'],
+    keywords: ['help ticket module', 'what is help ticket', 'help ticket overview', 'how do i raise a help ticket', 'how to raise a help ticket', 'how to create ticket', 'helpdesk ticket', 'what is a help ticket'],
     title: 'Help Ticket Process',
     content: {
       intro: 'Use the Help Ticket module for support requests and issue tracking:',
@@ -179,7 +179,7 @@ const KNOWLEDGE_BASE = [
     }
   },
   {
-    keywords: ['attendance module', 'attendance', 'punch in', 'punch out', 'time tracking', 'check attendance history', 'attendance workflow'],
+    keywords: ['attendance module', 'what is attendance', 'attendance overview', 'check attendance history', 'attendance workflow', 'about attendance module'],
     title: 'Attendance Information',
     content: {
       intro: 'The Attendance module tracks your work hours and daily records:',
@@ -192,7 +192,7 @@ const KNOWLEDGE_BASE = [
     }
   },
   {
-    keywords: ['checklist module', 'checklist', 'daily checklist', 'todo list', 'tasks list', 'what is checklist module used for', 'purpose of checklist', 'how to use checklist'],
+    keywords: ['checklist module', 'what is checklist', 'checklist overview', 'what is checklist module used for', 'what is checklist used for', 'purpose of checklist', 'how to use checklist', 'about checklist module'],
     title: 'Checklist Module Overview',
     content: {
       intro: 'Checklists support daily routines and recurring tasks:',
@@ -207,7 +207,7 @@ const KNOWLEDGE_BASE = [
     }
   },
   {
-    keywords: ['dashboard module', 'dashboard', 'overview', 'summary', 'report', 'what is dashboard used for', 'purpose of dashboard', 'dashboard overview'],
+    keywords: ['dashboard module', 'what is dashboard', 'dashboard overview', 'what is dashboard used for', 'purpose of dashboard', 'about dashboard module'],
     title: 'Dashboard Overview',
     content: {
       intro: 'The Dashboard provides a summary view of your key ERP metrics:',

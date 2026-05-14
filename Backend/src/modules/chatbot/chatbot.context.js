@@ -72,9 +72,9 @@ If you cannot answer a question safely or it's outside your scope, respond with 
     employee_list: ['name of employees', 'names of employees', 'list employees', 'show employees', 'employee names', 'show employee names', 'details about employees'],
     greeting: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening'],
     help_ticket: ['ticket', 'issue', 'problem', 'complaint', 'support ticket', 'help ticket', 'raise ticket', 'create ticket', 'submit ticket', 'helpdesk', 'log issue', 'report issue'],
-    delegation: ['delegation', 'task', 'tasks', 'assign', 'delegate', 'workflow', 'delegation module', 'create delegation', 'task assignment', 'assign work', 'delegate job'],
+    delegation: ['delegation', 'assign', 'delegate', 'workflow', 'delegation module', 'create delegation', 'assign work', 'delegate job'],
     attendance: ['attendance', 'punch', 'time', 'clock in', 'clock out', 'leave', 'attendance module'],
-    checklist: ['checklist', 'checklists', 'daily', 'todo', 'list', 'checklist module', 'what is checklist used for', 'purpose of checklist'],
+    checklist: ['checklist', 'checklists', 'checklist module', 'what is checklist used for', 'purpose of checklist'],
     dashboard: ['dashboard', 'summary', 'overview', 'stats', 'report', 'dashboard module'],
     help: ['help', 'assist', 'support', 'guide'],
     employee_summary: ['my employees', 'employee information', 'employee summary', 'team information', 'team summary', 'my team', 'team overview', 'summary of', 'details about', 'about', 'operational summary', 'summary about', 'my operational summary', 'my work summary', 'my employee summary', 'my details', 'my summary', 'give me my summary', 'show my summary', 'show my operational summary', 'give me my operational summary', 'who is', 'who am i', 'profile of', 'employee profile of', 'tell me about', 'my profile']

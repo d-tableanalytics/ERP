@@ -33,8 +33,9 @@ pool.query = async (...args) => {
         try {
             return await originalQuery(...args);
         } catch (err) {
-            if (err.code === 'ENOTFOUND' && retries > 1) {
-                console.error(`[Database] DNS Resolution failed (ENOTFOUND). Retrying in 2s... (${retries - 1} attempts left)`);
+            const retryableErrors = ['ENOTFOUND', 'ECONNRESET', 'ETIMEDOUT'];
+            if (retryableErrors.includes(err.code) && retries > 1) {
+                console.error(`[Database] Connection issue (${err.code}). Retrying in 2s... (${retries - 1} attempts left)`);
                 retries--;
                 await new Promise(resolve => setTimeout(resolve, 2000));
             } else {

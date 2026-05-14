@@ -98,8 +98,9 @@ class ChatbotService {
     if (!session || !session.lastEntity) return message;
 
     const followUps = [
-      'show details', 'show in details', 'explain more', 'continue', 
-      'more info', 'show all', 'expand this', 'list them', 'open them'
+      'show details', 'show in details', 'explain more', 'continue',
+      'more info', 'show all', 'expand this', 'list them', 'open them',
+      'give names', 'show names', 'what are their names', 'name them', 'which ones', 'what are they'
     ];
 
     if (followUps.some(f => message.includes(f))) {
@@ -205,6 +206,11 @@ class ChatbotService {
               if (primaryIntent === 'unknown') primaryIntent = 'data_query';
               continue;
             }
+            // handleDataQuery returned null — entity not detected even from session context.
+            // Give a clarification instead of falling through to a module overview.
+            responses.push("Please specify what you'd like to see — tasks, checklists, delegations, or tickets.");
+            if (primaryIntent === 'unknown') primaryIntent = 'data_query';
+            continue;
           }
 
           const knowledgeEntry = this.findKnowledgeEntry(segment);
@@ -376,26 +382,30 @@ class ChatbotService {
    */
   isDataQuery(message) {
     const fetchKeywords = [
-      'total', 'count', 'how many', 'number', 'summary', 'analytics', 'who has', 'most', 
-      'highest', 'busiest', 'workload', 'report', 'list', 'show', 'all', 'details', 'who is', 'profile'
+      'total', 'count', 'how many', 'number', 'summary', 'analytics', 'who has', 'most',
+      'highest', 'busiest', 'workload', 'report', 'list', 'show', 'all', 'details', 'who is', 'profile',
+      'name', 'names', 'what are', 'give me', 'tell me', 'show me'
     ];
     const moduleKeywords = ['task', 'checklist', 'delegation', 'ticket', 'attendance', 'employee', 'team'];
     const statusKeywords = ['pending', 'completed', 'overdue', 'open', 'closed', 'late', 'done', 'finished'];
-    
+
     // Explicit fetch intent with word boundaries (to avoid matching 'list' in 'checklist')
     const hasFetchIntent = fetchKeywords.some(keyword => {
       const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
       return regex.test(message);
     });
-    
+
     // Module + status (e.g., "pending tasks", "completed checklists")
     const hasStatusModule = statusKeywords.some(s => message.includes(s)) && moduleKeywords.some(m => message.includes(m));
 
     // Self-summary/profile requests
     const isProfileRequest = /\bmy profile\b|\bwho am i\b|\bmy summary\b/i.test(message);
 
-    return hasFetchIntent || hasStatusModule || isProfileRequest;
+    // Possessive self-module queries — "my tasks", "my checklist", "my overdue tasks"
+    const isSelfModuleQuery = /\bmy\s+(tasks?|checklists?|delegations?|tickets?|work|items?)\b/i.test(message);
+
+    return hasFetchIntent || hasStatusModule || isProfileRequest || isSelfModuleQuery;
   }
 
   /**
@@ -425,8 +435,9 @@ class ChatbotService {
    */
   isListQuery(message) {
     const listKeywords = [
-      'what are they', 'show', 'names', 'which ones', 'list', 'name of', 'names of', 
-      'all', 'details', 'in detail', 'give', 'show me all', 'give the details', 'next'
+      'what are they', 'show', 'names', 'which ones', 'list', 'name of', 'names of',
+      'all', 'details', 'in detail', 'give', 'show me all', 'give the details', 'next',
+      'what are', 'tell me', 'show me', 'give names', 'show names', 'name them'
     ];
     return listKeywords.some(k => message.includes(k));
   }
@@ -842,7 +853,7 @@ class ChatbotService {
 
           if (res.rows.length === 0) {
             response = statusText
-              ? `No ${statusText} checklists found.`
+              ? `You currently do not have any ${statusText} checklists.`
               : `No checklists found for ${fullName}.`;
           } else {
             const displayRows = isAll ? res.rows : res.rows.slice(0, 5);
@@ -904,7 +915,7 @@ class ChatbotService {
 
           if (res.rows.length === 0) {
             response = statusText
-              ? `No ${statusText} delegations found for ${fullName}.`
+              ? `You currently do not have any ${statusText} delegations.`
               : `No delegations found for ${fullName}.`;
           } else {
             const displayRows = isAll ? res.rows : res.rows.slice(0, 5);
@@ -995,7 +1006,7 @@ class ChatbotService {
 
           if (res.rows.length === 0) {
             response = statusText
-              ? `No ${statusText} tasks found.`
+              ? `You currently do not have any ${statusText} tasks.`
               : `No tasks found for ${fullName}.`;
           } else {
             const displayRows = isAll ? res.rows : res.rows.slice(0, 5);

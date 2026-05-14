@@ -1,17 +1,12 @@
-const express = require('express');
-const router = express.Router();
-const chatbotController = require('./chatbot.controller');
-const { verifyToken } = require('../../middlewares/auth.middleware');
-
 /**
- * Chatbot Routes
- * All routes require authentication
+ * Compatibility shim — the chatbot module entry point still lives here
+ * (Backend/Index.js loads this path), but routing now delegates to the v2
+ * router at routes/chatbot.routes.js.
+ *
+ * Legacy files (chatbot.service.js, chatbot.controller.js, chatbot.formatter.js,
+ * chatbot.knowledge.js, chatbot.context.js, chatbot.openai.js) are kept in place
+ * so their existing tests continue to pass. They are no longer wired into the
+ * HTTP layer.
  */
 
-// POST /api/chatbot/message - Send message to chatbot
-router.post('/message', verifyToken, chatbotController.handleMessage);
-
-// GET /api/chatbot/history - Get conversation history (future use)
-router.get('/history', verifyToken, chatbotController.getHistory);
-
-module.exports = router;
+module.exports = require('./routes/chatbot.routes');
