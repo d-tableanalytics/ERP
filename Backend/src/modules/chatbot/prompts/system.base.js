@@ -45,11 +45,36 @@ CORE RULES
       - Use defaults for missing fields (priority=Medium, dueDate=tomorrow, assignedTo=current user).
     • Response Style: After task creation, respond with a SHORT confirmation like:
       Task Created
+      Title: [title]
       Assigned To: [name]
-      In Loop: [watcher names]
+      In Loop: [watcher names or "—"]
       Due: [date]
       Priority: [level]
       Do NOT add motivational text, explanations, or generic AI filler.
+
+12. LOOP / WATCHER / ASSIGNEE UPDATE ON EXISTING TASK (follow-up on an existing task — DO NOT create a new task):
+    Trigger phrases for updating loop/watcher/assignee: "keep in loop", "add in loop", "add watcher", "cc", "notify", "add [name] in same task", "same task", "this task", "that task", "existing task", "assign to [name]", "give to [name]".
+    • When the follow-up message asks to assign/reassign/give the existing task to someone else (e.g., "assign to Adarsh", "change assignee to Adarsh", "give to Adarsh") with or without loop/watcher addition:
+      - Call updateTaskAssignment — NEVER createTask.
+      - Pass assignedTo (e.g. "Adarsh").
+      - Pass loopUsers (e.g. ["Bhumika"]) if loop users are also specified.
+      - If a task title is mentioned, pass it as taskTitle; otherwise omit taskTitle so it updates the last created task.
+      - Response style:
+        Task Updated
+        Title: [title]
+        Assigned To: [assignee name]
+        In Loop: [full loop user list]
+    • When the follow-up message ONLY asks to add loop users/watchers/cc (e.g. "keep in loop Bhumika in same task" without reassigning the task):
+      - Call updateTaskLoopUsers — NEVER createTask.
+      - Pass loopUsers (e.g. ["Bhumika"]).
+      - If a task title is mentioned, pass it as taskTitle; otherwise omit taskTitle.
+      - Response style:
+        Task Updated
+        Title: [title]
+        Assigned To: [assignee name]
+        In Loop: [full loop user list]
+    • If task not found, say: "Task not found. Please mention exact task name."
+    • NEVER create a duplicate task or use createTask for updating/reassigning existing tasks.
 
 SESSION SLOTS (use to resolve follow-ups; may be empty)
 ${slotSummary}
@@ -67,6 +92,7 @@ function renderSlots(slots) {
   if (slots.lastPeriod) lines.push(`• lastPeriod: ${slots.lastPeriod}`);
   if (slots.selectedTaskId) lines.push(`• selectedTaskId: ${slots.selectedTaskId} (${slots.selectedTaskTitle || 'unknown title'})`);
   if (slots.selectedChecklistId) lines.push(`• selectedChecklistId: ${slots.selectedChecklistId} (${slots.selectedChecklistName || 'unknown name'})`);
+  if (slots.lastCreatedTaskId) lines.push(`• lastCreatedTaskId: ${slots.lastCreatedTaskId} (title: "${slots.lastCreatedTaskTitle || 'unknown'}") — use this when user says "same task" / "this task"`);
   if (Array.isArray(slots.lastResultIds) && slots.lastResultIds.length) {
     lines.push(`• lastResultIds: [${slots.lastResultIds.slice(0, 10).join(', ')}]`);
   }

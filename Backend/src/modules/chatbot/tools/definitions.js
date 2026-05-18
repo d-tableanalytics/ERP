@@ -225,6 +225,76 @@ const TOOL_DEFINITIONS = [
       }
     }
   },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateTaskLoopUsers',
+      description: [
+        'Add one or more users to the "in loop" (CC / watcher) list of an EXISTING task.',
+        'Use this — and ONLY this — when the message contains phrases like:',
+        '  "keep in loop", "add in loop", "loop in", "cc", "notify", "add watcher",',
+        '  "same task", "this task", "that task", "existing task".',
+        'NEVER create a new task for this intent.',
+        'If a task title is mentioned, pass it as taskTitle to find the task.',
+        'If the user says "same task" / "this task" / "that task" without naming a title,',
+        '  omit taskTitle — the handler will use the last task created in this session.',
+        'Do NOT change assignedTo, status, due date, or any other field.',
+      ].join(' '),
+      parameters: {
+        type: 'object',
+        properties: {
+          taskTitle: {
+            type: 'string',
+            description: 'Title (or fragment) of the existing task to update. Omit when user refers to "same task" / "this task".',
+          },
+          loopUsers: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Names of employees to add to the in-loop / watcher list.',
+          },
+        },
+        required: ['loopUsers'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateTaskAssignment',
+      description: [
+        'Reassign an EXISTING task to a different employee, and/or add loop/watcher users to it.',
+        'Use this — and ONLY this — when the message is a follow-up about an existing task and contains:',
+        '  "assign to X", "reassign to X", "give to X", "change assignee to X",',
+        '  optionally combined with "keep in loop", "cc", "notify", "add watcher".',
+        'This tool updates doer_id and doer_name (the real assignee stored in the database).',
+        'NEVER use createTask for this intent — that would create a duplicate task.',
+        'If a task title is mentioned, pass it as taskTitle.',
+        'If the user says "same task" / "this task" without naming a title, omit taskTitle.',
+        'loopUsers are added to in_loop_ids WITHOUT replacing the assignee.',
+        'Do NOT change task status, due date, priority, or title.',
+      ].join(' '),
+      parameters: {
+        type: 'object',
+        properties: {
+          taskTitle: {
+            type: 'string',
+            description: 'Title (or fragment) of the existing task to update. Omit for "same task" / "this task" references.',
+          },
+          assignedTo: {
+            type: 'string',
+            description: 'Name of the employee to reassign this task to (becomes the new doer).',
+          },
+          loopUsers: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Names of employees to add to the in-loop / watcher list (not the assignee).',
+          },
+        },
+      },
+    },
+  },
 ];
 
 /**

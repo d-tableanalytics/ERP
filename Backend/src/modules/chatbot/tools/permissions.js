@@ -18,6 +18,8 @@ const TOOL_ROLES = Object.freeze({
   getHelpGuidance: 'any',
   createTask: 'any',
   updateTaskStatus: 'any',
+  updateTaskLoopUsers: 'any',
+  updateTaskAssignment: 'any',
 });
 
 function canCallTool(toolName, user) {

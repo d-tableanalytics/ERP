@@ -117,7 +117,7 @@ module.exports = async function createTask(args, user) {
       priority: priority,
       status: 'Pending',
     },
-    slot: { lastEntity: 'task', lastCreatedTaskId: created.id },
+    slot: { lastEntity: 'task', lastCreatedTaskId: created.id, lastCreatedTaskTitle: title },
   };
 };
 
