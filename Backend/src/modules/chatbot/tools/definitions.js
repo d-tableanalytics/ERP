@@ -206,6 +206,25 @@ const TOOL_DEFINITIONS = [
       }
     }
   },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateTaskStatus',
+      description: 'Update the status of a task. Can update by task ID, exact/partial title, or a relative reference (e.g. latest, all_pending, all_overdue). Can also update by task index (e.g., "task 2" from a previously shown list).',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'integer', description: 'The exact task ID to update.' },
+          taskTitle: { type: 'string', description: 'Task title or fragment (fuzzy match).' },
+          taskIndex: { type: 'integer', description: '1-based index from the last displayed task list (e.g., "task 2" -> 2).' },
+          status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Cancelled'], description: 'The new status to set.' },
+          relativeReference: { type: 'string', enum: ['latest', 'all_overdue', 'all_pending'], description: 'Update by relative reference if title/id/index is not known.' }
+        },
+        required: ['status']
+      }
+    }
+  },
 ];
 
 /**

@@ -20,6 +20,7 @@ const IntentType = Object.freeze({
   GREETING: 'greeting',
   CLARIFY: 'clarification',
   REFUSAL: 'refusal',
+  TASK_UPDATE: 'task_update',
   UNKNOWN: 'unknown',
 });
 
@@ -40,6 +41,7 @@ const TOOL_TO_INTENT = {
   getTeamWorkload: IntentType.TEAM_WORKLOAD,
   getHelpGuidance: IntentType.GUIDANCE,
   createTask: IntentType.TASK_CREATE,
+  updateTaskStatus: IntentType.TASK_UPDATE,
 };
 
 function inferIntent(toolCalls = []) {

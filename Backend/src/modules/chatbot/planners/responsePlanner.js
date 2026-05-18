@@ -26,8 +26,8 @@ function plan({ userMessage, toolsInvoked = [], result }) {
   const usedDetail = toolsInvoked.includes('getTaskDetail') || toolsInvoked.includes('getChecklistDetail');
   const usedList = toolsInvoked.some((t) => ['getMyTasks', 'getMyChecklists', 'getMyHelpTickets', 'getOverdueItems', 'searchEmployees', 'getTeamWorkload'].includes(t));
   const usedGuidance = toolsInvoked.includes('getHelpGuidance');
-  const usedCreate = toolsInvoked.includes('createTask');
-
+  const usedCreate = toolsInvoked.includes('createTask') || toolsInvoked.includes('updateTaskStatus');
+  
   if (usedCreate) {
     return { responseType: ResponseType.ACTION, verbosity: Verbosity.CONCISE };
   }

@@ -17,6 +17,7 @@ const TOOL_ROLES = Object.freeze({
   getTeamWorkload: 'admin',
   getHelpGuidance: 'any',
   createTask: 'any',
+  updateTaskStatus: 'any',
 });
 
 function canCallTool(toolName, user) {
