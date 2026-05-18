@@ -29,7 +29,7 @@ test('returns delegation knowledge for direct delegation question', async () => 
 
   assert.equal(result.success, true);
   assert.equal(result.responseType, 'standard'); // Standardized
-  assert.match(result.message, /### Delegation Workflow/i);
+  assert.match(result.message, /Delegation Workflow/i);
   assert.match(result.message, /to delegate a task/i);
 });
 
@@ -38,7 +38,7 @@ test('returns help ticket knowledge for direct help ticket question', async () =
 
   assert.equal(result.success, true);
   assert.equal(result.responseType, 'standard'); // Standardized
-  assert.match(result.message, /### Help Ticket Process/i);
+  assert.match(result.message, /Help Ticket Process/i);
 });
 
 test('returns checklist knowledge for checklist usage question', async () => {
@@ -46,7 +46,7 @@ test('returns checklist knowledge for checklist usage question', async () => {
 
   assert.equal(result.success, true);
   assert.equal(result.responseType, 'standard'); // Updated to standard
-  assert.match(result.message, /### Checklist Module Overview/i);
+  assert.match(result.message, /Checklist Module Overview/i);
 });
 
 test('returns rule-based greeting for hello', async () => {
@@ -55,8 +55,8 @@ test('returns rule-based greeting for hello', async () => {
   assert.equal(result.success, true);
   assert.equal(result.intent, 'greeting');
   assert.equal(result.responseType, 'standard'); // Updated to standard
-  assert.match(result.message, /### Welcome to ERP Assistant/i);
-  assert.match(result.message, /Manage \*\*Delegations\*\*/i);
+  assert.match(result.message, /Welcome to ERP Assistant/i);
+  assert.match(result.message, /Manage Delegations/i);
 });
 
 test('uses OpenAI fallback path for unknown ERP-related question without knowledge match', async () => {

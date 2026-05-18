@@ -71,7 +71,7 @@ const ChatbotDrawer = () => {
               <span className="material-symbols-outlined text-primary text-xl">smart_toy</span>
             </div>
             <div>
-              <h3 className="text-sm font-bold text-text-main leading-none">ADA · ERP Assistant</h3>
+              <h3 className="text-sm font-bold text-text-main leading-none">ERP Assistant</h3>
               <p className="text-[10px] text-text-muted mt-1 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                 {sessionId ? 'Conversation in progress' : 'AI Powered · Ready to help'}
@@ -104,7 +104,7 @@ const ChatbotDrawer = () => {
                 <span className="material-symbols-outlined text-4xl text-primary/40">chat_bubble</span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-main">Hi, I'm ADA.</p>
+                <p className="text-sm font-semibold text-text-main">Hi, I'm ERP Assistant.</p>
                 <p className="text-xs text-text-muted mt-1 max-w-[220px]">
                   Ask me about your tasks, checklists, attendance, tickets, or your dashboard. I understand follow-ups — try a question, then ask "show details".
                 </p>

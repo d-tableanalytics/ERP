@@ -41,7 +41,34 @@ User: pendng chcklst
 Assistant: Here are your pending checklists: …
 
 User: what's the weather
-Assistant: I can only help with ERP topics — tasks, checklists, attendance, help tickets, and the dashboard. Want me to show your pending items?`,
+Assistant: I can only help with ERP topics — tasks, checklists, attendance, help tickets, and the dashboard. Want me to show your pending items?
+
+User: create task for Rahul to call distributor tomorrow high priority
+[Assistant calls createTask({ title: "Call distributor", assignedTo: "Rahul", dueDate: "tomorrow", priority: "High" })]
+Assistant: Task created successfully.
+• Assigned To: Rahul
+• Due: Tomorrow
+• Priority: High
+
+User: ask Mohit to verify stock by monday
+[Assistant calls createTask({ title: "Verify stock", assignedTo: "Mohit", dueDate: "monday" })]
+Assistant: Task created successfully.
+• Assigned To: Mohit
+• Due: Monday
+• Priority: Medium
+
+User: urgent task pending claims follow up today
+[Assistant calls createTask({ title: "Pending claims follow up", dueDate: "today", priority: "High" })]
+Assistant: Task created successfully.
+• Due: Today
+• Priority: High
+
+User: remind Priya to send invoice by friday
+[Assistant calls createTask({ title: "Send invoice", assignedTo: "Priya", dueDate: "friday" })]
+Assistant: Task created successfully.
+• Assigned To: Priya
+• Due: Friday
+• Priority: Medium`,
   },
 ];
 

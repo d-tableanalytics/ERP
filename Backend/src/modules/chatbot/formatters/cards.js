@@ -85,6 +85,19 @@ function employeeCard(e) {
   };
 }
 
+function taskCreatedCard(r) {
+  if (!r || !r.summary) return null;
+  return {
+    type: 'task-created',
+    id: r.taskId,
+    title: r.summary.title,
+    assignedTo: r.summary.assignedTo,
+    dueDate: r.summary.dueDate,
+    priority: r.summary.priority,
+    status: r.summary.status,
+  };
+}
+
 function dashboardCard(s) {
   if (!s) return null;
   return {
@@ -130,6 +143,9 @@ function fromToolResults(toolResults) {
       case 'searchEmployees':
         (r.employees || []).forEach((e) => cards.push(employeeCard(e)));
         break;
+      case 'createTask':
+        cards.push(taskCreatedCard(r));
+        break;
       default:
         // no cards
         break;
@@ -139,6 +155,6 @@ function fromToolResults(toolResults) {
 }
 
 module.exports = {
-  taskCard, taskDetailCard, checklistCard, ticketCard, employeeCard, dashboardCard,
+  taskCard, taskDetailCard, checklistCard, ticketCard, employeeCard, dashboardCard, taskCreatedCard,
   fromToolResults,
 };

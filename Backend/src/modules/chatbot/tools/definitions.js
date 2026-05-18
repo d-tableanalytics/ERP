@@ -182,6 +182,30 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'createTask',
+      description: 'Create a new task. Supports assigning to a user, setting due date, priority, and keeping other users in the loop (CC/watchers).',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'The title of the task.' },
+          description: { type: 'string', description: 'Detailed description of the task. If not provided, title will be used.' },
+          assignedTo: { type: 'string', description: 'Name of the employee this task is assigned to. Default is the current user.' },
+          dueDate: { type: 'string', description: 'Relative or absolute due date (e.g. "tomorrow", "30 May", "monday", "2026-05-30").' },
+          priority: { type: 'string', enum: ['High', 'Medium', 'Low'], description: 'Priority level (High, Medium, Low).' },
+          loopUsers: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'List of employee names to keep in the loop (CC, watchers, informed users) for this task. These users should NOT get separate tasks created.'
+          }
+        },
+        required: ['title']
+      }
+    }
+  },
 ];
 
 /**

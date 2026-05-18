@@ -26,6 +26,11 @@ function plan({ userMessage, toolsInvoked = [], result }) {
   const usedDetail = toolsInvoked.includes('getTaskDetail') || toolsInvoked.includes('getChecklistDetail');
   const usedList = toolsInvoked.some((t) => ['getMyTasks', 'getMyChecklists', 'getMyHelpTickets', 'getOverdueItems', 'searchEmployees', 'getTeamWorkload'].includes(t));
   const usedGuidance = toolsInvoked.includes('getHelpGuidance');
+  const usedCreate = toolsInvoked.includes('createTask');
+
+  if (usedCreate) {
+    return { responseType: ResponseType.ACTION, verbosity: Verbosity.CONCISE };
+  }
 
   if (COUNT_PATTERNS.test(msg) || usedCount) {
     return { responseType: ResponseType.COUNT, verbosity: Verbosity.CONCISE };

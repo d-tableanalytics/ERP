@@ -6,6 +6,7 @@ const ResponseType = Object.freeze({
   CLARIFY: 'clarify',
   GUIDANCE: 'guidance',
   GREETING: 'greeting',
+  ACTION: 'action',
   ERROR: 'error',
 });
 

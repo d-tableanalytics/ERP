@@ -75,6 +75,10 @@ function suggestFollowUps({ toolCalls = [], toolResults = [], slots = {} }) {
   if (tools.includes('getHelpGuidance')) {
     out.push('Show me an example');
   }
+  if (tools.includes('createTask')) {
+    out.push('Show my pending tasks');
+    out.push('Create another task');
+  }
 
   // Generic fallbacks
   if (out.length === 0) {

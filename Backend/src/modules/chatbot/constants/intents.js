@@ -16,6 +16,7 @@ const IntentType = Object.freeze({
   EMPLOYEE_SEARCH: 'employee_search',
   TEAM_WORKLOAD: 'team_workload',
   GUIDANCE: 'help_guidance',
+  TASK_CREATE: 'task_create',
   GREETING: 'greeting',
   CLARIFY: 'clarification',
   REFUSAL: 'refusal',
@@ -38,6 +39,7 @@ const TOOL_TO_INTENT = {
   searchEmployees: IntentType.EMPLOYEE_SEARCH,
   getTeamWorkload: IntentType.TEAM_WORKLOAD,
   getHelpGuidance: IntentType.GUIDANCE,
+  createTask: IntentType.TASK_CREATE,
 };
 
 function inferIntent(toolCalls = []) {

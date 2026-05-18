@@ -19,6 +19,7 @@ const HANDLERS = {
   searchEmployees:      require('./handlers/searchEmployees'),
   getTeamWorkload:      require('./handlers/getTeamWorkload'),
   getHelpGuidance:      require('./handlers/getHelpGuidance'),
+  createTask:           require('./handlers/createTask'),
 };
 
 function getHandler(name) {
