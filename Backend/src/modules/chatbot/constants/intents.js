@@ -21,6 +21,7 @@ const IntentType = Object.freeze({
   CLARIFY: 'clarification',
   REFUSAL: 'refusal',
   TASK_UPDATE: 'task_update',
+  TASK_DELETE: 'task_delete',
   UNKNOWN: 'unknown',
 });
 
@@ -42,6 +43,9 @@ const TOOL_TO_INTENT = {
   getHelpGuidance: IntentType.GUIDANCE,
   createTask: IntentType.TASK_CREATE,
   updateTaskStatus: IntentType.TASK_UPDATE,
+  updateTaskLoopUsers: IntentType.TASK_UPDATE,
+  updateTaskAssignment: IntentType.TASK_UPDATE,
+  deleteTask: IntentType.TASK_DELETE,
 };
 
 function inferIntent(toolCalls = []) {

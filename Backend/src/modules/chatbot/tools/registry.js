@@ -23,6 +23,7 @@ const HANDLERS = {
   updateTaskStatus:       require('./handlers/updateTaskStatus'),
   updateTaskLoopUsers:    require('./handlers/updateTaskLoopUsers'),
   updateTaskAssignment:   require('./handlers/updateTaskAssignment'),
+  deleteTask:             require('./handlers/deleteTask'),
 };
 
 function getHandler(name) {

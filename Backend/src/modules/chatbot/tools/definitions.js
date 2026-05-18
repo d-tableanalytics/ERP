@@ -295,6 +295,30 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'deleteTask',
+      description: [
+        'Delete (soft-delete) an existing task.',
+        'Use this — and ONLY this — when the user explicitly says to delete or remove or cancel a task.',
+        'Trigger phrases: "delete it", "delete this task", "remove this task", "cancel this task", "remove last task".',
+        'If a task title is mentioned, pass it as taskTitle to target that specific task.',
+        'If the user refers to the last task (e.g. "delete it", "delete this task", "remove last task"),',
+        '  omit taskTitle so it defaults to the last created/updated task in the session.'
+      ].join(' '),
+      parameters: {
+        type: 'object',
+        properties: {
+          taskTitle: {
+            type: 'string',
+            description: 'Title (or fragment) of the task to delete. Omit to target the last created/updated task in session.'
+          }
+        }
+      }
+    }
+  }
 ];
 
 /**

@@ -144,6 +144,8 @@ function fromToolResults(toolResults) {
         (r.employees || []).forEach((e) => cards.push(employeeCard(e)));
         break;
       case 'createTask':
+      case 'updateTaskAssignment':
+      case 'updateTaskLoopUsers':
         cards.push(taskCreatedCard(r));
         break;
       default:
