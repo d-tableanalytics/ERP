@@ -19,8 +19,9 @@ function build({
   suggestions = [],
   quickActions = [],
   error = null,
+  suppressCards = false,
 }) {
-  const builtCards = cards.fromToolResults(toolResults);
+  const builtCards = suppressCards ? [] : cards.fromToolResults(toolResults);
   const intent = inferIntent(toolCalls);
 
   return {

@@ -32,6 +32,7 @@ module.exports = async function deleteTask(args, user, ctx) {
 
   // ── 1. Find the target task ──────────────────────────────────────────────
   let targetTask = null;
+  let suggestions = [];
 
   if (taskTitle) {
     const { rows: allTasks } = await pool.query(
@@ -43,17 +44,14 @@ module.exports = async function deleteTask(args, user, ctx) {
       [userId]
     );
 
-    const match = bestMatch(
-      taskTitle,
-      allTasks,
-      (t) => t.task_title || '',
-      0.45
-    );
+    const cleanedTitle = cleanDeleteTitle(taskTitle);
+    const match = bestTaskTitleMatch(cleanedTitle, allTasks);
     if (match) targetTask = match.item;
+    else suggestions = suggestTaskTitles(cleanedTitle, allTasks);
   }
 
   // Fallback: last task created or touched in this session
-  if (!targetTask && ctx?.slots?.lastCreatedTaskId) {
+  if (!targetTask && !taskTitle && ctx?.slots?.lastCreatedTaskId) {
     const found = await Task.findById(ctx.slots.lastCreatedTaskId);
     if (found) {
       targetTask = {
@@ -64,12 +62,16 @@ module.exports = async function deleteTask(args, user, ctx) {
   }
 
   if (!targetTask) {
+    const suggestionText = suggestions.length
+      ? ` Did you mean: ${suggestions.map((title) => `"${title}"`).join(', ')}?`
+      : '';
     return {
       ok: false,
       notFound: true,
       message: taskTitle
-        ? `Task not found. Please mention the exact task name.`
+        ? `Task not found. Please mention the exact task name.${suggestionText}`
         : `No target task context found to delete. Please mention the task name.`,
+      suggestions,
     };
   }
 
@@ -91,3 +93,57 @@ module.exports = async function deleteTask(args, user, ctx) {
     }
   };
 };
+
+function bestTaskTitleMatch(query, tasks) {
+  if (!query || !Array.isArray(tasks) || tasks.length === 0) return null;
+
+  const direct = bestMatch(query, tasks, (t) => t.task_title || '', 0.45);
+  if (direct) return direct;
+
+  const normalizedQuery = normalizeTitleForMatch(query);
+  const normalizedTasks = tasks.map((task) => ({
+    ...task,
+    _normalizedTitle: normalizeTitleForMatch(task.task_title || ''),
+  }));
+  return bestMatch(normalizedQuery, normalizedTasks, (t) => t._normalizedTitle, 0.45);
+}
+
+function cleanDeleteTitle(title) {
+  return String(title || '')
+    .replace(/^\s*(i\s+want\s+to\s+)?(delete|remove|cancel)\s+/i, '')
+    .replace(/^\s*(the\s+)?task\s+(name\s+is\s+|called\s+|titled\s+)?/i, '')
+    .replace(/\s+task\s*$/i, '')
+    .trim();
+}
+
+function normalizeTitleForMatch(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/['’]s\b/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(task|the|a|an|please|delete|remove|cancel|called|named|title|name|is)\b/g, ' ')
+    .replace(/\bqueries\b/g, 'query')
+    .replace(/\busers\b/g, 'user')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function suggestTaskTitles(query, tasks, limit = 3) {
+  const normalizedQuery = normalizeTitleForMatch(query);
+  const queryTokens = new Set(normalizedQuery.split(' ').filter((token) => token.length > 2));
+  if (!queryTokens.size) return [];
+
+  return (tasks || [])
+    .map((task) => {
+      const title = task.task_title || '';
+      const normalizedTitle = normalizeTitleForMatch(title);
+      const titleTokens = new Set(normalizedTitle.split(' ').filter((token) => token.length > 2));
+      const overlap = [...queryTokens].filter((token) => titleTokens.has(token)).length;
+      const score = overlap / Math.max(1, queryTokens.size);
+      return { title, score };
+    })
+    .filter((item) => item.title && item.score > 0)
+    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+    .slice(0, limit)
+    .map((item) => item.title);
+}

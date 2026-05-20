@@ -9,6 +9,10 @@ test('typo corrections: tsk → task', () => {
   assert.equal(applyCorrections('show me my tsk'), 'show me my task');
 });
 
+test('typo corrections: hy to hi', () => {
+  assert.equal(applyCorrections('hy'), 'hi');
+});
+
 test('typo corrections: pendng → pending, chcklst → checklist', () => {
   assert.equal(applyCorrections('pendng chcklst'), 'pending checklist');
 });

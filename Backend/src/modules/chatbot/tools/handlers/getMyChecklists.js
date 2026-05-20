@@ -4,7 +4,7 @@ const { resolveUserId } = require('../../validators/permissions');
 
 const schema = {
   status: { type: 'string', max: 32 },
-  frequency: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'custom'] },
+  frequency: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom'] },
   limit: { type: 'integer', min: 1, max: 25 },
 };
 

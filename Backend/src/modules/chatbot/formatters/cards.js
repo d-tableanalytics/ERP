@@ -16,6 +16,7 @@ function taskCard(t) {
     overdue: !!t.overdue,
     assignedBy: t.assignedBy,
     assignedTo: t.assignedTo,
+    inLoop: t.inLoop,
   };
 }
 
@@ -32,6 +33,7 @@ function taskDetailCard(t) {
     description: t.description,
     assignedBy: t.assignedBy,
     assignedTo: t.assignedTo,
+    inLoop: t.inLoop,
     category: t.category,
     tags: t.tags,
     overdue: !!t.overdue,
@@ -92,6 +94,7 @@ function taskCreatedCard(r) {
     id: r.taskId,
     title: r.summary.title,
     assignedTo: r.summary.assignedTo,
+    inLoop: r.summary.inLoop,
     dueDate: r.summary.dueDate,
     priority: r.summary.priority,
     status: r.summary.status,

@@ -2,7 +2,7 @@ const { Task } = require('../../../../models/task.model');
 const employeeAdapter = require('../../adapters/employeeAdapter');
 const { validate } = require('../../validators/toolArgs');
 const { resolveUserId } = require('../../validators/permissions');
-const { nowIST, addDays } = require('../../utils/time');
+const { nowIST, addDays, atTime, formatDDMMYYYYWithOptionalTime, formatLocalDateTimeForDb } = require('../../utils/time');
 
 const schema = {
   title: { type: 'string', required: true, max: 200 },
@@ -185,4 +185,98 @@ function formatFriendly(isoDate) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
+}
+
+function resolveNaturalDate(raw) {
+  if (!raw) {
+    return formatLocalDateTimeForDb(atTime(addDays(nowIST(), 1), 0, 0));
+  }
+
+  const phrase = String(raw).trim().toLowerCase();
+  const today = nowIST();
+  const timeHint = extractTimeHint(phrase);
+  const datePhrase = timeHint ? timeHint.remaining : phrase;
+  const withTime = (date) => {
+    if (!timeHint) return formatLocalDateTimeForDb(atTime(date, 0, 0));
+    return formatLocalDateTimeForDb(atTime(date, timeHint.hour, timeHint.minute));
+  };
+
+  if (datePhrase === 'today') return withTime(today);
+  if (datePhrase === 'tomorrow') return withTime(addDays(today, 1));
+  if (datePhrase === 'day after tomorrow') return withTime(addDays(today, 2));
+
+  const inDaysMatch = datePhrase.match(/^(?:in|after)\s+(\d+)\s+days?$/i);
+  if (inDaysMatch) return withTime(addDays(today, parseInt(inDaysMatch[1], 10)));
+
+  const dayIdx = dayNames.indexOf(datePhrase);
+  if (dayIdx !== -1) {
+    const currentDay = today.getDay();
+    let diff = dayIdx - currentDay;
+    if (diff <= 0) diff += 7;
+    return withTime(addDays(today, diff));
+  }
+
+  if (datePhrase === 'next week') {
+    const currentDay = today.getDay();
+    const diff = ((1 - currentDay) + 7) % 7 || 7;
+    return withTime(addDays(today, diff));
+  }
+
+  const parsed = new Date(raw);
+  if (!isNaN(parsed.getTime())) {
+    if (timeHint) return withTime(parsed);
+    return formatLocalDateTimeForDb(parsed);
+  }
+
+  return withTime(addDays(today, 1));
+}
+
+function extractTimeHint(phrase) {
+  if (!phrase) return null;
+
+  const namedTimes = [
+    { pattern: /\bearly\s+morning\b|\bmorning\b/, hour: 7, minute: 0 },
+    { pattern: /\bafternoon\b/, hour: 13, minute: 0 },
+    { pattern: /\bevening\b/, hour: 18, minute: 0 },
+    { pattern: /\bnight\b|\btonight\b/, hour: 21, minute: 0 },
+    { pattern: /\bnoon\b/, hour: 12, minute: 0 },
+    { pattern: /\bmidnight\b/, hour: 0, minute: 0 },
+  ];
+
+  for (const item of namedTimes) {
+    if (item.pattern.test(phrase)) {
+      return {
+        hour: item.hour,
+        minute: item.minute,
+        remaining: cleanupDatePhrase(phrase.replace(item.pattern, ' ')),
+      };
+    }
+  }
+
+  const explicit = phrase.match(/\b(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  if (explicit) {
+    let hour = parseInt(explicit[1], 10);
+    const minute = explicit[2] ? parseInt(explicit[2], 10) : 0;
+    const suffix = explicit[3].toLowerCase();
+    if (suffix === 'pm' && hour < 12) hour += 12;
+    if (suffix === 'am' && hour === 12) hour = 0;
+    return {
+      hour,
+      minute,
+      remaining: cleanupDatePhrase(phrase.replace(explicit[0], ' ')),
+    };
+  }
+
+  return null;
+}
+
+function cleanupDatePhrase(phrase) {
+  return String(phrase || '')
+    .replace(/\bdue\b|\bby\b|\bon\b|\bat\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatFriendly(isoDate) {
+  return formatDDMMYYYYWithOptionalTime(isoDate) || '';
 }

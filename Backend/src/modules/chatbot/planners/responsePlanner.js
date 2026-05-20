@@ -9,7 +9,7 @@ const { ResponseType, Verbosity } = require('../constants/responseTypes');
 const COUNT_PATTERNS = /\b(how many|number of|count of|total (number|count)|how much)\b/i;
 const DETAIL_PATTERNS = /\b(detail|details|explain|tell me more|full info|complete info|describe)\b/i;
 const LIST_PATTERNS = /\b(list|show( me)?|give me|what are|all of)\b/i;
-const GREETING_PATTERNS = /^(hi|hello|hey|good (morning|afternoon|evening)|namaste)\b/i;
+const GREETING_PATTERNS = /^(hi|hy|hello|hey|good (morning|afternoon|evening)|namaste)\b/i;
 const GUIDANCE_PATTERNS = /\b(how (to|do i|can i)|guide me|steps to|process of|what is)\b/i;
 const REFUSAL_PATTERNS = /\b(weather|news|stock|salary|password|joke)\b/i;
 
@@ -26,7 +26,7 @@ function plan({ userMessage, toolsInvoked = [], result }) {
   const usedDetail = toolsInvoked.includes('getTaskDetail') || toolsInvoked.includes('getChecklistDetail');
   const usedList = toolsInvoked.some((t) => ['getMyTasks', 'getMyChecklists', 'getMyHelpTickets', 'getOverdueItems', 'searchEmployees', 'getTeamWorkload'].includes(t));
   const usedGuidance = toolsInvoked.includes('getHelpGuidance');
-  const usedCreate = toolsInvoked.some((t) => ['createTask', 'updateTaskStatus', 'updateTaskLoopUsers', 'updateTaskAssignment', 'deleteTask'].includes(t));
+  const usedCreate = toolsInvoked.some((t) => ['createTask', 'createChecklist', 'updateTaskStatus', 'updateTaskLoopUsers', 'updateTaskAssignment', 'deleteTask'].includes(t));
   
   if (usedCreate) {
     return { responseType: ResponseType.ACTION, verbosity: Verbosity.CONCISE };

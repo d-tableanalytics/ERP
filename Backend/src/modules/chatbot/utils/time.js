@@ -28,6 +28,12 @@ function addDays(date, days) {
   return d;
 }
 
+function atTime(date, hour = 0, minute = 0) {
+  const d = new Date(date);
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
+
 /**
  * Resolve relative date phrases used by users: "today", "tomorrow", "yesterday",
  * "this week", "next week", "last week", "this month".
@@ -79,6 +85,43 @@ function formatDDMMYYYY(date) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+function hasMeaningfulTime(date) {
+  if (!date) return false;
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getHours() !== 0 || d.getMinutes() !== 0;
+}
+
+function formatTime12(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${hours}:${minutes} ${suffix}`;
+}
+
+function formatDDMMYYYYWithOptionalTime(date) {
+  const formattedDate = formatDDMMYYYY(date);
+  if (!formattedDate) return null;
+  if (!hasMeaningfulTime(date)) return formattedDate;
+  return `${formattedDate} ${formatTime12(date)}`;
+}
+
+function formatLocalDateTimeForDb(date) {
+  if (!date) return null;
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 function isOverdue(due) {
   if (!due) return false;
   const d = new Date(due);
@@ -91,7 +134,12 @@ module.exports = {
   startOfDay,
   endOfDay,
   addDays,
+  atTime,
   resolveDateRange,
   formatDDMMYYYY,
+  formatDDMMYYYYWithOptionalTime,
+  formatLocalDateTimeForDb,
+  formatTime12,
+  hasMeaningfulTime,
   isOverdue,
 };

@@ -1,5 +1,6 @@
 const { Task } = require('../../../models/task.model');
-const { isOverdue, formatDDMMYYYY } = require('../utils/time');
+const employeeAdapter = require('./employeeAdapter');
+const { isOverdue, formatDDMMYYYYWithOptionalTime } = require('../utils/time');
 const { bestMatch } = require('../utils/fuzzy');
 
 /**
@@ -29,34 +30,65 @@ function applyFilters(tasks, { status, priority, dueBefore, dueAfter } = {}) {
   return list;
 }
 
-function summarize(task) {
+function nameFromParts(first, last) {
+  return properName([first, last].filter(Boolean).join(' ').trim()) || null;
+}
+
+function properName(name) {
+  if (!name || typeof name !== 'string') return null;
+  return name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((part) => part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : '')
+    .join(' ');
+}
+
+function summarize(task, loopNameLookup = new Map()) {
   if (!task) return null;
+  const loopIds = Array.isArray(task.inLoopIds || task.in_loop_ids) ? (task.inLoopIds || task.in_loop_ids) : [];
+  const loopNames = loopIds.map((id) => properName(loopNameLookup.get(Number(id)))).filter(Boolean);
   return {
     id: task.id,
     title: task.taskTitle || task.task_title || task.delegation_name || 'Untitled',
     status: task.status || 'Pending',
     priority: task.priority || null,
     dueDate: task.dueDate || task.due_date || null,
-    dueDateFormatted: formatDDMMYYYY(task.dueDate || task.due_date),
+    dueDateFormatted: formatDDMMYYYYWithOptionalTime(task.dueDate || task.due_date),
     overdue: isOverdue(task.dueDate || task.due_date) && String(task.status || '').toLowerCase() !== 'completed',
-    assignedBy: task.assignerName || task.delegator_name || null,
-    assignedTo: task.doerName || task.doer_name || null,
+    assignedBy: nameFromParts(task.assignerFirstName, task.assignerLastName) || properName(task.assignerName || task.delegator_name),
+    assignedTo: nameFromParts(task.doerFirstName, task.doerLastName) || properName(task.doerName || task.doer_name),
+    inLoop: loopNames.join(', ') || null,
+    inLoopNames: loopNames,
+    description: task.description || null,
     createdAt: task.createdAt || task.created_at || null,
   };
+}
+
+async function summarizeMany(tasks) {
+  const loopIds = new Set();
+  for (const task of tasks || []) {
+    const ids = task.inLoopIds || task.in_loop_ids;
+    if (Array.isArray(ids)) ids.forEach((id) => loopIds.add(Number(id)));
+  }
+
+  const employees = loopIds.size ? await employeeAdapter.findByIds([...loopIds]).catch(() => []) : [];
+  const loopNameLookup = new Map(employees.map((employee) => [Number(employee.id), employee.name]));
+  return (tasks || []).map((task) => summarize(task, loopNameLookup));
 }
 
 async function getMyTasks(userId, filters = {}) {
   const tasks = await Task.findMyTasks(userId);
   const filtered = applyFilters(tasks, filters);
   const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 25) : 10;
-  return filtered.slice(0, limit).map(summarize);
+  return summarizeMany(filtered.slice(0, limit));
 }
 
 async function getDelegatedTasks(userId, filters = {}) {
   const tasks = await Task.findDelegatedTasks(userId);
   const filtered = applyFilters(tasks, filters);
   const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 25) : 10;
-  return filtered.slice(0, limit).map(summarize);
+  return summarizeMany(filtered.slice(0, limit));
 }
 
 async function countMyTasks(userId, { status, role } = {}) {
@@ -77,9 +109,8 @@ async function countMyTasks(userId, { status, role } = {}) {
 
 async function getOverdue(userId) {
   const tasks = await Task.findMyTasks(userId);
-  return tasks
-    .filter((t) => isOverdue(t.dueDate) && String(t.status || '').toLowerCase() !== 'completed')
-    .map(summarize);
+  const overdue = tasks.filter((t) => isOverdue(t.dueDate) && String(t.status || '').toLowerCase() !== 'completed');
+  return summarizeMany(overdue);
 }
 
 /**
@@ -103,10 +134,13 @@ async function getTaskDetail(userId, { taskId, taskTitle } = {}) {
     Task.getSubtasks(task.id).catch(() => []),
   ]);
 
-  const base = summarize(task);
+  const loopIds = task.inLoopIds || task.in_loop_ids || [];
+  const employees = Array.isArray(loopIds) && loopIds.length ? await employeeAdapter.findByIds(loopIds).catch(() => []) : [];
+  const loopNameLookup = new Map(employees.map((employee) => [Number(employee.id), employee.name]));
+  const base = summarize(task, loopNameLookup);
   return {
     ...base,
-    description: task.description || null,
+    description: task.description || base.description || null,
     category: task.category || null,
     tags: task.tags || [],
     approvalStatus: task.approvalStatus || null,

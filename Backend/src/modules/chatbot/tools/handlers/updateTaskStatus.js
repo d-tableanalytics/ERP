@@ -5,9 +5,12 @@ const { bestMatch } = require('../../utils/fuzzy');
 
 const schema = {
   taskId: { type: 'integer' },
+  taskIds: { type: 'array' },
   taskTitle: { type: 'string' },
+  taskTitles: { type: 'array' },
   taskIndex: { type: 'integer' },
-  status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Cancelled'] },
+  taskIndexes: { type: 'array' },
+  status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Cancelled', 'Rejected', 'Hold'] },
   relativeReference: { type: 'string', enum: ['latest', 'all_overdue', 'all_pending'] }
 };
 
@@ -18,7 +21,7 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
   const userId = resolveUserId(user);
   if (!userId) return { ok: false, error: 'Authentication required.' };
 
-  const { taskId, taskTitle, taskIndex, status, relativeReference } = v.value;
+  const { taskId, taskIds, taskTitle, taskTitles, taskIndex, taskIndexes, status, relativeReference } = v.value;
   if (!status) return { ok: false, error: 'Status is required.' };
 
   const targetStatus = status;
@@ -27,15 +30,28 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
 
   if (taskId) {
     targetTaskIds.push(taskId);
+  } else if (Array.isArray(taskIds) && taskIds.length) {
+    targetTaskIds.push(...taskIds.map((id) => Number(id)).filter(Number.isInteger));
   } else if (taskIndex) {
-    const lastResultIds = ctx?.session?.lastResultIds || [];
+    const lastResultIds = ctx?.slots?.lastResultIds || [];
     if (taskIndex > 0 && taskIndex <= lastResultIds.length) {
       targetTaskIds.push(lastResultIds[taskIndex - 1]);
     } else {
       return { ok: true, notFound: true, message: 'Task not found.' };
     }
+  } else if (Array.isArray(taskIndexes) && taskIndexes.length) {
+    const lastResultIds = ctx?.slots?.lastResultIds || [];
+    for (const rawIndex of taskIndexes) {
+      const index = Number(rawIndex);
+      if (Number.isInteger(index) && index > 0 && index <= lastResultIds.length) {
+        targetTaskIds.push(lastResultIds[index - 1]);
+      }
+    }
+    if (targetTaskIds.length === 0) {
+      return { ok: true, notFound: true, message: 'Task not found.' };
+    }
   } else if (relativeReference === 'latest') {
-    const lastResultIds = ctx?.session?.lastResultIds || [];
+    const lastResultIds = ctx?.slots?.lastResultIds || [];
     if (lastResultIds.length > 0) {
       targetTaskIds.push(lastResultIds[0]);
     } else {
@@ -62,7 +78,18 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
       } else {
           return { ok: true, notFound: true, message: 'Task not found.' };
       }
+  } else if (Array.isArray(taskTitles) && taskTitles.length) {
+      const candidates = await Task.findMyTasks(userId);
+      for (const title of taskTitles) {
+          const m = bestMatch(title, candidates, (t) => t.taskTitle || t.task_title || '');
+          if (m) targetTaskIds.push(m.item.id);
+      }
+      if (targetTaskIds.length === 0) {
+          return { ok: true, notFound: true, message: 'Task not found.' };
+      }
   }
+
+  targetTaskIds = [...new Set(targetTaskIds)];
 
   if (targetTaskIds.length === 0) {
       return { ok: true, notFound: true, message: 'Task not found.' };
@@ -77,6 +104,8 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
       const updateData = { status: targetStatus };
       if (targetStatus === 'Completed') {
           updateData.completed_at = new Date();
+      } else {
+          updateData.completed_at = null;
       }
       
       await Task.update(id, updateData);

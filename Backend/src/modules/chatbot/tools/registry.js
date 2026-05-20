@@ -20,6 +20,7 @@ const HANDLERS = {
   getTeamWorkload:      require('./handlers/getTeamWorkload'),
   getHelpGuidance:      require('./handlers/getHelpGuidance'),
   createTask:             require('./handlers/createTask'),
+  createChecklist:        require('./handlers/createChecklist'),
   updateTaskStatus:       require('./handlers/updateTaskStatus'),
   updateTaskLoopUsers:    require('./handlers/updateTaskLoopUsers'),
   updateTaskAssignment:   require('./handlers/updateTaskAssignment'),

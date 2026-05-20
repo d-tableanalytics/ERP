@@ -10,7 +10,7 @@ const TOOL_DEFINITIONS = [
     role: 'any',
     function: {
       name: 'getMyTasks',
-      description: 'Get the current user\'s tasks (assigned to them). Use this for "show my tasks", "pending tasks", "what tasks do I have", etc. Supports filtering by status and priority.',
+      description: 'Get the current user\'s tasks (assigned to them). Use this for "show my tasks", "pending tasks", "what tasks do I have", "high priority only", "which one is high priority", "show today\'s tasks", "show tomorrow\'s tasks", etc. Supports filtering by status, priority, and period.',
       parameters: {
         type: 'object',
         properties: {
@@ -18,6 +18,7 @@ const TOOL_DEFINITIONS = [
           priority: { type: 'string', enum: ['High', 'Medium', 'Low'], description: 'Filter by priority' },
           dueBefore: { type: 'string', description: 'ISO date — only tasks due before this date' },
           dueAfter: { type: 'string', description: 'ISO date — only tasks due after this date' },
+          period: { type: 'string', enum: ['today', 'tomorrow'], description: 'Use for "today\'s tasks" or "tomorrow\'s tasks" date filtering.' },
           limit: { type: 'integer', minimum: 1, maximum: 25, description: 'Max results (default 10)' },
         },
       },
@@ -63,7 +64,7 @@ const TOOL_DEFINITIONS = [
         type: 'object',
         properties: {
           status: { type: 'string', description: 'Pending, Completed, In Progress, Verified, Hold, or Overdue' },
-          frequency: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'custom'] },
+          frequency: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom'] },
           limit: { type: 'integer', minimum: 1, maximum: 25 },
         },
       },
@@ -194,7 +195,7 @@ const TOOL_DEFINITIONS = [
           title: { type: 'string', description: 'The title of the task.' },
           description: { type: 'string', description: 'Detailed description of the task. If not provided, title will be used.' },
           assignedTo: { type: 'string', description: 'Name of the employee this task is assigned to. Default is the current user.' },
-          dueDate: { type: 'string', description: 'Relative or absolute due date (e.g. "tomorrow", "30 May", "monday", "2026-05-30").' },
+          dueDate: { type: 'string', description: 'Relative or absolute due date/time (e.g. "tomorrow", "tomorrow morning", "tomorrow evening", "tomorrow 5 pm", "30 May", "monday", "2026-05-30"). Preserve user-provided time phrases.' },
           priority: { type: 'string', enum: ['High', 'Medium', 'Low'], description: 'Priority level (High, Medium, Low).' },
           loopUsers: {
             type: 'array',
@@ -210,15 +211,47 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     role: 'any',
     function: {
+      name: 'createChecklist',
+      description: 'Create a new checklist template/master. Use when the user asks to create/add a checklist, checklist task/question, recurring checklist, or verification checklist. This creates the same checklist master used by the checklist UI; generated checklist items follow the configured frequency.',
+      parameters: {
+        type: 'object',
+        properties: {
+          question: { type: 'string', description: 'Checklist question/task text.' },
+          assignee: { type: 'string', description: 'Employee responsible as assignee. Defaults to current user, like the checklist UI.' },
+          doer: { type: 'string', description: 'Employee who will do the checklist. Defaults to current user when not mentioned.' },
+          priority: { type: 'string', enum: ['low', 'medium', 'high', 'Low', 'Medium', 'High'], description: 'Required checklist field. Default medium, like the checklist UI.' },
+          department: { type: 'string', description: 'Department, if mentioned.' },
+          frequency: {
+            type: 'string',
+            enum: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly', 'Custom'],
+            description: 'Required checklist frequency. Default daily. UI options are daily, weekly, monthly, quarterly, yearly.'
+          },
+          fromDate: { type: 'string', description: 'Required start/from date and time, e.g. today, tomorrow, tomorrow morning, tomorrow 5 pm, 2026-05-21 17:00. Default is current date/time.' },
+          dueDate: { type: 'string', description: 'Due/end date/time for the master, e.g. today, tomorrow, tomorrow evening, 2026-05-21 18:00. Defaults to fromDate.' },
+          verificationRequired: { type: 'boolean', description: 'Whether verification is required.' },
+          verifier: { type: 'string', description: 'Verifier employee name when verification is required.' },
+          attachmentRequired: { type: 'boolean', description: 'Whether proof/attachment is required.' }
+        },
+        required: ['question']
+      }
+    }
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
       name: 'updateTaskStatus',
-      description: 'Update the status of a task. Can update by task ID, exact/partial title, or a relative reference (e.g. latest, all_pending, all_overdue). Can also update by task index (e.g., "task 2" from a previously shown list).',
+      description: 'Update the status of one or more tasks. Can update by task ID/title/index, arrays of IDs/titles/indexes, or a relative reference (e.g. latest, all_pending, all_overdue). Use arrays when the user asks to update multiple tasks in one message.',
       parameters: {
         type: 'object',
         properties: {
           taskId: { type: 'integer', description: 'The exact task ID to update.' },
+          taskIds: { type: 'array', items: { type: 'integer' }, description: 'Multiple exact task IDs to update.' },
           taskTitle: { type: 'string', description: 'Task title or fragment (fuzzy match).' },
+          taskTitles: { type: 'array', items: { type: 'string' }, description: 'Multiple task titles/fragments to update.' },
           taskIndex: { type: 'integer', description: '1-based index from the last displayed task list (e.g., "task 2" -> 2).' },
-          status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Cancelled'], description: 'The new status to set.' },
+          taskIndexes: { type: 'array', items: { type: 'integer' }, description: 'Multiple 1-based indexes from the last displayed task list.' },
+          status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Cancelled', 'Rejected', 'Hold'], description: 'The new status to set.' },
           relativeReference: { type: 'string', enum: ['latest', 'all_overdue', 'all_pending'], description: 'Update by relative reference if title/id/index is not known.' }
         },
         required: ['status']
@@ -304,7 +337,7 @@ const TOOL_DEFINITIONS = [
         'Delete (soft-delete) an existing task.',
         'Use this — and ONLY this — when the user explicitly says to delete or remove or cancel a task.',
         'Trigger phrases: "delete it", "delete this task", "remove this task", "cancel this task", "remove last task".',
-        'If a task title is mentioned, pass it as taskTitle to target that specific task.',
+        'If a task title is mentioned anywhere in the message, extract and pass only that title as taskTitle. For example, "remove complete all user queries task" -> taskTitle="complete all user queries".',
         'If the user refers to the last task (e.g. "delete it", "delete this task", "remove last task"),',
         '  omit taskTitle so it defaults to the last created/updated task in the session.'
       ].join(' '),

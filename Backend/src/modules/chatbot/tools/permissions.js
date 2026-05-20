@@ -17,6 +17,7 @@ const TOOL_ROLES = Object.freeze({
   getTeamWorkload: 'admin',
   getHelpGuidance: 'any',
   createTask: 'any',
+  createChecklist: 'any',
   updateTaskStatus: 'any',
   updateTaskLoopUsers: 'any',
   updateTaskAssignment: 'any',

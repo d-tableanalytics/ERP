@@ -28,6 +28,8 @@ const TYPO_MAP = {
   shw: 'show',
   shwo: 'show',
   hw: 'how',
+  hy: 'hi',
+  omorrow: 'tomorrow',
   thx: 'thanks',
   u: 'you',
   ur: 'your',

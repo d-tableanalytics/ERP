@@ -7,7 +7,7 @@ const { bestMatch } = require('../utils/fuzzy');
 
 function summarize(row) {
   if (!row) return null;
-  const name = `${row.first_name || ''} ${row.last_name || ''}`.trim();
+  const name = properName(`${row.first_name || ''} ${row.last_name || ''}`);
   return {
     id: row.user_id,
     name,
@@ -16,6 +16,16 @@ function summarize(row) {
     department: row.department || null,
     role: row.role || 'Employee',
   };
+}
+
+function properName(name) {
+  if (!name || typeof name !== 'string') return '';
+  return name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((part) => part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : '')
+    .join(' ');
 }
 
 async function search(query, { limit = 5 } = {}) {
@@ -67,4 +77,17 @@ async function findById(userId) {
   return summarize(rows[0]);
 }
 
-module.exports = { search, findById, _summarize: summarize };
+async function findByIds(userIds = []) {
+  const ids = [...new Set((userIds || []).map((id) => Number(id)).filter(Number.isInteger))];
+  if (ids.length === 0) return [];
+  const { rows } = await db.query(
+    `SELECT user_id, first_name, last_name, work_email, designation, department, role
+       FROM employees
+      WHERE user_id = ANY($1::int[]) AND deleted_at IS NULL`,
+    [ids]
+  );
+  const byId = new Map(rows.map((row) => [row.user_id, summarize(row)]));
+  return ids.map((id) => byId.get(id)).filter(Boolean);
+}
+
+module.exports = { search, findById, findByIds, _summarize: summarize };
