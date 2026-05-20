@@ -28,6 +28,12 @@ const TaskCard = ({ card, detail = false }) => {
             {card.assignedBy && (
               <div className="text-[10px] text-text-muted mt-0.5">By {card.assignedBy}</div>
             )}
+            {card.assignedTo && !detail && (
+              <div className="text-[10px] text-text-muted mt-0.5">To {card.assignedTo}</div>
+            )}
+            {card.inLoop && !detail && (
+              <div className="text-[10px] text-text-muted mt-0.5">In loop {card.inLoop}</div>
+            )}
           </div>
         </div>
         {card.overdue && (
@@ -60,6 +66,7 @@ const TaskCard = ({ card, detail = false }) => {
       {detail && (
         <div className="grid grid-cols-3 gap-2 mt-2 text-[10px] text-text-muted">
           {card.assignedTo && <div><span className="font-semibold">Doer:</span> {card.assignedTo}</div>}
+          {card.inLoop && <div><span className="font-semibold">In loop:</span> {card.inLoop}</div>}
           {typeof card.remarksCount === 'number' && <div><span className="font-semibold">Remarks:</span> {card.remarksCount}</div>}
           {typeof card.subtasksCount === 'number' && <div><span className="font-semibold">Subtasks:</span> {card.subtasksCount}</div>}
         </div>
