@@ -104,12 +104,24 @@
 
   /* Chatbot Specific Styles */
   .chatbot-drawer {
-    @apply fixed bottom-6 right-6 z-50 flex flex-col overflow-hidden transition-all duration-300 ease-out;
-    width: 24rem; /* w-96 */
-    height: 32rem; /* h-[512px] */
+    @apply fixed bottom-6 right-6 z-50 flex flex-row overflow-hidden transition-all duration-300 ease-out;
+    width: min(34rem, calc(100vw - 3rem));
+    height: min(44rem, calc(100vh - 3rem));
     background: var(--card-bg);
     border: 1px solid var(--main-border);
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  .chatbot-drawer-history-open {
+    width: min(48rem, calc(100vw - 3rem));
+  }
+
+  @media (max-width: 640px) {
+    .chatbot-drawer {
+      @apply bottom-3 right-3;
+      width: calc(100vw - 1.5rem);
+      height: calc(100vh - 1.5rem);
+    }
   }
 
   .chatbot-drawer-closed {

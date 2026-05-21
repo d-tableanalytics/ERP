@@ -10,6 +10,54 @@ import toast from 'react-hot-toast';
 const CreateChecklistModal = lazy(() => import('../../components/checklist/CreateChecklistModal'));
 const CompleteChecklistModal = lazy(() => import('../../components/checklist/CompleteChecklistModal'));
 
+const parseChecklistQuestion = (value) => {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!text) return { title: 'Untitled', subtasks: [] };
+
+    const checklistMatch = text.match(/^(.*?)(?:\s+and\s+)?create\s+a\s+checklist\s*:\s*(.+)$/i);
+    if (!checklistMatch) return { title: text, subtasks: [] };
+
+    const title = checklistMatch[1].replace(/\s+(?:and|,)\s*$/i, '').trim() || text;
+    const rawSubtasks = checklistMatch[2].trim();
+    const subtasks = splitChecklistSubtasks(rawSubtasks);
+
+    return { title, subtasks };
+};
+
+const splitChecklistSubtasks = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return [];
+
+    const delimited = text.split(/\s*(?:,|;|\||\n|\r|•|-)\s*/).map(item => item.trim()).filter(Boolean);
+    if (delimited.length > 1) return delimited;
+
+    const capitalizedChunks = text.match(/[A-Z][A-Za-z0-9]*(?:\s+(?![A-Z][A-Za-z0-9]*\b)[a-z0-9]+)*/g);
+    if (capitalizedChunks && capitalizedChunks.length > 1) return capitalizedChunks.map(item => item.trim()).filter(Boolean);
+
+    return [text];
+};
+
+const ChecklistQuestionCell = ({ value }) => {
+    const { title, subtasks } = parseChecklistQuestion(value);
+
+    return (
+        <div className="max-w-[240px]">
+            <div className="font-black text-text-main text-sm leading-snug break-words">
+                {title}
+            </div>
+            {subtasks.length > 0 && (
+                <div className="mt-2 space-y-1">
+                    {subtasks.map((subtask, index) => (
+                        <div key={`${subtask}-${index}`} className="font-bold text-text-main text-xs leading-snug break-words">
+                            {subtask}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const Checklist = () => {
     const dispatch = useDispatch();
     const { checklists, isLoading } = useSelector((state) => state.checklist);
@@ -223,7 +271,9 @@ const Checklist = () => {
                                         {currentItems.map((item) => (
                                             <tr key={item.id} className="hover:bg-bg-main/20 transition-colors group">
                                                 <td className="px-3 py-4 font-bold text-text-main text-xs">#{item.id}</td>
-                                                <td className="px-3 py-4 font-bold text-text-main text-xs">{item.question || item.task}</td>
+                                                <td className="px-3 py-4">
+                                                    <ChecklistQuestionCell value={item.question || item.task} />
+                                                </td>
 
                                                 {/* Assignee */}
                                                 <td className="px-3 py-4">

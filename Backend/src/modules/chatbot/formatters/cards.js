@@ -144,6 +144,7 @@ function fromToolResults(toolResults) {
         if (r.summary) cards.push(dashboardCard(r.summary));
         break;
       case 'searchEmployees':
+      case 'listEmployees':
         (r.employees || []).forEach((e) => cards.push(employeeCard(e)));
         break;
       case 'createTask':

@@ -32,6 +32,13 @@ const renderCard = (card, i) => {
 const ChatMessage = ({ message, onSuggestionPick, onQuickAction }) => {
   const isBot = message.sender === 'bot';
   const time = message.timestamp ? new Date(message.timestamp) : null;
+  const timeText = time && !Number.isNaN(time.getTime())
+    ? time.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      })
+    : '';
   return (
     <div className={`flex w-full mb-4 animate-slide-up ${isBot ? 'justify-start' : 'justify-end'}`}>
       <div className={`chatbot-message-bubble ${isBot ? 'chatbot-message-bot' : 'chatbot-message-user'} max-w-[88%]`}>
@@ -55,9 +62,9 @@ const ChatMessage = ({ message, onSuggestionPick, onQuickAction }) => {
           <div className="whitespace-pre-line leading-relaxed">{message.text}</div>
         )}
 
-        {time && (
+        {timeText && (
           <div className={`text-[10px] mt-1 opacity-70 flex ${isBot ? 'justify-start' : 'justify-end'}`}>
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {timeText}
           </div>
         )}
       </div>

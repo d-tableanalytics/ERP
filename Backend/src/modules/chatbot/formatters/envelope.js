@@ -15,6 +15,9 @@ function build({
   verbosity,
   sessionId,
   messageId,
+  timestamp = null,
+  userMessageId = null,
+  userTimestamp = null,
   confidence = 0.9,
   suggestions = [],
   quickActions = [],
@@ -38,8 +41,16 @@ function build({
     suggestions,
     toolsInvoked: toolCalls.map((t) => t.name),
     error,
-    timestamp: new Date().toISOString(),
+    timestamp: toIso(timestamp) || new Date().toISOString(),
+    userMessageId,
+    userTimestamp: toIso(userTimestamp),
   };
+}
+
+function toIso(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 /**

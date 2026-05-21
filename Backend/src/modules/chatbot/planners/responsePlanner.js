@@ -23,10 +23,10 @@ function plan({ userMessage, toolsInvoked = [], result }) {
 
   const sample = result && typeof result === 'object' ? result : {};
   const usedCount = toolsInvoked.includes('countTasks') || toolsInvoked.includes('getDashboardSummary');
-  const usedDetail = toolsInvoked.includes('getTaskDetail') || toolsInvoked.includes('getChecklistDetail');
+  const usedDetail = toolsInvoked.includes('getTaskDetail') || toolsInvoked.includes('getChecklistDetail') || toolsInvoked.includes('getChatSummary');
   const usedList = toolsInvoked.some((t) => ['getMyTasks', 'getMyChecklists', 'getMyHelpTickets', 'getOverdueItems', 'searchEmployees', 'getTeamWorkload'].includes(t));
   const usedGuidance = toolsInvoked.includes('getHelpGuidance');
-  const usedCreate = toolsInvoked.some((t) => ['createTask', 'createChecklist', 'updateTaskStatus', 'updateTaskLoopUsers', 'updateTaskAssignment', 'deleteTask'].includes(t));
+  const usedCreate = toolsInvoked.some((t) => ['createTask', 'createChecklist', 'updateTaskStatus', 'updateTaskDueDate', 'updateTaskTitle', 'updateTaskLoopUsers', 'updateTaskAssignment', 'deleteTask'].includes(t));
   
   if (usedCreate) {
     return { responseType: ResponseType.ACTION, verbosity: Verbosity.CONCISE };

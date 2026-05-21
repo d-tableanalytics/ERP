@@ -74,6 +74,7 @@ export const sendMessageStream = createAsyncThunk(
             toolsInvoked: env?.toolsInvoked,
           });
           ensureBotMessage();
+          dispatch(updateMessageTimestamp({ id: userTurnId, timestamp: env?.userTimestamp }));
           dispatch(finalizeMessage({ id: botTurnId, envelope: env }));
         },
         onError: (env) => {
@@ -84,6 +85,8 @@ export const sendMessageStream = createAsyncThunk(
       });
 
       if (envelope?.sessionId) dispatch(setSessionId(envelope.sessionId));
+      notifyTaskDataChanged(envelope);
+      dispatch(loadSessions());
       return envelope;
     } catch (err) {
       console.warn('[chatbot] stream threw; falling back to JSON endpoint', {
@@ -95,8 +98,11 @@ export const sendMessageStream = createAsyncThunk(
         const ms = Math.round(performance.now() - turnStart);
         console.log('[chatbot] ✔ fallback succeeded in', ms + 'ms', { intent: data?.intent });
         ensureBotMessage();
+        dispatch(updateMessageTimestamp({ id: userTurnId, timestamp: data?.userTimestamp }));
         dispatch(finalizeMessage({ id: botTurnId, envelope: data }));
         if (data?.sessionId) dispatch(setSessionId(data.sessionId));
+        notifyTaskDataChanged(data);
+        dispatch(loadSessions());
         return data;
       } catch (fallbackErr) {
         console.error('[chatbot] ✖ both stream and fallback failed', {
@@ -132,12 +138,25 @@ export const loadHistory = createAsyncThunk(
   }
 );
 
+export const loadSessions = createAsyncThunk(
+  'chatbot/loadSessions',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await chatbotApi.listSessions(30);
+    } catch (e) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
 const initialState = {
   messages: [],
   isOpen: false,
   isTyping: false,
   error: null,
   sessionId: chatbotApi.getSessionId() || null,
+  sessions: [],
+  isLoadingSessions: false,
 };
 
 const chatbotSlice = createSlice({
@@ -145,6 +164,7 @@ const chatbotSlice = createSlice({
   initialState,
   reducers: {
     toggleChatbot: (s) => { s.isOpen = !s.isOpen; },
+    openChatbot: (s) => { s.isOpen = true; },
     closeChatbot: (s) => { s.isOpen = false; },
     addMessage: (s, a) => { s.messages.push(a.payload); },
     clearMessages: (s) => { s.messages = []; },
@@ -188,6 +208,7 @@ const chatbotSlice = createSlice({
         msg.suggestions = env.suggestions || [];
         msg.intent = env.intent;
         msg.responseType = env.responseType;
+        msg.timestamp = normalizeTimestamp(env.timestamp) || msg.timestamp;
       }
     },
     failMessage: (s, a) => {
@@ -204,11 +225,18 @@ const chatbotSlice = createSlice({
         msg.streaming = false;
         msg.text = env.text || `Sorry — ${reason}`;
         msg.error = true;
+        msg.timestamp = normalizeTimestamp(env.timestamp) || msg.timestamp;
       }
       s.error = reason;
       // Helpful debug breadcrumb in the browser console
       // eslint-disable-next-line no-console
       console.error('[chatbot] failMessage', { reason, envelope: env });
+    },
+    updateMessageTimestamp: (s, a) => {
+      const timestamp = normalizeTimestamp(a.payload?.timestamp);
+      if (!timestamp) return;
+      const msg = s.messages.find((m) => m.id === a.payload.id);
+      if (msg) msg.timestamp = timestamp;
     },
   },
   extraReducers: (builder) => {
@@ -224,19 +252,50 @@ const chatbotSlice = createSlice({
             id: `h-${r.id || i}`,
             text: r.content || '',
             sender: r.role === 'user' ? 'user' : 'bot',
-            timestamp: r.created_at,
+            timestamp: normalizeTimestamp(r.created_at),
             intent: r.intent,
           }));
-        if (a.payload?.sessionId) s.sessionId = a.payload.sessionId;
-      });
+        if (a.payload?.sessionId) {
+          s.sessionId = a.payload.sessionId;
+          chatbotApi.setSessionId(a.payload.sessionId);
+        }
+      })
+      .addCase(loadSessions.pending, (s) => { s.isLoadingSessions = true; })
+      .addCase(loadSessions.fulfilled, (s, a) => {
+        s.isLoadingSessions = false;
+        s.sessions = a.payload?.sessions || [];
+      })
+      .addCase(loadSessions.rejected, (s) => { s.isLoadingSessions = false; });
   },
 });
 
 // Keep the old sendMessage thunk name as an alias for backward compatibility.
 export const sendMessage = sendMessageStream;
 
+function notifyTaskDataChanged(envelope) {
+  const invoked = envelope?.toolsInvoked || [];
+  const taskMutationTools = new Set([
+    'createTask',
+    'updateTaskStatus',
+    'updateTaskDueDate',
+    'updateTaskTitle',
+    'updateTaskAssignment',
+    'updateTaskLoopUsers',
+    'deleteTask',
+  ]);
+  const changed = Array.isArray(invoked)
+    && invoked.some((name) => taskMutationTools.has(name));
+
+  if (changed && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('chatbot:tasks-changed', {
+      detail: { toolsInvoked: invoked },
+    }));
+  }
+}
+
 export const {
   toggleChatbot,
+  openChatbot,
   closeChatbot,
   addMessage,
   clearMessages,
@@ -249,6 +308,13 @@ export const {
   noteToolCall,
   finalizeMessage,
   failMessage,
+  updateMessageTimestamp,
 } = chatbotSlice.actions;
 
 export default chatbotSlice.reducer;
+
+function normalizeTimestamp(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}

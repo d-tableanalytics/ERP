@@ -4,7 +4,7 @@ const { resolveUserId } = require('../../validators/permissions');
 const { resolveDateRange } = require('../../utils/time');
 
 const schema = {
-  status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Rejected', 'Hold'] },
+  status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Hold'] },
   priority: { type: 'string', enum: ['High', 'Medium', 'Low'] },
   dueBefore: { type: 'date' },
   dueAfter: { type: 'date' },

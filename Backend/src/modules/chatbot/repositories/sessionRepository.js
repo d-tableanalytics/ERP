@@ -7,7 +7,10 @@ const db = require('../../../config/db.config');
 
 async function create(userId, title = null) {
   const { rows } = await db.query(
-    `INSERT INTO chatbot_sessions (user_id, title) VALUES ($1, $2) RETURNING session_id, user_id, title, context_json, created_at, last_activity`,
+    `INSERT INTO chatbot_sessions (user_id, title) VALUES ($1, $2)
+     RETURNING session_id, user_id, title, context_json,
+               created_at AT TIME ZONE 'UTC' AS created_at,
+               last_activity AT TIME ZONE 'UTC' AS last_activity`,
     [userId, title]
   );
   return rows[0];
@@ -16,7 +19,9 @@ async function create(userId, title = null) {
 async function get(sessionId) {
   if (!sessionId) return null;
   const { rows } = await db.query(
-    `SELECT session_id, user_id, title, context_json, created_at, last_activity
+    `SELECT session_id, user_id, title, context_json,
+            created_at AT TIME ZONE 'UTC' AS created_at,
+            last_activity AT TIME ZONE 'UTC' AS last_activity
        FROM chatbot_sessions WHERE session_id = $1`,
     [sessionId]
   );
@@ -51,7 +56,9 @@ async function updateContext(sessionId, contextPatch) {
 
 async function listForUser(userId, limit = 20) {
   const { rows } = await db.query(
-    `SELECT session_id, title, last_activity, created_at
+    `SELECT session_id, title,
+            last_activity AT TIME ZONE 'UTC' AS last_activity,
+            created_at AT TIME ZONE 'UTC' AS created_at
        FROM chatbot_sessions WHERE user_id = $1
        ORDER BY last_activity DESC LIMIT $2`,
     [userId, limit]

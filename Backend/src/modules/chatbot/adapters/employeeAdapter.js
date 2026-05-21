@@ -90,4 +90,17 @@ async function findByIds(userIds = []) {
   return ids.map((id) => byId.get(id)).filter(Boolean);
 }
 
-module.exports = { search, findById, findByIds, _summarize: summarize };
+async function listAll({ limit = 50 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const { rows } = await db.query(
+    `SELECT user_id, first_name, last_name, work_email, designation, department, role
+       FROM employees
+      WHERE deleted_at IS NULL
+      ORDER BY first_name ASC, last_name ASC
+      LIMIT $1`,
+    [safeLimit]
+  );
+  return rows.map(summarize);
+}
+
+module.exports = { search, findById, findByIds, listAll, _summarize: summarize };

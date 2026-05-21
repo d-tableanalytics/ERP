@@ -170,6 +170,14 @@ function App() {
             }
           />
           <Route
+            path="/chatbot"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/delegation"
             element={
               <ProtectedRoute>

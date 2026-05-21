@@ -89,6 +89,12 @@ const AllTasks = () => {
     useEffect(() => { fetchAllData(); }, []);
 
     useEffect(() => {
+        const refreshTasks = () => fetchAllData();
+        window.addEventListener('chatbot:tasks-changed', refreshTasks);
+        return () => window.removeEventListener('chatbot:tasks-changed', refreshTasks);
+    }, []);
+
+    useEffect(() => {
         const handler = (e) => {
             if (filterPanelRef.current && !filterPanelRef.current.contains(e.target)) {
                 setShowFilters(false);

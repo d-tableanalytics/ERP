@@ -10,7 +10,7 @@ const schema = {
   taskTitles: { type: 'array' },
   taskIndex: { type: 'integer' },
   taskIndexes: { type: 'array' },
-  status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Cancelled', 'Rejected', 'Hold'] },
+  status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Hold'] },
   relativeReference: { type: 'string', enum: ['latest', 'all_overdue', 'all_pending'] }
 };
 
@@ -71,7 +71,7 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
       if (pendingTasks.length === 0) return { ok: true, notFound: true, message: 'Task not found.' };
       targetTaskIds = pendingTasks.map(t => t.id);
   } else if (taskTitle) {
-      const candidates = await Task.findMyTasks(userId);
+      const candidates = await Task.findAll({}, userId);
       const m = bestMatch(taskTitle, candidates, (t) => t.taskTitle || t.task_title || '');
       if (m) {
           targetTaskIds.push(m.item.id);
@@ -79,7 +79,7 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
           return { ok: true, notFound: true, message: 'Task not found.' };
       }
   } else if (Array.isArray(taskTitles) && taskTitles.length) {
-      const candidates = await Task.findMyTasks(userId);
+      const candidates = await Task.findAll({}, userId);
       for (const title of taskTitles) {
           const m = bestMatch(title, candidates, (t) => t.taskTitle || t.task_title || '');
           if (m) targetTaskIds.push(m.item.id);
@@ -87,6 +87,8 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
       if (targetTaskIds.length === 0) {
           return { ok: true, notFound: true, message: 'Task not found.' };
       }
+  } else if (ctx?.slots?.lastCreatedTaskId) {
+      targetTaskIds.push(ctx.slots.lastCreatedTaskId);
   }
 
   targetTaskIds = [...new Set(targetTaskIds)];

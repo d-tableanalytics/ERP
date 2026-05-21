@@ -16,15 +16,20 @@ const HANDLERS = {
   getAttendanceStatus:  require('./handlers/getAttendanceStatus'),
   getMyHelpTickets:     require('./handlers/getMyHelpTickets'),
   getDashboardSummary:  require('./handlers/getDashboardSummary'),
+  getChatSummary:       require('./handlers/getChatSummary'),
+  listEmployees:        require('./handlers/listEmployees'),
   searchEmployees:      require('./handlers/searchEmployees'),
   getTeamWorkload:      require('./handlers/getTeamWorkload'),
   getHelpGuidance:      require('./handlers/getHelpGuidance'),
   createTask:             require('./handlers/createTask'),
   createChecklist:        require('./handlers/createChecklist'),
   updateTaskStatus:       require('./handlers/updateTaskStatus'),
+  updateTaskDueDate:      require('./handlers/updateTaskDueDate'),
+  updateTaskTitle:        require('./handlers/updateTaskTitle'),
   updateTaskLoopUsers:    require('./handlers/updateTaskLoopUsers'),
   updateTaskAssignment:   require('./handlers/updateTaskAssignment'),
   deleteTask:             require('./handlers/deleteTask'),
+  deleteChecklist:        require('./handlers/deleteChecklist'),
 };
 
 function getHandler(name) {

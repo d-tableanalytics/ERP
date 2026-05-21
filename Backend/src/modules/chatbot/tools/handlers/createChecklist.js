@@ -28,6 +28,7 @@ const schema = {
   verificationRequired: { type: 'boolean' },
   verifier: { type: 'string', max: 100 },
   attachmentRequired: { type: 'boolean' },
+  checklistItems: { type: 'array' },
 };
 
 module.exports = async function createChecklist(args, user) {
@@ -51,19 +52,44 @@ module.exports = async function createChecklist(args, user) {
   const priority = normalizeChoice(v.value.priority, 'medium');
   const frequency = normalizeChoice(v.value.frequency, 'daily');
   const department = v.value.department || user.department || null;
-  const fromDateValue = resolveDateTime(v.value.fromDate) || nowIST();
+  const fromDateValue = resolveDateTime(v.value.fromDate) || defaultChecklistDateTime();
   const dueDateValue = resolveDateTime(v.value.dueDate) || fromDateValue;
   const fromDate = formatLocalDateTimeForDb(fromDateValue);
   const dueDate = formatLocalDateTimeForDb(dueDateValue);
 
   const assignee = await resolveEmployee(v.value.assignee, user);
-  const doer = await resolveEmployee(v.value.doer, user);
+  const doer = await resolveEmployee(null, user);
   const verifier = v.value.verificationRequired
     ? await resolveEmployee(v.value.verifier, null)
     : { id: null, name: null };
+  const checklistItems = normalizeStringList(v.value.checklistItems || []);
 
   if (v.value.verificationRequired && !verifier.id) {
     return { ok: false, error: 'Verifier not found. Please mention a valid verifier name.' };
+  }
+
+  const duplicate = await findExistingChecklist({ question, doerId: doer.id });
+  if (duplicate) {
+    return {
+      ok: true,
+      duplicate: true,
+      message: 'Checklist already exists. Please make a new checklist.',
+      summary: {
+        question: duplicate.question || question,
+        assignee: duplicate.assignee_name || assignee.name,
+        doer: duplicate.doer_name || doer.name,
+        priority: duplicate.priority || priority,
+        frequency: duplicate.frequency || frequency,
+        dueDate: duplicate.due_date || dueDate,
+        dueDateFormatted: formatDDMMYYYYWithOptionalTime(duplicate.due_date || dueDateValue),
+        status: duplicate.status || 'Pending',
+      },
+      slot: {
+        lastEntity: 'checklist',
+        selectedChecklistId: duplicate.id,
+        selectedChecklistName: duplicate.question || question,
+      },
+    };
   }
 
   const insertMaster = `
@@ -152,10 +178,12 @@ module.exports = async function createChecklist(args, user) {
       fromDateFormatted: formatDDMMYYYYWithOptionalTime(fromDateValue),
       dueDate,
       dueDateFormatted: formatDDMMYYYYWithOptionalTime(dueDateValue),
+      status: visibleChecklist?.status || 'Pending',
       department,
       verificationRequired: !!v.value.verificationRequired,
       verifier: verifier.name,
       attachmentRequired: !!v.value.attachmentRequired,
+      checklistItems,
     },
     slot: {
       lastEntity: 'checklist',
@@ -164,6 +192,38 @@ module.exports = async function createChecklist(args, user) {
     },
   };
 };
+
+async function findExistingChecklist({ question, doerId }) {
+  if (!question || !doerId) return null;
+  const normalized = normalizeChecklistTitle(question);
+  if (!normalized) return null;
+
+  const result = await db.query(
+    `SELECT id, question, assignee_name, doer_name, priority, frequency, due_date, status
+       FROM checklist
+      WHERE doer_id = $1
+        AND regexp_replace(lower(trim(question)), '[^a-z0-9]+', ' ', 'g') = $2
+      ORDER BY id DESC
+      LIMIT 1`,
+    [doerId, normalized]
+  );
+  return result.rows[0] || null;
+}
+
+function normalizeChecklistTitle(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeStringList(value = []) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+}
 
 async function resolveEmployee(name, fallbackUser) {
   if (name) {
@@ -200,17 +260,21 @@ function resolveDateTime(raw) {
 
   if (/\btoday\b|\btomorrow\b/.test(phrase)) {
     if (explicitTime) return atTime(day, explicitTime.hour, explicitTime.minute);
-    if (/\bmorning\b/.test(phrase)) return atTime(day, 7, 0);
+    if (/\bmorning\b/.test(phrase)) return atTime(day, 9, 0);
     if (/\bevening\b/.test(phrase)) return atTime(day, 18, 0);
     if (/\bafternoon\b/.test(phrase)) return atTime(day, 12, 0);
     if (/\bnight\b/.test(phrase)) return atTime(day, 21, 0);
-    return day;
+    return atTime(day, 9, 0);
   }
 
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return null;
   if (explicitTime) return atTime(parsed, explicitTime.hour, explicitTime.minute);
   return parsed;
+}
+
+function defaultChecklistDateTime() {
+  return atTime(nowIST(), 9, 0);
 }
 
 function parseTimePhrase(text) {

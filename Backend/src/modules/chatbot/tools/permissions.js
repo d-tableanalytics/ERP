@@ -13,15 +13,20 @@ const TOOL_ROLES = Object.freeze({
   getAttendanceStatus: 'any',
   getMyHelpTickets: 'any',
   getDashboardSummary: 'any',
+  getChatSummary: 'any',
+  listEmployees: 'admin',
   searchEmployees: 'admin',
   getTeamWorkload: 'admin',
   getHelpGuidance: 'any',
   createTask: 'any',
   createChecklist: 'any',
   updateTaskStatus: 'any',
+  updateTaskDueDate: 'any',
+  updateTaskTitle: 'any',
   updateTaskLoopUsers: 'any',
   updateTaskAssignment: 'any',
   deleteTask: 'any',
+  deleteChecklist: 'any',
 });
 
 function canCallTool(toolName, user) {

@@ -196,6 +196,9 @@ async function run({ message, user, sessionId }) {
     verbosity: plan.verbosity,
     sessionId: sid,
     messageId: assistantMsg?.id || null,
+    timestamp: assistantMsg?.created_at || null,
+    userMessageId: userMsg?.id || null,
+    userTimestamp: userMsg?.created_at || null,
     suggestions: envelopeFmt.suggestFollowUps({
       toolCalls: loopResult.toolCallsAll,
       toolResults: loopResult.toolResults,
@@ -344,22 +347,353 @@ function safeForLLM(result) {
 
 function normalizeCreateToolCallsForMessage(toolCalls = [], message = '') {
   if (!Array.isArray(toolCalls) || !toolCalls.length) return [];
-  if (!isChecklistOnlyCreate(message)) return toolCalls;
+  const taskFieldUpdateArgs = extractTaskFieldUpdateArgs(message);
+  if (taskFieldUpdateArgs) {
+    return normalizeTaskFieldUpdateCalls(toolCalls, taskFieldUpdateArgs);
+  }
+  if (isTaskDueDateUpdateMessage(message)) {
+    return normalizeTaskDueDateUpdateCalls(toolCalls, message);
+  }
+  if (isTaskTitleUpdateMessage(message)) {
+    return normalizeTaskTitleUpdateCalls(toolCalls, message);
+  }
+  if (isChecklistDeleteMessage(message)) {
+    return normalizeChecklistDeleteCalls(toolCalls, message);
+  }
+  if (isChecklistOnlyCreate(message)) {
+    return normalizeChecklistOnlyCreateCalls(toolCalls, message);
+  }
 
-  const hasChecklistCall = toolCalls.some((call) => call.name === 'createChecklist');
-  return toolCalls
-    .filter((call) => call.name !== 'createTask')
-    .concat(hasChecklistCall ? [] : buildChecklistCallFromTaskCall(toolCalls.find((call) => call.name === 'createTask'), message));
+  const taskNormalizedCalls = normalizeFreshTaskCreateCalls(toolCalls, message);
+  return taskNormalizedCalls;
+}
+
+function isTaskTitleUpdateMessage(message = '') {
+  return !!extractTaskTitleUpdateArgs(message);
+}
+
+function isTaskDueDateUpdateMessage(message = '') {
+  return !!extractTaskDueDateUpdateArgs(message);
+}
+
+function normalizeTaskFieldUpdateCalls(toolCalls = [], fieldArgs = {}) {
+  const keptCalls = toolCalls.filter((call) => ![
+    'updateTaskDueDate',
+    'updateTaskStatus',
+    'updateTaskTitle',
+    'updateTaskAssignment',
+    'updateTaskLoopUsers',
+    'createTask',
+  ].includes(call.name));
+
+  const originalCall = toolCalls.find((call) => [
+    'updateTaskDueDate',
+    'updateTaskStatus',
+    'updateTaskTitle',
+    'updateTaskAssignment',
+    'updateTaskLoopUsers',
+    'createTask',
+  ].includes(call.name));
+
+  const calls = [];
+  const base = fieldArgs.taskTitle ? { taskTitle: fieldArgs.taskTitle } : {};
+
+  // Keep title changes last so due-date/status updates can still find the original title.
+  if (fieldArgs.dueDate) {
+    calls.push({
+      id: `normalized_${randomUUID()}`,
+      name: 'updateTaskDueDate',
+      args: { ...base, dueDate: fieldArgs.dueDate },
+    });
+  }
+  if (fieldArgs.status) {
+    calls.push({
+      id: `normalized_${randomUUID()}`,
+      name: 'updateTaskStatus',
+      args: { ...base, status: fieldArgs.status },
+    });
+  }
+  if (fieldArgs.newTitle) {
+    calls.push({
+      id: originalCall?.id || `normalized_${randomUUID()}`,
+      name: 'updateTaskTitle',
+      args: { ...base, newTitle: fieldArgs.newTitle },
+    });
+  }
+
+  return keptCalls.concat(calls);
+}
+
+function normalizeTaskDueDateUpdateCalls(toolCalls = [], message = '') {
+  const dueDateArgs = extractTaskDueDateUpdateArgs(message);
+  if (!dueDateArgs) return toolCalls;
+
+  const keptCalls = toolCalls.filter((call) => !['updateTaskTitle', 'updateTaskAssignment', 'updateTaskLoopUsers', 'createTask'].includes(call.name));
+
+  if (keptCalls.some((call) => call.name === 'updateTaskDueDate')) {
+    return keptCalls.map((call) => {
+      if (call.name !== 'updateTaskDueDate') return call;
+      return { ...call, args: { ...dueDateArgs, ...(call.args || {}) } };
+    });
+  }
+
+  const originalCall = toolCalls.find((call) => ['updateTaskTitle', 'updateTaskAssignment', 'updateTaskLoopUsers', 'createTask'].includes(call.name));
+  return keptCalls.concat({
+    id: originalCall?.id || `normalized_${randomUUID()}`,
+    name: 'updateTaskDueDate',
+    args: dueDateArgs,
+  });
+}
+
+function normalizeTaskTitleUpdateCalls(toolCalls = [], message = '') {
+  const titleArgs = extractTaskTitleUpdateArgs(message);
+  if (!titleArgs) return toolCalls;
+
+  const keptCalls = toolCalls.filter((call) => !['updateTaskAssignment', 'updateTaskLoopUsers', 'createTask'].includes(call.name));
+
+  if (keptCalls.some((call) => call.name === 'updateTaskTitle')) {
+    return keptCalls.map((call) => {
+      if (call.name !== 'updateTaskTitle') return call;
+      return { ...call, args: { ...titleArgs, ...(call.args || {}) } };
+    });
+  }
+
+  const originalCall = toolCalls.find((call) => ['updateTaskAssignment', 'updateTaskLoopUsers', 'createTask'].includes(call.name));
+  return keptCalls.concat({
+    id: originalCall?.id || `normalized_${randomUUID()}`,
+    name: 'updateTaskTitle',
+    args: titleArgs,
+  });
+}
+
+function normalizeChecklistDeleteCalls(toolCalls = [], message = '') {
+  const deleteArgs = buildDeleteChecklistArgsFromMessage(message);
+  const keptCalls = toolCalls.filter((call) => call.name !== 'deleteTask');
+
+  if (keptCalls.some((call) => call.name === 'deleteChecklist')) {
+    return keptCalls.map((call) => {
+      if (call.name !== 'deleteChecklist') return call;
+      return { ...call, args: { ...deleteArgs, ...(call.args || {}) } };
+    });
+  }
+
+  const deleteTaskCall = toolCalls.find((call) => call.name === 'deleteTask');
+  return keptCalls.concat({
+    id: deleteTaskCall?.id || `normalized_${randomUUID()}`,
+    name: 'deleteChecklist',
+    args: deleteArgs,
+  });
+}
+
+function isChecklistDeleteMessage(message = '') {
+  const msg = String(message || '').toLowerCase();
+  return /\b(delete|remove|cancel)\b/.test(msg) && /\bchecklists?\b/.test(msg);
+}
+
+function buildDeleteChecklistArgsFromMessage(message = '') {
+  const name = String(message || '')
+    .replace(/^\s*(i\s+want\s+to\s+)?(?:delete|remove|cancel)\s+/i, '')
+    .replace(/\bchecklists?\b/ig, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return name ? { name } : {};
+}
+
+function normalizeChecklistOnlyCreateCalls(toolCalls = [], message = '') {
+  const extractedArgs = buildCreateChecklistArgsFromMessage(message);
+  const keptCalls = toolCalls.filter((call) => call.name !== 'createTask');
+
+  if (keptCalls.some((call) => call.name === 'createChecklist')) {
+    return keptCalls.map((call) => {
+      if (call.name !== 'createChecklist') return call;
+      return {
+        ...call,
+        args: mergeCreateChecklistArgs(call.args || {}, extractedArgs),
+      };
+    });
+  }
+
+  const taskCall = toolCalls.find((call) => call.name === 'createTask');
+  const taskArgs = buildChecklistCallFromTaskCall(taskCall, message)[0]?.args || {};
+  const createArgs = mergeCreateChecklistArgs(taskArgs, extractedArgs);
+  if (!createArgs?.question) return keptCalls;
+
+  return keptCalls.concat({
+    id: taskCall?.id || `normalized_${randomUUID()}`,
+    name: 'createChecklist',
+    args: createArgs,
+  });
+}
+
+function mergeCreateChecklistArgs(primary = {}, fallback = {}) {
+  const merged = { ...fallback, ...primary };
+  const primaryQuestion = String(primary.question || '').trim();
+  const fallbackQuestion = String(fallback.question || '').trim();
+  const primaryLooksMessy = /\b(today\s+i\s+told|set\s+this\s+as|keep\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+in\s+(?:the\s+)?loop)\b/i.test(primaryQuestion);
+
+  if (fallbackQuestion && (!primaryQuestion || primaryLooksMessy || /\bcreate\s+a\s+checklist\s*:/i.test(fallbackQuestion))) {
+    merged.question = fallbackQuestion;
+  }
+
+  for (const key of ['question', 'assignee', 'doer', 'priority', 'frequency', 'fromDate', 'dueDate', 'checklistItems']) {
+    const isMissing = !merged[key] || (Array.isArray(merged[key]) && merged[key].length === 0);
+    if (isMissing && fallback[key]) merged[key] = fallback[key];
+  }
+
+  delete merged.doer;
+  delete merged.inLoopUsers;
+
+  Object.keys(merged).forEach((key) => {
+    if (merged[key] == null || merged[key] === '' || (Array.isArray(merged[key]) && merged[key].length === 0)) delete merged[key];
+  });
+  return merged;
+}
+
+function normalizeFreshTaskCreateCalls(toolCalls = [], message = '') {
+  if (!isFreshTaskCreationMessage(message)) return toolCalls;
+
+  const updateToolNames = new Set(['updateTaskAssignment', 'updateTaskLoopUsers']);
+  const keptCalls = toolCalls.filter((call) => !updateToolNames.has(call.name));
+  const extractedArgs = buildCreateTaskArgsFromMessage(message);
+  if (keptCalls.some((call) => call.name === 'createTask')) {
+    return keptCalls.map((call) => {
+      if (call.name !== 'createTask') return call;
+      return {
+        ...call,
+        args: mergeCreateTaskArgs(call.args || {}, extractedArgs),
+      };
+    });
+  }
+
+  const updateCall = toolCalls.find((call) => updateToolNames.has(call.name));
+  const createArgs = mergeCreateTaskArgs(updateCall?.args || {}, extractedArgs);
+  if (!createArgs?.title) return keptCalls;
+
+  return keptCalls.concat({
+    id: updateCall?.id || `normalized_${randomUUID()}`,
+    name: 'createTask',
+    args: createArgs,
+  });
+}
+
+function mergeCreateTaskArgs(primary = {}, fallback = {}) {
+  const merged = { ...fallback, ...primary };
+  for (const key of ['title', 'assignedTo', 'dueDate', 'priority']) {
+    if (!merged[key] && fallback[key]) merged[key] = fallback[key];
+  }
+  if ((!Array.isArray(merged.loopUsers) || merged.loopUsers.length === 0) && Array.isArray(fallback.loopUsers)) {
+    merged.loopUsers = fallback.loopUsers;
+  }
+  Object.keys(merged).forEach((key) => {
+    if (merged[key] == null || merged[key] === '' || (Array.isArray(merged[key]) && merged[key].length === 0)) delete merged[key];
+  });
+  return merged;
+}
+
+function isFreshTaskCreationMessage(message = '') {
+  const msg = String(message || '').toLowerCase();
+  if (!msg) return false;
+  if (/\b(update|change|edit|modify|mark|complete|completed|same task|this task|that task|existing task)\b/.test(msg)) return false;
+  return /\b(i\s+told|told|asked|ask|reminded|remind|informed|inform|assigned|assign|delegate|delegated|give task|gave task|create task|new task)\b/.test(msg)
+    && (
+      /\b(to|for)\s+[a-z][a-z\s]*\b/.test(msg)
+      || /\b(?:i\s+)?(?:told|asked|ask|reminded|remind|informed|inform|assigned)\s+[a-z][a-z\s]*\b/.test(msg)
+    );
+}
+
+function buildCreateTaskArgsFromMessage(message = '', fallbackArgs = {}) {
+  const text = String(message || '').trim();
+  const args = {
+    title: extractFreshTaskTitle(text) || fallbackArgs.title || fallbackArgs.taskTitle,
+    assignedTo: extractFreshTaskAssignee(text) || fallbackArgs.assignedTo,
+    dueDate: extractFreshTaskDueDate(text) || fallbackArgs.dueDate,
+    priority: extractFreshTaskPriority(text) || fallbackArgs.priority,
+    loopUsers: extractFreshTaskLoopUsers(text) || fallbackArgs.loopUsers,
+  };
+
+  Object.keys(args).forEach((key) => {
+    if (args[key] == null || args[key] === '' || (Array.isArray(args[key]) && args[key].length === 0)) delete args[key];
+  });
+  return args;
+}
+
+function extractFreshTaskAssignee(message = '') {
+  const match = message.match(/\b(?:i\s+)?(?:told|asked|ask|reminded|remind|informed|inform)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)(?:\s+to\b|\s+that\b|\s+about\b|\s+for\b|\b)/)
+    || message.match(/\b(?:i\s+)?assign(?:ed)?(?:\s+task)?\s+(?:to\s+)?([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)/)
+    || message.match(/\b(?:delegate(?:d)?(?:\s+task)?\s+to|give(?:\s+task)?\s+to)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)/);
+  return match?.[1]?.trim() || null;
+}
+
+function extractFreshTaskLoopUsers(message = '') {
+  const users = [];
+  const patterns = [
+    /\bkeep\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\s+in\s+the\s+loop\b/gi,
+    /\bkeep\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\s+in\s+loop\b/gi,
+    /\bcc\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\b/gi,
+  ];
+
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(message)) !== null) {
+      users.push(match[1].trim());
+    }
+  }
+
+  return [...new Set(users)];
+}
+
+function extractFreshTaskDueDate(message = '') {
+  const beforeTimeToday = message.match(/\bbefore\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s+today\b/i);
+  if (beforeTimeToday?.[1]) return `today ${beforeTimeToday[1]}`;
+  const match = message.match(/\b(?:before|by|due(?:\s+by)?)\s+(.+?)(?:[.!?]|$)/i);
+  if (match?.[1]) return match[1].replace(/\bkeep\b.+$/i, '').trim();
+  if (/\btoday\s+evening\b/i.test(message)) return 'today evening';
+  if (/\btomorrow\s+morning\b/i.test(message)) return 'tomorrow morning';
+  return null;
+}
+
+function extractFreshTaskPriority(message = '') {
+  if (/\bhigh\s+priority\b|\bmake\s+it\s+high\b/i.test(message)) return 'High';
+  if (/\bmedium\s+priority\b|\bmake\s+it\s+medium\b/i.test(message)) return 'Medium';
+  if (/\blow\s+priority\b|\bmake\s+it\s+low\b/i.test(message)) return 'Low';
+  return null;
+}
+
+function extractFreshTaskTitle(message = '') {
+  const toldMatch = message.match(/\b(?:i\s+)?(?:told|asked|ask)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+to\s+(.+?)(?:\s+(?:before|by|due)\b|[.!?]|$)/i);
+  const remindedPendingMatch = message.match(/\b(?:i\s+)?(?:reminded|remind|informed|inform)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+that\s+(.+?)\s+is\s+pending(?:\s+(?:before|by|due)\b|[.!?]|$)/i);
+  const remindedNeedMatch = message.match(/\b(?:i\s+)?(?:reminded|remind|informed|inform)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+that\s+.+?\bwe\s+need\s+to\s+(.+?)(?:\s+(?:before|by|due)\b|[.!?]|$)/i);
+  const assignMatch = message.match(/\b(?:assign(?:ed)?(?:\s+task)?\s+to|delegate(?:d)?(?:\s+task)?\s+to|give(?:\s+task)?\s+to)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+(.+?)(?:\s+(?:before|by|due)\b|[.!?]|$)/i);
+  const rawTitle = (toldMatch?.[1] || remindedPendingMatch?.[1] || remindedNeedMatch?.[1] || assignMatch?.[1] || '').trim();
+  if (!rawTitle) return null;
+
+  return rawTitle
+    .replace(/^\s*(?:we\s+need\s+to|need\s+to)\s+/i, '')
+    .replace(/\band\s+make\s+it\s+(?:high|medium|low)(?:\s+priority)?\b/ig, '')
+    .replace(/\bkeep\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+in\s+(?:the\s+)?loop\b/ig, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function isChecklistOnlyCreate(message) {
   const msg = String(message || '').toLowerCase();
+  const hasChecklistItems = isChecklistItemListMessage(message);
   const asksChecklist = /\b(create|add|make)\b.*\bchecklists?\b/.test(msg)
-    || /\bchecklists?\b.*\b(create|add|make)\b/.test(msg);
+    || /\bchecklists?\b.*\b(create|add|make)\b/.test(msg)
+    || hasChecklistItems;
   if (!asksChecklist) return false;
   const asksSeparateTask = /\bcreate\b.*\btask\b.*\b(create|add|make)\b.*\bchecklists?\b/.test(msg)
     || /\b(create|add|make)\b.*\bchecklists?\b.*\bcreate\b.*\btask\b/.test(msg);
   return !asksSeparateTask;
+}
+
+function isChecklistItemListMessage(message = '') {
+  const text = String(message || '');
+  return /\b(things?|items?|tasks?)\s+to\s+(?:complete|check|verify|test|review)\s*:/i.test(text)
+    || /\b(?:complete|check|verify|test|review)\s+these\s*:/i.test(text)
+    || /(?:^|\s)[-*]\s+.+?(?:\s+[-*]\s+.+|$)/s.test(text)
+    || /\r?\n\s*(?:[-*]|\d+[.)]|\u25a1)\s+/.test(text);
 }
 
 function buildChecklistCallFromTaskCall(taskCall, message) {
@@ -428,12 +762,37 @@ async function runTaskToolFallback({ message, user, requestId, sessionId }) {
 
 function buildTaskFallbackCall(message) {
   const msg = String(message || '').toLowerCase();
-  if (!msg || /\bhow many|count|number of|detail|details|explain|dashboard\b/.test(msg)) return null;
+  if (!msg) return null;
+  const chatSummaryFallback = buildChatSummaryFallbackCall(message);
+  if (chatSummaryFallback) return chatSummaryFallback;
+  if (/\bhow many|count|number of|detail|details|explain|dashboard\b/.test(msg)) return null;
+  if (isEmployeeListRequest(msg)) {
+    return { name: 'listEmployees', args: { limit: 100 } };
+  }
   const checklistFallback = buildChecklistFallbackCall(message);
   if (checklistFallback) return checklistFallback;
+  if (isChecklistDeleteMessage(message)) {
+    return { name: 'deleteChecklist', args: buildDeleteChecklistArgsFromMessage(message) };
+  }
   if (/\b(delete|remove|cancel)\b/.test(msg)) {
     const taskTitle = extractDeleteTaskTitle(message);
     return { name: 'deleteTask', args: taskTitle ? { taskTitle } : {} };
+  }
+  const fieldUpdateArgs = extractTaskFieldUpdateArgs(message);
+  if (fieldUpdateArgs?.dueDate) {
+    return { name: 'updateTaskDueDate', args: { taskTitle: fieldUpdateArgs.taskTitle, dueDate: fieldUpdateArgs.dueDate } };
+  }
+  const dueDateUpdateArgs = extractTaskDueDateUpdateArgs(message);
+  if (dueDateUpdateArgs) {
+    return { name: 'updateTaskDueDate', args: dueDateUpdateArgs };
+  }
+  const titleUpdateArgs = extractTaskTitleUpdateArgs(message);
+  if (titleUpdateArgs) {
+    return { name: 'updateTaskTitle', args: titleUpdateArgs };
+  }
+  if (isFreshTaskCreationMessage(message)) {
+    const args = buildCreateTaskArgsFromMessage(message);
+    if (args?.title) return { name: 'createTask', args };
   }
   if (/\bcreate|add|new|another|assign|delegate|give task|keep .*loop|in loop\b/.test(msg)) return null;
 
@@ -459,6 +818,152 @@ function buildTaskFallbackCall(message) {
   }
 
   return null;
+}
+
+function buildChatSummaryFallbackCall(message = '') {
+  const text = String(message || '').trim();
+  const msg = text.toLowerCase();
+  const mentionsChat = /\b(chat|conversation|messages?|discussion)\b/.test(msg);
+  const asksSummary = /\b(summary|summarize|recap|what did we discuss)\b/.test(msg);
+  if (!mentionsChat || !asksSummary) return null;
+
+  const date = extractChatSummaryDate(text);
+  const period = /\byesterday\b/i.test(text) ? 'yesterday' : (/\btoday|this date\b/i.test(text) ? 'today' : undefined);
+  return {
+    name: 'getChatSummary',
+    args: {
+      ...(date ? { date } : {}),
+      ...(period ? { period } : {}),
+    },
+  };
+}
+
+function extractChatSummaryDate(message = '') {
+  const text = String(message || '');
+  const ymd = text.match(/\b\d{4}-\d{1,2}-\d{1,2}\b/);
+  if (ymd) return ymd[0];
+  const dmy = text.match(/\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/);
+  if (dmy) return dmy[0];
+  const named = text.match(/\b\d{1,2}\s+(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)(?:\s+\d{2,4})?\b/i);
+  if (named) return named[0];
+  if (/\byesterday\b/i.test(text)) return 'yesterday';
+  if (/\btoday|this date\b/i.test(text)) return 'today';
+  return null;
+}
+
+function extractTaskTitleUpdateArgs(message = '') {
+  const text = String(message || '').trim();
+  if (!/\b(change|update|edit|rename)\b/i.test(text) || !/\b(task|title|name)\b/i.test(text)) return null;
+
+  const patterns = [
+    /\b(?:change|update|edit)\s+(?:my\s+)?task\s+(?:title|name)\s+(.+?)\s+(?:into|to|as)\s+(.+)$/i,
+    /\brename\s+(?:the\s+)?task\s+(.+?)\s+(?:to|as)\s+(.+)$/i,
+    /\b(?:change|update|edit)\s+(?:the\s+)?title\s+of\s+(?:task\s+)?(.+?)\s+(?:to|as|into)\s+(.+)$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const taskTitle = cleanTitleUpdatePart(match[1]);
+    const newTitle = cleanTitleUpdatePart(match[2]);
+    if (newTitle) return taskTitle ? { taskTitle, newTitle } : { newTitle };
+  }
+
+  return null;
+}
+
+function extractTaskFieldUpdateArgs(message = '') {
+  const text = String(message || '').replace(/\s+/g, ' ').trim();
+  if (!text || !/\b(change|update|edit|set|move)\b/i.test(text)) return null;
+
+  const taskTitle = cleanTaskFieldPart(
+    text.match(/^(.+?)\s+this\s+is\s+the\s+current\s+title\s+of\s+task\b/i)?.[1]
+      || text.match(/\b(?:current|old)\s+task\s+title\s+(?:is|:)\s+(.+?)(?=\s+\b(?:now|and|also|change|update|set)\b|$)/i)?.[1]
+      || text.match(/\btask\s+title\s+is\s+(.+?)(?=\s+\b(?:into|to|also|and|status|due\s*date)\b|$)/i)?.[1]
+  );
+
+  const newTitle = cleanTaskFieldPart(
+    text.match(/\b(?:change|update|edit|rename)\s+(?:it|its|ites|title|task\s+title|name)\s+(?:into|to|as)\s+(.+?)(?=\s+(?:also\s+)?(?:change|update|set|move)\s+(?:the\s+)?(?:status|due\s*date|deadline|end\s*date)\b|\s+(?:also\s+)?(?:status|due\s*date|deadline|end\s*date)\b|$)/i)?.[1]
+  );
+
+  const status = normalizeTaskStatus(
+    text.match(/\bstatus\s+(?:into|to|as|is)\s+(complete|completed|pending|in progress|hold|on hold)\b/i)?.[1]
+      || text.match(/\bmark\s+(?:it|task|this\s+task)?\s*(?:as)?\s*(complete|completed|pending|in progress|hold|on hold)\b/i)?.[1]
+  );
+
+  const dueDate = cleanTaskDueDatePart(
+    text.match(/\b(?:our\s+)?(?:due\s*date|deadline|end\s*date)\s*(?:is|into|to|as)?\s+(.+?)(?=\s+\b(?:fixed|fix|please|also\s+change|change\s+status|status\s+into|show\s+my|what'?s|show\s+dashboard)\b|$)/i)?.[1]
+  );
+
+  if (!taskTitle && !newTitle && !status && !dueDate) return null;
+  if (!newTitle && !status && !dueDate) return null;
+
+  return { taskTitle, newTitle, status, dueDate };
+}
+
+function extractTaskDueDateUpdateArgs(message = '') {
+  const text = String(message || '').trim();
+  if (!/\b(change|update|edit|set|move)\b/i.test(text) || !/\b(task|due date|deadline|end date)\b/i.test(text)) return null;
+  if (!/\b(due\s*date|deadline|end\s*date)\b/i.test(text)) return null;
+
+  const patterns = [
+    /\b(?:change|update|edit|set|move)\s+(?:my\s+)?task\s+(?:due\s*date|deadline|end\s*date)\s+(?:task\s+title\s+is\s+)?(.+?)\s+(?:into|to|as)\s+(.+)$/i,
+    /\b(?:change|update|edit|set|move)\s+(?:the\s+)?(?:due\s*date|deadline|end\s*date)\s+of\s+(?:task\s+)?(.+?)\s+(?:into|to|as)\s+(.+)$/i,
+    /\b(?:task\s+title\s+is\s+)(.+?)\s+(?:due\s*date|deadline|end\s*date)\s+(?:into|to|as)\s+(.+)$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const taskTitle = cleanTaskDueDatePart(match[1]);
+    const dueDate = cleanTaskDueDatePart(match[2]);
+    if (dueDate) return taskTitle ? { taskTitle, dueDate } : { dueDate };
+  }
+
+  return null;
+}
+
+function cleanTaskDueDatePart(value = '') {
+  return String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\b(?:fixed|fix|ites|its)\b.*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanTaskFieldPart(value = '') {
+  return String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\b(?:also|and)\s+(?:change|update|set)\b.*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeTaskStatus(value = '') {
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'complete' || text === 'completed') return 'Completed';
+  if (text === 'pending') return 'Pending';
+  if (text === 'in progress') return 'In Progress';
+  if (text === 'hold' || text === 'on hold') return 'Hold';
+  return null;
+}
+
+function cleanTitleUpdatePart(value = '') {
+  return String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isEmployeeListRequest(message = '') {
+  const msg = String(message || '').toLowerCase();
+  const asksAll = /\ball|list|show|tell me|names?|members?|team|registered|register\b/.test(msg);
+  const employeeWords = /\bemployees?\b|\bemploye+ss?\b|\busers?\b|\bmembers?\b|\bteam\b/.test(msg);
+  const sensitive = /\bsalary|password|secret|private\b/.test(msg);
+  return asksAll && employeeWords && !sensitive;
 }
 
 function buildCreateTaskFromCombinedPrompt(message) {
@@ -490,27 +995,175 @@ function buildChecklistFallbackCall(message) {
   const msg = original.toLowerCase();
   const isChecklistCreate =
     /\b(create|add|make)\b.*\bchecklist\b/.test(msg) ||
+    isChecklistItemListMessage(original) ||
     /\bremind me\b.*\b(check|test|verify)\b/.test(msg) ||
     /\bneed to\b.*\b(test|check|verify)\b.*\b(including|include)\b/.test(msg);
 
   if (!isChecklistCreate) return null;
   if (/\b(show|list|get|view|display)\b.*\bchecklists?\b/.test(msg)) return null;
 
-  const args = {
-    question: extractChecklistQuestion(original),
-    priority: extractPriority(msg),
-    frequency: 'custom',
-  };
-
-  if (/\btomorrow\b/.test(msg)) {
-    args.fromDate = 'tomorrow';
-    args.dueDate = 'tomorrow';
-  } else if (/\btoday\b/.test(msg)) {
-    args.fromDate = 'today';
-    args.dueDate = 'today';
-  }
+  const args = buildCreateChecklistArgsFromMessage(original);
 
   return { name: 'createChecklist', args };
+}
+
+function buildCreateChecklistArgsFromMessage(message = '') {
+  const original = String(message || '').trim();
+  const msg = original.toLowerCase();
+  const assignee = extractChecklistAssignee(original);
+  const checklistItems = extractChecklistItems(original);
+  const dueDate = extractChecklistDueDate(original);
+  const args = {
+    question: extractChecklistTitle(original, checklistItems) || extractStructuredChecklistQuestion(original) || extractChecklistQuestion(original),
+    assignee,
+    checklistItems,
+    priority: extractPriority(msg),
+  };
+
+  if (dueDate) {
+    args.fromDate = dueDate;
+    args.dueDate = dueDate;
+  }
+
+  Object.keys(args).forEach((key) => {
+    if (args[key] == null || args[key] === '' || (Array.isArray(args[key]) && args[key].length === 0)) delete args[key];
+  });
+  return args;
+}
+
+function extractChecklistAssignee(message = '') {
+  const toldMatch = message.match(/\b(?:i\s+told|told|asked|ask)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\s+to\b/);
+  if (toldMatch?.[1]) return toldMatch[1].trim();
+
+  const forMatch = message.match(/\b(?:for|assign(?:ed)?\s+to|give\s+to)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\b/);
+  if (forMatch?.[1] && !/^(him|her|them)$/i.test(forMatch[1])) return forMatch[1].trim();
+
+  return null;
+}
+
+function extractChecklistLoopUsers(message = '') {
+  const users = [];
+  const patterns = [
+    /\bkeep\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\s+in\s+the\s+loop\b/gi,
+    /\bkeep\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\s+in\s+loop\b/gi,
+    /\bcc\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\b/gi,
+  ];
+
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(message)) !== null) {
+      users.push(match[1].trim());
+    }
+  }
+
+  return [...new Set(users)];
+}
+
+function extractChecklistDueDate(message = '') {
+  const text = String(message || '');
+  const lower = text.toLowerCase();
+  const explicitRelativeTime = lower.match(/\b(today|tomorrow)\s+(morning|evening|afternoon|night)\b/);
+  if (explicitRelativeTime) return `${explicitRelativeTime[1]} ${explicitRelativeTime[2]}`;
+
+  const beforeToday = lower.match(/\bbefore\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s+today\b/);
+  if (beforeToday) return `today ${beforeToday[1]}`;
+
+  const relativeBefore = lower.match(/\b(?:before|by|due(?:\s+by)?)\s+(.+?)(?:\bkeep\s+[a-z]|\bin\s+(?:the\s+)?loop\b|[.!?]|$)/i);
+  if (relativeBefore?.[1]) return relativeBefore[1].trim();
+
+  if (/\btomorrow\b/.test(lower)) return 'tomorrow';
+  if (/\btoday\b/.test(lower)) return 'today';
+  return null;
+}
+
+function extractChecklistItems(message = '') {
+  const text = String(message || '').trim();
+  const bulletItems = text
+    .split(/\r?\n/)
+    .filter((line) => /^\s*(?:[-*]|\d+[.)]|\u25a1)\s+/.test(line))
+    .map((item) => cleanChecklistItem(item))
+    .filter(Boolean);
+  if (bulletItems.length) return [...new Set(bulletItems)];
+
+  const inlineBulletItems = [...text.matchAll(/(?:^|\s)[-*]\s+(.+?)(?=\s+[-*]\s+|$)/g)]
+    .map((match) => cleanChecklistItem(match[1]))
+    .filter(Boolean);
+  if (inlineBulletItems.length) return [...new Set(inlineBulletItems)];
+
+  const afterColon = text.match(/\b(?:checklist|items?)\b[^:\n]*:\s*([\s\S]+)$/i)?.[1] || '';
+  const source = afterColon || text;
+  const stopCleaned = source
+    .replace(/\bkeep\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+in\s+(?:the\s+)?loop\b[\s\S]*$/i, '')
+    .replace(/\b(?:before|by|due(?:\s+by)?)\s+.+$/i, '')
+    .trim();
+
+  const splitItems = stopCleaned
+    .split(/\r?\n|;|\u2022|,(?=\s*(?:and\s+)?[A-Za-z])/)
+    .map((item) => cleanChecklistItem(item))
+    .filter(Boolean);
+
+  if (splitItems.length > 1) return [...new Set(splitItems)];
+  return [];
+}
+
+function cleanChecklistItem(item = '') {
+  return String(item || '')
+    .replace(/^\s*(?:[-*]|\d+[.)]|□)\s*/, '')
+    .replace(/\b(?:create|add|make)\s+(?:a\s+)?checklists?\b/ig, '')
+    .replace(/\b(?:please|complete|can\s+you)\b/ig, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[.!?]+$/, '')
+    .trim();
+}
+
+function extractChecklistTitle(message = '', checklistItems = []) {
+  const text = String(message || '').trim();
+  const asked = text.match(/\b(?:i\s+asked|asked|i\s+told|told|ask)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+to\s+(.+?)(?:\b(?:before|by|due|today|tomorrow|keep|create\s+(?:a\s+)?checklist|checklist|items?)\b|[.!?]|$)/i)?.[1];
+  const pendingContext = text.match(/\bmentioned\s+that\s+([A-Za-z][A-Za-z\s]{2,80}?)\s+is\s+still\s+pending(?:\s+before\b|\s+for\b|[.!?]|$)/i)?.[1]
+    || text.match(/\b([A-Za-z][A-Za-z\s]{2,80}?)\s+is\s+still\s+pending(?:\s+before\b|\s+for\b|[.!?]|$)/i)?.[1];
+  const quoted = text.match(/"([^"]+)"/)?.[1];
+  const raw = pendingContext || asked || quoted || (checklistItems.length ? checklistItems[0] : null);
+  if (!raw) return null;
+
+  const cleaned = cleanChecklistTitle(raw);
+  return cleaned || null;
+}
+
+function cleanChecklistTitle(title = '') {
+  const cleaned = String(title || '')
+    .replace(/\b(?:create|add|make)\s+(?:a\s+)?checklists?\b/ig, '')
+    .replace(/\b(?:i\s+asked|asked|can\s+you)\b/ig, '')
+    .replace(/\b(?:please|complete)\b/ig, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[.!?]+$/, '')
+    .trim();
+
+  return toTitleCase(cleaned);
+}
+
+function toTitleCase(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (char) => char.toUpperCase());
+}
+
+function extractStructuredChecklistQuestion(message = '') {
+  const text = String(message || '').trim();
+  const mainTask = text.match(/\b(?:i\s+told|told|asked|ask)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+to\s+(.+?)(?:\.\s*|\bcreate\s+a\s+checklist\b|$)/i)?.[1]
+    ?.replace(/\s+/g, ' ')
+    .trim();
+  const checklistBody = text.match(/\bcreate\s+a\s+checklist(?:\s+for\s+(?:him|her|them|[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?))?\s*:?\s*([\s\S]*?)(?:\bset\s+this\b|\bkeep\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+in\s+(?:the\s+)?loop\b|$)/i)?.[1] || '';
+  const subtasks = checklistBody
+    .split(/\r?\n|;|\u2022/)
+    .map((item) => item.replace(/^\s*[-*]\s*/, '').trim())
+    .filter(Boolean);
+
+  if (!mainTask && subtasks.length === 0) return null;
+
+  const title = mainTask
+    ? mainTask.charAt(0).toUpperCase() + mainTask.slice(1)
+    : 'Checklist';
+  return cleanChecklistTitle(title);
 }
 
 function extractChecklistQuestion(message) {
@@ -523,18 +1176,22 @@ function extractChecklistQuestion(message) {
     return `Test ERP system including ${includesMatch[1].replace(/[.!?]+$/, '').trim()}`;
   }
 
-  return text
+  const cleaned = text
     .replace(/^\s*(today|tomorrow)\s+/i, '')
     .replace(/^\s*i\s+need\s+to\s+/i, '')
     .replace(/^\s*remind\s+me\s+(to\s+)?/i, '')
+    .replace(/\bkeep\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+in\s+(?:the\s+)?loop\b[\s\S]*$/i, '')
+    .replace(/\b(?:before|by|due(?:\s+by)?)\s+.+$/i, '')
     .replace(/[.!?]+$/, '')
     .trim();
+  return cleanChecklistTitle(cleaned);
 }
 
 function extractPriority(message) {
-  if (/\bhigh|urgent|critical\b/.test(message)) return 'high';
-  if (/\blow\b/.test(message)) return 'low';
-  return 'medium';
+  if (/\b(high|urgent|critical)\b/.test(message)) return 'High';
+  if (/\blow\b/.test(message)) return 'Low';
+  if (/\bmedium\b/.test(message)) return 'Medium';
+  return 'Medium';
 }
 
 function extractDeleteTaskTitle(message) {
@@ -572,9 +1229,42 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
       return formatTaskBlock(detailResult.task);
     }
   }
+  if (tools.includes('getChatSummary')) {
+    const chatResult = (toolResults || []).find((tr) => tr.name === 'getChatSummary')?.result;
+    if (chatResult) return formatChatSummaryText(chatResult);
+  }
+  if (tools.includes('listEmployees')) {
+    const employeeResult = (toolResults || []).find((tr) => tr.name === 'listEmployees')?.result;
+    if (employeeResult?.ok && Array.isArray(employeeResult.employees)) {
+      return formatEmployeeListText(employeeResult.employees);
+    }
+  }
   if (tools.includes('deleteTask')) {
     const deleteResult = (toolResults || []).find((tr) => tr.name === 'deleteTask')?.result;
     if (deleteResult) return formatDeleteTaskText(deleteResult);
+  }
+  if (tools.includes('deleteChecklist')) {
+    const deleteResult = (toolResults || []).find((tr) => tr.name === 'deleteChecklist')?.result;
+    if (deleteResult) return formatDeleteChecklistText(deleteResult);
+  }
+  if (tools.filter((name) => ['updateTaskDueDate', 'updateTaskStatus', 'updateTaskTitle'].includes(name)).length > 1) {
+    return formatCombinedTaskUpdateText(toolResults);
+  }
+  if (tools.includes('updateTaskStatus')) {
+    const updateResult = (toolResults || []).find((tr) => tr.name === 'updateTaskStatus')?.result;
+    if (updateResult) return formatUpdateTaskStatusText(updateResult);
+  }
+  if (tools.includes('updateTaskTitle')) {
+    const updateResult = (toolResults || []).find((tr) => tr.name === 'updateTaskTitle')?.result;
+    if (updateResult) return formatUpdateTaskTitleText(updateResult);
+  }
+  if (tools.includes('updateTaskDueDate')) {
+    const updateResult = (toolResults || []).find((tr) => tr.name === 'updateTaskDueDate')?.result;
+    if (updateResult) return formatUpdateTaskDueDateText(updateResult);
+  }
+  if (tools.includes('createTask')) {
+    const taskResults = (toolResults || []).filter((tr) => tr.name === 'createTask').map((tr) => tr.result).filter(Boolean);
+    if (taskResults.length) return formatCreateTaskText(taskResults);
   }
   if (tools.includes('createChecklist')) {
     const checklistResult = (toolResults || []).find((tr) => tr.name === 'createChecklist')?.result;
@@ -593,14 +1283,20 @@ function formatCombinedCreateText(toolResults = []) {
       parts.push(task.error || 'Task could not be created.');
       continue;
     }
+    if (task.duplicate) {
+      parts.push(formatDuplicateTaskText(task));
+      continue;
+    }
     const s = task.summary || {};
     parts.push([
       'Task Created',
-      `Title: ${valueOrNA(s.title)}`,
-      `Assigned To: ${valueOrNA(s.assignedTo)}`,
-      `In Loop: ${valueOrNA(s.inLoop)}`,
-      `Due: ${valueOrNA(s.dueDate)}`,
-      `Priority: ${valueOrNA(s.priority)}`,
+      `**Task Title:** ${valueOrNA(s.title)}`,
+      `**Assigned To:** ${valueOrNA(s.assignedTo)}`,
+      `**Assigned By:** ${valueOrNA(s.assignedBy)}`,
+      `**In Loop:** ${valueOrNA(s.inLoop)}`,
+      `**Due Date:** ${valueOrNA(s.dueDate)}`,
+      `**Priority:** ${valueOrNA(s.priority)}`,
+      `**Status:** ${valueOrNA(s.status)}`,
     ].join('\n'));
   }
 
@@ -608,23 +1304,145 @@ function formatCombinedCreateText(toolResults = []) {
   return parts.join('\n\n');
 }
 
-function formatCreateChecklistText(result = {}) {
-  if (!result.ok) return result.error || 'Checklist could not be created.';
+function formatEmployeeListText(employees = []) {
+  if (!employees.length) return 'No registered employees found.';
+  const lines = employees.map((employee) => {
+    const parts = [
+      `#${valueOrNA(employee.id)}`,
+      valueOrNA(employee.name),
+      employee.role ? `(${employee.role})` : null,
+      employee.email || null,
+    ].filter(Boolean);
+    return `• ${parts.join(' - ')}`;
+  });
+  return [`Registered Employees (${employees.length})`, ...lines].join('\n');
+}
+
+function formatChatSummaryText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Chat summary could not be fetched.';
+  const s = result.summary || {};
+  if (!result.count) {
+    return `No chat messages found for ${valueOrNA(s.date || result.date)}.`;
+  }
+
+  const lines = [
+    valueOrNA(s.title || `Chat Summary - ${result.date}`),
+    `**Total Messages:** ${valueOrNA(s.totalMessages)}`,
+    `**User Messages:** ${valueOrNA(s.userMessages)}`,
+    `**Assistant Messages:** ${valueOrNA(s.assistantMessages)}`,
+  ];
+
+  if (Array.isArray(s.highlights) && s.highlights.length) {
+    lines.push('', '**Highlights:**');
+    for (const item of s.highlights.slice(0, 6)) {
+      lines.push(`• ${item}`);
+    }
+  }
+
+  if (Array.isArray(s.turns) && s.turns.length) {
+    lines.push('', '**Recent Turns:**');
+    s.turns.slice(0, 5).forEach((turn, index) => {
+      if (turn.user) lines.push(`${index + 1}. **You:** ${truncateText(turn.user, 120)}`);
+      if (turn.assistant) lines.push(`   **ADA:** ${truncateText(turn.assistant, 140)}`);
+    });
+  }
+
+  return lines.join('\n');
+}
+
+function truncateText(value = '', max = 120) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 3).trim()}...`;
+}
+
+function formatCreateTaskText(taskResults = []) {
+  const parts = [];
+  for (const task of taskResults) {
+    if (!task.ok) {
+      parts.push(task.error || 'Task could not be created.');
+      continue;
+    }
+    if (task.duplicate) {
+      parts.push(formatDuplicateTaskText(task));
+      continue;
+    }
+    const s = task.summary || {};
+    parts.push([
+      'Task Created',
+      `**Task Title:** ${valueOrNA(s.title)}`,
+      `**Assigned To:** ${valueOrNA(s.assignedTo)}`,
+      `**Assigned By:** ${valueOrNA(s.assignedBy)}`,
+      `**In Loop:** ${valueOrNA(s.inLoop)}`,
+      `**Due Date:** ${valueOrNA(s.dueDate)}`,
+      `**Priority:** ${valueOrNA(s.priority)}`,
+      `**Status:** ${valueOrNA(s.status)}`,
+    ].join('\n'));
+  }
+  return parts.join('\n\n');
+}
+
+function formatDuplicateTaskText(result = {}) {
   const s = result.summary || {};
   return [
-    'Checklist Created',
-    `Question: ${valueOrNA(s.question)}`,
-    `Assignee: ${valueOrNA(s.assignee)}`,
-    `Doer: ${valueOrNA(s.doer)}`,
-    `Department: ${valueOrNA(s.department)}`,
-    `Priority: ${valueOrNA(s.priority)}`,
-    `Frequency: ${valueOrNA(s.frequency)}`,
-    `From Date & Time: ${valueOrNA(s.fromDateFormatted || s.fromDate)}`,
-    `Due Date: ${valueOrNA(s.dueDateFormatted || s.dueDate)}`,
-    `Verification Required: ${s.verificationRequired ? 'Yes' : 'No'}`,
-    `Verifier: ${valueOrNA(s.verifier)}`,
-    `Attachment Required: ${s.attachmentRequired ? 'Yes' : 'No'}`,
+    'A similar task already exists.',
+    `**Task Title:** ${valueOrNA(s.title)}`,
+    `**Assigned To:** ${valueOrNA(s.assignedTo)}`,
+    `**In Loop:** ${valueOrNA(s.inLoop)}`,
+    `**Due Date:** ${valueOrNA(s.dueDate)}`,
+    `**Due Time:** ${valueOrNA(s.dueTime)}`,
+    `**Priority:** ${valueOrNA(s.priority)}`,
+    `**Status:** ${valueOrNA(s.status)}`,
+    'No duplicate task was created.',
   ].join('\n');
+}
+
+function formatCreateChecklistText(result = {}) {
+  if (!result.ok) return result.error || 'Checklist could not be created.';
+  if (result.duplicate) {
+    const title = result.summary?.question;
+    return title
+      ? `Checklist already exists: ${title}. Please make a new checklist.`
+      : 'Checklist already exists. Please make a new checklist.';
+  }
+  const s = result.summary || {};
+  const lines = ['Checklist Created Successfully'];
+  addLineIfValue(lines, 'Checklist Title', s.question);
+  addLineIfValue(lines, 'Assignee', s.assignee);
+  addLineIfValue(lines, 'Doer', s.doer);
+  addLineIfValue(lines, 'Priority', formatChecklistPriority(s.priority));
+  addLineIfValue(lines, 'Due Date', s.dueDateFormatted || s.dueDate);
+  addLineIfValue(lines, 'Status', s.status || 'Pending');
+
+  if (Array.isArray(s.checklistItems) && s.checklistItems.length) {
+    lines.push('');
+    lines.push('Checklist Items:');
+    for (const item of s.checklistItems) {
+      if (item) lines.push(`□ ${item}`);
+    }
+  }
+
+  return lines.join('\n').replace(/\u00e2\u2013\u00a1/g, '\u25a1');
+}
+
+function addLineIfValue(lines, label, value) {
+  if (!hasDisplayValue(value)) return;
+  lines.push(`${label}: ${value}`);
+}
+
+function hasDisplayValue(value) {
+  if (value == null) return false;
+  const text = String(value).trim();
+  if (/^(no|false)$/i.test(text)) return false;
+  return text && !/^(n\/a|not available|null|undefined|—|-|custom)$/i.test(text);
+}
+
+function formatChecklistPriority(priority) {
+  const text = String(priority || '').trim().toLowerCase();
+  if (text === 'high') return 'High';
+  if (text === 'medium') return 'Medium';
+  if (text === 'low') return 'Low';
+  return priority;
 }
 
 function formatDeleteTaskText(result = {}) {
@@ -635,6 +1453,77 @@ function formatDeleteTaskText(result = {}) {
     return `Task not found. Did you mean: ${result.suggestions.map((title) => `"${title}"`).join(', ')}?`;
   }
   return result.message || result.error || 'Task not found. Please mention the exact task name.';
+}
+
+function formatDeleteChecklistText(result = {}) {
+  if (result.ok) {
+    return `Checklist "${valueOrNA(result.checklistName)}" deleted successfully.`;
+  }
+  if (Array.isArray(result.suggestions) && result.suggestions.length) {
+    return `Checklist not found. Did you mean: ${result.suggestions.map((name) => `"${name}"`).join(', ')}?`;
+  }
+  return result.message || result.error || 'Checklist not found. Please mention the exact checklist name.';
+}
+
+function formatUpdateTaskTitleText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Task title could not be updated.';
+  const s = result.summary || {};
+  return [
+    'Task Title Updated',
+    `**Old Task Title:** ${valueOrNA(s.oldTitle)}`,
+    `**New Task Title:** ${valueOrNA(s.title)}`,
+    `**Assigned To:** ${valueOrNA(s.assignedTo)}`,
+    `**Assigned By:** ${valueOrNA(s.assignedBy)}`,
+    `**Due Date:** ${valueOrNA(s.dueDate)}`,
+    `**Priority:** ${valueOrNA(s.priority)}`,
+    `**Status:** ${valueOrNA(s.status)}`,
+  ].join('\n');
+}
+
+function formatUpdateTaskDueDateText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Task due date could not be updated.';
+  const s = result.summary || {};
+  return [
+    'Task Due Date Updated',
+    `**Task Title:** ${valueOrNA(s.title)}`,
+    `**Old Due Date:** ${valueOrNA(s.oldDueDate)}`,
+    `**New Due Date:** ${valueOrNA(s.dueDate)}`,
+    `**Assigned To:** ${valueOrNA(s.assignedTo)}`,
+    `**Assigned By:** ${valueOrNA(s.assignedBy)}`,
+    `**Priority:** ${valueOrNA(s.priority)}`,
+    `**Status:** ${valueOrNA(s.status)}`,
+  ].join('\n');
+}
+
+function formatUpdateTaskStatusText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Task status could not be updated.';
+  const title = Array.isArray(result.titles) && result.titles.length ? result.titles.join(', ') : 'Task';
+  return [
+    'Task Status Updated',
+    `**Task Title:** ${valueOrNA(title)}`,
+    `**New Status:** ${valueOrNA(result.newStatus)}`,
+  ].join('\n');
+}
+
+function formatCombinedTaskUpdateText(toolResults = []) {
+  const titleResult = toolResults.find((tr) => tr.name === 'updateTaskTitle')?.result;
+  const dueDateResult = toolResults.find((tr) => tr.name === 'updateTaskDueDate')?.result;
+  const statusResult = toolResults.find((tr) => tr.name === 'updateTaskStatus')?.result;
+  const failed = [dueDateResult, statusResult, titleResult].find((result) => result && !result.ok);
+  if (failed) return failed.message || failed.error || 'Task could not be fully updated.';
+
+  const titleSummary = titleResult?.summary || {};
+  const dueSummary = dueDateResult?.summary || {};
+  return [
+    'Task Updated',
+    `**Old Task Title:** ${valueOrNA(titleSummary.oldTitle || dueSummary.title)}`,
+    `**New Task Title:** ${valueOrNA(titleSummary.title || dueSummary.title)}`,
+    `**New Due Date:** ${valueOrNA(dueSummary.dueDate || titleSummary.dueDate)}`,
+    `**New Status:** ${valueOrNA(statusResult?.newStatus || titleSummary.status || dueSummary.status)}`,
+    `**Assigned To:** ${valueOrNA(titleSummary.assignedTo || dueSummary.assignedTo)}`,
+    `**Assigned By:** ${valueOrNA(titleSummary.assignedBy || dueSummary.assignedBy)}`,
+    `**Priority:** ${valueOrNA(titleSummary.priority || dueSummary.priority)}`,
+  ].join('\n');
 }
 
 function formatTaskListText(tasks = [], filters = {}) {
@@ -846,7 +1735,7 @@ async function runStream({ message, user, sessionId }, callbacks) {
 
     // Persist
     const tPersist = Date.now();
-    await sessionStore.logTurn({
+    const userMsg = await sessionStore.logTurn({
       sessionId: sid, userId, role: Role.USER, content: pre.original, intent: inferIntent(toolCallsAll),
     });
     for (const tr of toolResults) {
@@ -884,6 +1773,9 @@ async function runStream({ message, user, sessionId }, callbacks) {
       verbosity: plan.verbosity,
       sessionId: sid,
       messageId: assistantMsg?.id || null,
+      timestamp: assistantMsg?.created_at || null,
+      userMessageId: userMsg?.id || null,
+      userTimestamp: userMsg?.created_at || null,
       suggestions: envelopeFmt.suggestFollowUps({ toolCalls: toolCallsAll, toolResults, slots: { ...slots, ...slotPatch } }),
       quickActions: envelopeFmt.suggestQuickActions({ toolCalls: toolCallsAll, toolResults }),
     });

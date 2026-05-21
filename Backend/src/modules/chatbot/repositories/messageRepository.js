@@ -26,7 +26,7 @@ async function insert(row) {
        (session_id, user_id, role, content, tool_calls, tool_name, tool_result,
         intent, confidence, tokens_in, tokens_out, latency_ms)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-     RETURNING id, created_at`,
+     RETURNING id, created_at AT TIME ZONE 'UTC' AS created_at`,
     [
       sessionId,
       userId,
@@ -47,7 +47,8 @@ async function insert(row) {
 
 async function listRecent(sessionId, limit = 20) {
   const { rows } = await db.query(
-    `SELECT id, role, content, tool_calls, tool_name, tool_result, intent, created_at
+    `SELECT id, role, content, tool_calls, tool_name, tool_result, intent,
+            created_at AT TIME ZONE 'UTC' AS created_at
        FROM chatbot_messages
       WHERE session_id = $1
       ORDER BY created_at DESC, id DESC
@@ -60,7 +61,7 @@ async function listRecent(sessionId, limit = 20) {
 async function listForUser(userId, sessionId = null, limit = 50, offset = 0) {
   if (sessionId) {
     const { rows } = await db.query(
-      `SELECT id, role, content, intent, created_at
+      `SELECT id, role, content, intent, created_at AT TIME ZONE 'UTC' AS created_at
          FROM chatbot_messages WHERE session_id = $1 AND user_id = $2
          ORDER BY created_at ASC LIMIT $3 OFFSET $4`,
       [sessionId, userId, limit, offset]
@@ -68,7 +69,7 @@ async function listForUser(userId, sessionId = null, limit = 50, offset = 0) {
     return rows;
   }
   const { rows } = await db.query(
-    `SELECT id, session_id, role, content, intent, created_at
+    `SELECT id, session_id, role, content, intent, created_at AT TIME ZONE 'UTC' AS created_at
        FROM chatbot_messages WHERE user_id = $1
        ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
     [userId, limit, offset]
@@ -76,4 +77,19 @@ async function listForUser(userId, sessionId = null, limit = 50, offset = 0) {
   return rows;
 }
 
-module.exports = { insert, listRecent, listForUser };
+async function listForUserByRange(userId, from, to, limit = 200) {
+  const { rows } = await db.query(
+    `SELECT id, session_id, role, content, intent, created_at AT TIME ZONE 'UTC' AS created_at
+       FROM chatbot_messages
+      WHERE user_id = $1
+        AND role IN ('user', 'assistant')
+        AND created_at >= $2::timestamp
+        AND created_at < $3::timestamp
+      ORDER BY created_at ASC, id ASC
+      LIMIT $4`,
+    [userId, from, to, limit]
+  );
+  return rows;
+}
+
+module.exports = { insert, listRecent, listForUser, listForUserByRange };
