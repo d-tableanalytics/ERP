@@ -12,6 +12,9 @@ const toolExecutor = require('./ToolExecutor');
 const responsePlanner = require('../planners/responsePlanner');
 const envelopeFmt = require('../formatters/envelope');
 const logger = require('../utils/logger');
+const checklistAdapter = require('../adapters/checklistAdapter');
+const { Task } = require('../../../models/task.model');
+const { bestMatch } = require('../utils/fuzzy');
 const { resolveUserId } = require('../validators/permissions');
 const { ChatbotError, ErrorCode, FALLBACK_MESSAGES } = require('../constants/errors');
 const { Role, ResponseType } = require('../constants/responseTypes');
@@ -69,6 +72,16 @@ async function run({ message, user, sessionId }) {
     sessionId: sid,
     slotKeys: Object.keys(slots),
   });
+
+  const restoreEnvelope = await handleRestoreStatusTurn({
+    pre,
+    user,
+    userId,
+    sid,
+    slots,
+    requestId,
+  });
+  if (restoreEnvelope) return restoreEnvelope;
 
   // 3. Build messages
   const tBuild = Date.now();
@@ -325,6 +338,247 @@ function mergeUsage(a, b) {
   return out;
 }
 
+async function handleRestoreStatusTurn({ pre, user, userId, sid, slots, requestId, callbacks = {} }) {
+  const status = extractRestoreStatusSelection(pre.normalized);
+  if (slots?.pendingAction === 'restoreStatus' && status) {
+    return completeRestoreStatusTurn({ pre, user, userId, sid, slots, requestId, status, callbacks });
+  }
+
+  if (!isRestoreStatusIntent(pre.normalized)) return null;
+
+  const targetType = inferRestoreTargetType(pre.normalized, slots);
+  const targetName = extractRestoreTargetName(pre.original || pre.normalized);
+  const target = await findRestoreTarget({ userId, targetType, targetName, slots });
+  if (!target) return null;
+
+  const currentStatus = target.status || 'Completed';
+  const slotPatch = {
+    pendingAction: 'restoreStatus',
+    targetType,
+    targetId: target.id,
+    targetName: target.name || target.title,
+    previousStatus: currentStatus,
+    lastEntity: targetType,
+  };
+  if (targetType === 'checklist') {
+    slotPatch.selectedChecklistId = target.id;
+    slotPatch.selectedChecklistName = target.name;
+  }
+
+  const label = targetType === 'checklist' ? 'Checklist' : 'Task';
+  const text = [
+    'No problem 😊 I can change the status back for you.',
+    '',
+    `${label}: ${target.name || target.title}`,
+    `Current Status: ${currentStatus}`,
+    '',
+    'Please tell me which status you want to change it to.',
+  ].join('\n');
+
+  return persistDeterministicTurn({
+    pre,
+    userId,
+    sid,
+    text,
+    toolCalls: [{ id: `restore_${randomUUID()}`, name: 'restoreStatus', args: { targetType, targetId: target.id } }],
+    toolResults: [],
+    slotPatch,
+    quickActions: restoreStatusQuickActions(),
+    callbacks,
+  });
+}
+
+async function completeRestoreStatusTurn({ pre, user, userId, sid, slots, requestId, status, callbacks = {} }) {
+  const targetType = slots.targetType === 'task' ? 'task' : 'checklist';
+  const toolName = targetType === 'task' ? 'updateTaskStatus' : 'updateChecklistStatus';
+  const args = targetType === 'task'
+    ? { taskId: Number(slots.targetId), status }
+    : { checklistId: Number(slots.targetId), status };
+  const toolCall = { id: `restore_${randomUUID()}`, name: toolName, args };
+
+  callbacks.onToolCall && callbacks.onToolCall(toolCall);
+  const execRes = await toolExecutor.execute({
+    name: toolName,
+    args,
+    user,
+    ctx: { slots },
+    requestId,
+    sessionId: sid,
+  });
+  callbacks.onToolResult && callbacks.onToolResult({
+    id: toolCall.id,
+    name: toolName,
+    ok: !!execRes.ok,
+    latencyMs: execRes.latencyMs,
+  });
+
+  const toolResults = [{ id: toolCall.id, name: toolName, result: execRes, latencyMs: execRes.latencyMs }];
+  const text = formatRestoreStatusCompleteText({ targetType, result: execRes, fallbackName: slots.targetName, fallbackPreviousStatus: slots.previousStatus });
+
+  return persistDeterministicTurn({
+    pre,
+    userId,
+    sid,
+    text,
+    toolCalls: [toolCall],
+    toolResults,
+    slotPatch: execRes.slot || {
+      pendingAction: null,
+      targetType: null,
+      targetId: null,
+      targetName: null,
+      previousStatus: null,
+    },
+    quickActions: [],
+    callbacks,
+  });
+}
+
+async function persistDeterministicTurn({ pre, userId, sid, text, toolCalls, toolResults, slotPatch, quickActions, callbacks = {} }) {
+  const userMsg = await sessionStore.logTurn({
+    sessionId: sid,
+    userId,
+    role: Role.USER,
+    content: pre.original,
+    intent: inferIntent(toolCalls),
+  });
+
+  for (const tr of toolResults) {
+    await sessionStore.logTurn({
+      sessionId: sid,
+      userId,
+      role: Role.TOOL,
+      content: null,
+      toolName: tr.name,
+      toolResult: tr.result,
+      latencyMs: tr.latencyMs,
+    });
+  }
+
+  const assistantMsg = await sessionStore.logTurn({
+    sessionId: sid,
+    userId,
+    role: Role.ASSISTANT,
+    content: text,
+    toolCalls,
+    intent: inferIntent(toolCalls),
+    confidence: 0.95,
+  });
+
+  if (slotPatch && Object.keys(slotPatch).length > 0) {
+    await sessionStore.mergeSlots(sid, slotPatch);
+  }
+
+  callbacks.onDelta && text.match(/\S+\s*|\s+/g)?.forEach((token) => callbacks.onDelta(token));
+
+  const envelope = envelopeFmt.build({
+    text,
+    toolCalls,
+    toolResults,
+    suppressCards: true,
+    responseType: ResponseType.TEXT,
+    verbosity: 'medium',
+    sessionId: sid,
+    messageId: assistantMsg?.id || null,
+    timestamp: assistantMsg?.created_at || null,
+    userMessageId: userMsg?.id || null,
+    userTimestamp: userMsg?.created_at || null,
+    suggestions: [],
+    quickActions,
+  });
+
+  await mirrorToLegacy({
+    userId,
+    message: pre.original,
+    response: envelope.text,
+    intent: envelope.intent,
+    tokens: 0,
+    confidence: envelope.confidence,
+  }).catch(() => {});
+
+  callbacks.onDone && callbacks.onDone(envelope);
+  return envelope;
+}
+
+function isRestoreStatusIntent(message = '') {
+  return /\b(mistakenly\s+(?:i\s+)?completed|completed\s+(?:\w+\s+){0,4}?by\s+mistake|wrong\s+checklist\s+completed|restore\s+checklist|undo\s+completed|completed\s+accidentally)\b/i.test(message);
+}
+
+function inferRestoreTargetType(message = '', slots = {}) {
+  if (/\bchecklists?\b/i.test(message)) return 'checklist';
+  if (/\btasks?\b/i.test(message)) return 'task';
+  return slots?.lastEntity === 'task' ? 'task' : 'checklist';
+}
+
+function extractRestoreStatusSelection(message = '') {
+  const text = String(message || '').trim().toLowerCase();
+  if (/^pending$/i.test(text) || /\bchange\s+(?:it|status)?\s*(?:to|as)?\s*pending\b/i.test(text)) return 'Pending';
+  if (/^in\s*progress$/i.test(text) || /\bin\s*progress\b/i.test(text)) return 'In Progress';
+  if (/^(hold|on\s+hold)$/i.test(text) || /\bon\s+hold\b|\bhold\b/i.test(text)) return 'Hold';
+  if (/^completed$/i.test(text)) return 'Completed';
+  return null;
+}
+
+function extractRestoreTargetName(message = '') {
+  const text = String(message || '').trim();
+  const dashPart = text.match(/[-–—]\s*(.+)$/)?.[1];
+  if (dashPart) return cleanRestoreTargetName(dashPart);
+
+  const phrasePart = text.match(/\b(?:mistakenly\s+(?:i\s+)?completed|completed\s+(?:\w+\s+){0,4}?by\s+mistake|wrong\s+checklist\s+completed|restore\s+checklist|undo\s+completed|completed\s+accidentally)\b(?:\s+(?:this|the|my|checklist|task))*\s*(.+)$/i)?.[1];
+  return cleanRestoreTargetName(phrasePart || '');
+}
+
+function cleanRestoreTargetName(value = '') {
+  const cleaned = String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\b(?:checklist|task|status|please|this|the|my)\b/ig, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || null;
+}
+
+async function findRestoreTarget({ userId, targetType, targetName, slots }) {
+  if (targetType === 'task') {
+    if (slots?.selectedTaskId || slots?.lastCreatedTaskId) {
+      const task = await Task.findById(slots.selectedTaskId || slots.lastCreatedTaskId);
+      if (task) return { id: task.id, title: task.taskTitle || task.task_title, status: task.status || 'Completed' };
+    }
+    if (!targetName) return null;
+    const tasks = await Task.findAll({}, userId);
+    const match = bestMatch(targetName, tasks, (task) => task.taskTitle || task.task_title || '');
+    return match ? { id: match.item.id, title: match.item.taskTitle || match.item.task_title, status: match.item.status || 'Completed' } : null;
+  }
+
+  const checklist = await checklistAdapter.getChecklistDetail(userId, {
+    checklistId: slots?.selectedChecklistId && !targetName ? slots.selectedChecklistId : undefined,
+    name: targetName || slots?.selectedChecklistName,
+  });
+  return checklist ? { id: checklist.id, name: checklist.name, status: checklist.status || 'Completed' } : null;
+}
+
+function restoreStatusQuickActions() {
+  return [
+    { label: 'Pending', prompt: 'Pending' },
+    { label: 'In Progress', prompt: 'In Progress' },
+    { label: 'Hold', prompt: 'Hold' },
+  ];
+}
+
+function formatRestoreStatusCompleteText({ targetType, result = {}, fallbackName, fallbackPreviousStatus }) {
+  if (!result.ok) return result.message || result.error || 'Status could not be updated.';
+  const label = targetType === 'task' ? 'Task' : 'Checklist';
+  const name = result.checklistName || (Array.isArray(result.titles) ? result.titles[0] : null) || fallbackName || label;
+  const previousStatus = result.previousStatus || fallbackPreviousStatus || 'Completed';
+  const currentStatus = result.newStatus || result.status || 'Not Available';
+  return [
+    `${label} "${name}" status changed successfully.`,
+    '',
+    `Previous Status: ${previousStatus}`,
+    `Current Status: ${currentStatus}`,
+  ].join('\n');
+}
+
 /**
  * Trim tool results sent back to the LLM to keep token usage bounded.
  * Drops `slot` (orchestrator-only metadata) and limits arrays to 15 items.
@@ -347,6 +601,14 @@ function safeForLLM(result) {
 
 function normalizeCreateToolCallsForMessage(toolCalls = [], message = '') {
   if (!Array.isArray(toolCalls) || !toolCalls.length) return [];
+  const checklistStatusArgs = extractChecklistStatusUpdateArgs(message);
+  if (checklistStatusArgs) {
+    return normalizeChecklistStatusUpdateCalls(toolCalls, checklistStatusArgs);
+  }
+  const taskPriorityArgs = extractTaskPriorityUpdateArgs(message);
+  if (taskPriorityArgs) {
+    return normalizeTaskPriorityUpdateCalls(toolCalls, taskPriorityArgs);
+  }
   const taskFieldUpdateArgs = extractTaskFieldUpdateArgs(message);
   if (taskFieldUpdateArgs) {
     return normalizeTaskFieldUpdateCalls(toolCalls, taskFieldUpdateArgs);
@@ -366,6 +628,50 @@ function normalizeCreateToolCallsForMessage(toolCalls = [], message = '') {
 
   const taskNormalizedCalls = normalizeFreshTaskCreateCalls(toolCalls, message);
   return taskNormalizedCalls;
+}
+
+function normalizeChecklistStatusUpdateCalls(toolCalls = [], statusArgs = {}) {
+  const keptCalls = toolCalls.filter((call) => ![
+    'updateTaskStatus',
+    'updateChecklistStatus',
+    'createTask',
+    'createChecklist',
+  ].includes(call.name));
+
+  const originalCall = toolCalls.find((call) => [
+    'updateTaskStatus',
+    'updateChecklistStatus',
+    'createTask',
+    'createChecklist',
+  ].includes(call.name));
+
+  return keptCalls.concat({
+    id: originalCall?.id || `normalized_${randomUUID()}`,
+    name: 'updateChecklistStatus',
+    args: statusArgs,
+  });
+}
+
+function normalizeTaskPriorityUpdateCalls(toolCalls = [], priorityArgs = {}) {
+  const keptCalls = toolCalls.filter((call) => ![
+    'getMyTasks',
+    'updateTaskPriority',
+    'updateTaskStatus',
+    'createTask',
+  ].includes(call.name));
+
+  const originalCall = toolCalls.find((call) => [
+    'getMyTasks',
+    'updateTaskPriority',
+    'updateTaskStatus',
+    'createTask',
+  ].includes(call.name));
+
+  return keptCalls.concat({
+    id: originalCall?.id || `normalized_${randomUUID()}`,
+    name: 'updateTaskPriority',
+    args: priorityArgs,
+  });
 }
 
 function isTaskTitleUpdateMessage(message = '') {
@@ -778,6 +1084,14 @@ function buildTaskFallbackCall(message) {
     const taskTitle = extractDeleteTaskTitle(message);
     return { name: 'deleteTask', args: taskTitle ? { taskTitle } : {} };
   }
+  const checklistStatusArgs = extractChecklistStatusUpdateArgs(message);
+  if (checklistStatusArgs) {
+    return { name: 'updateChecklistStatus', args: checklistStatusArgs };
+  }
+  const taskPriorityArgs = extractTaskPriorityUpdateArgs(message);
+  if (taskPriorityArgs) {
+    return { name: 'updateTaskPriority', args: taskPriorityArgs };
+  }
   const fieldUpdateArgs = extractTaskFieldUpdateArgs(message);
   if (fieldUpdateArgs?.dueDate) {
     return { name: 'updateTaskDueDate', args: { taskTitle: fieldUpdateArgs.taskTitle, dueDate: fieldUpdateArgs.dueDate } };
@@ -872,6 +1186,50 @@ function extractTaskTitleUpdateArgs(message = '') {
   return null;
 }
 
+function extractChecklistStatusUpdateArgs(message = '') {
+  const text = String(message || '').replace(/\s+/g, ' ').trim();
+  if (!text || !/\bchecklists?\b/i.test(text)) return null;
+  if (!/\b(update|change|set|mark)\b/i.test(text)) return null;
+
+  const status = normalizeTaskStatus(
+    text.match(/\bstatus\s+(?:into|to|as|is)\s+(complete|completed|pending|in progress|hold|on hold)\b/i)?.[1]
+      || text.match(/\bmark\s+(?:it|checklist|this\s+checklist)?\s*(?:as)?\s*(complete|completed|pending|in progress|hold|on hold)\b/i)?.[1]
+  );
+  if (!status) return null;
+
+  const name = cleanChecklistStatusName(
+    text.match(/^(.+?)\s+(?:this\s+is\s+my\s+checklist|this\s+checklist|my\s+checklist|checklist)\s+(?:(?:can\s+you|please)\s+)?(?:update|change|set|mark)\b/i)?.[1]
+      || text.match(/\bchecklist\s+(?:name|title)\s+(?:is|:)\s+(.+?)(?=\s+\b(?:update|change|set|mark|status)\b|$)/i)?.[1]
+      || text.match(/\b(?:update|change|set|mark)\s+(?:my\s+)?checklist\s+(.+?)\s+status\b/i)?.[1]
+  );
+
+  const args = { status };
+  if (name) args.name = name;
+  return args;
+}
+
+function extractTaskPriorityUpdateArgs(message = '') {
+  const text = String(message || '').replace(/\s+/g, ' ').trim();
+  if (!text || !/\btasks?\b/i.test(text) || !/\bpriority\b/i.test(text)) return null;
+  if (!/\b(update|change|set|mark)\b/i.test(text)) return null;
+
+  const priority = normalizeTaskPriority(
+    text.match(/\bpriority\s+(?:into|to|as|is)\s+(hight|high|medium|low|urgent|important|normal)\b/i)?.[1]
+      || text.match(/\b(?:make|set|change|update)\s+(?:it|task|this\s+task)?\s*(?:as|to)?\s*(hight|high|medium|low|urgent|important|normal)\s+priority\b/i)?.[1]
+  );
+  if (!priority) return null;
+
+  const taskTitle = cleanTaskPriorityTitle(
+    text.match(/\btask\s+(?:title|tile)\s+(?:is|:)\s+(.+?)(?=\s+\b(?:priority|and|also|please|can\s+you|update|change|set|mark)\b|$)/i)?.[1]
+      || text.match(/^(.+?)\s+this\s+is\s+(?:my\s+)?task\b/i)?.[1]
+      || text.match(/\b(?:update|change|set|mark)\s+(?:my\s+)?task\s+(.+?)\s+priority\b/i)?.[1]
+  );
+
+  const args = { priority };
+  if (taskTitle) args.taskTitle = taskTitle;
+  return args;
+}
+
 function extractTaskFieldUpdateArgs(message = '') {
   const text = String(message || '').replace(/\s+/g, ' ').trim();
   if (!text || !/\b(change|update|edit|set|move)\b/i.test(text)) return null;
@@ -939,6 +1297,34 @@ function cleanTaskFieldPart(value = '') {
     .replace(/\b(?:also|and)\s+(?:change|update|set)\b.*$/i, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function cleanChecklistStatusName(value = '') {
+  const cleaned = String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\b(?:please|update|change|set|mark|my|this|the|checklist|status)\b/ig, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || null;
+}
+
+function cleanTaskPriorityTitle(value = '') {
+  const cleaned = String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\b(?:please|update|change|set|mark|my|this|the|priority)\b/ig, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || null;
+}
+
+function normalizeTaskPriority(value = '') {
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'high' || text === 'hight' || text === 'urgent' || text === 'important') return 'High';
+  if (text === 'medium' || text === 'normal') return 'Medium';
+  if (text === 'low') return 'Low';
+  return null;
 }
 
 function normalizeTaskStatus(value = '') {
@@ -1254,6 +1640,14 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
     const updateResult = (toolResults || []).find((tr) => tr.name === 'updateTaskStatus')?.result;
     if (updateResult) return formatUpdateTaskStatusText(updateResult);
   }
+  if (tools.includes('updateTaskPriority')) {
+    const updateResult = (toolResults || []).find((tr) => tr.name === 'updateTaskPriority')?.result;
+    if (updateResult) return formatUpdateTaskPriorityText(updateResult);
+  }
+  if (tools.includes('updateChecklistStatus')) {
+    const updateResult = (toolResults || []).find((tr) => tr.name === 'updateChecklistStatus')?.result;
+    if (updateResult) return formatRestoreStatusCompleteText({ targetType: 'checklist', result: updateResult });
+  }
   if (tools.includes('updateTaskTitle')) {
     const updateResult = (toolResults || []).find((tr) => tr.name === 'updateTaskTitle')?.result;
     if (updateResult) return formatUpdateTaskTitleText(updateResult);
@@ -1505,6 +1899,17 @@ function formatUpdateTaskStatusText(result = {}) {
   ].join('\n');
 }
 
+function formatUpdateTaskPriorityText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Task priority could not be updated.';
+  const s = result.summary || {};
+  return [
+    `Task "${valueOrNA(s.title)}" priority changed successfully.`,
+    '',
+    `Previous Priority: ${valueOrNA(s.previousPriority)}`,
+    `Current Priority: ${valueOrNA(s.priority)}`,
+  ].join('\n');
+}
+
 function formatCombinedTaskUpdateText(toolResults = []) {
   const titleResult = toolResults.find((tr) => tr.name === 'updateTaskTitle')?.result;
   const dueDateResult = toolResults.find((tr) => tr.name === 'updateTaskDueDate')?.result;
@@ -1612,6 +2017,17 @@ async function runStream({ message, user, sessionId }, callbacks) {
     const slots = session.context_json || {};
     stage('loadSession', tSession);
     log.debug('session loaded', { sessionId: sid, slotKeys: Object.keys(slots) });
+
+    const restoreEnvelope = await handleRestoreStatusTurn({
+      pre,
+      user,
+      userId,
+      sid,
+      slots,
+      requestId,
+      callbacks: { onDelta, onToolCall, onToolResult, onDone },
+    });
+    if (restoreEnvelope) return restoreEnvelope;
 
     const tBuild = Date.now();
     const history = await sessionStore.loadHistory(sid, HISTORY_WINDOW);

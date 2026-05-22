@@ -151,6 +151,267 @@ test('orchestrator: delete checklist phrase does not delete task', async () => {
   }
 });
 
+test('orchestrator: accidental checklist completion asks for restore status without delete', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      { content: 'provider should not be used', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const db = require('../../../config/db.config');
+  const originalQuery = db.query;
+  const restoreMirror = patchLegacyMirror();
+  const queries = [];
+  db.query = async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM checklist c/i.test(sql)) {
+      return {
+        rows: [
+          { id: 44, question: 'ERP Validation Work', status: 'Completed' },
+        ],
+      };
+    }
+    return { rows: [] };
+  };
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  let deleteTaskCalled = false;
+  let deleteChecklistCalled = false;
+  const restoreTask = patchRegistry('deleteTask', async () => {
+    deleteTaskCalled = true;
+    return { ok: true };
+  });
+  const restoreChecklist = patchRegistry('deleteChecklist', async () => {
+    deleteChecklistCalled = true;
+    return { ok: true };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'Mistakenly I completed this checklist - ERP Validation Work',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+
+    assert.equal(deleteTaskCalled, false);
+    assert.equal(deleteChecklistCalled, false);
+    assert.equal(envelope.intent, 'restoreStatus');
+    assert.match(envelope.text, /No problem 😊 I can change the status back for you\./);
+    assert.match(envelope.text, /Checklist: ERP Validation Work/);
+    assert.match(envelope.text, /Current Status: Completed/);
+    assert.deepEqual(envelope.quickActions.map((action) => action.label), ['Pending', 'In Progress', 'Hold']);
+    assert.equal(session.slots.pendingAction, 'restoreStatus');
+    assert.equal(session.slots.targetType, 'checklist');
+    assert.equal(session.slots.targetId, 44);
+    assert.equal(queries.some((query) => /DELETE FROM checklist/i.test(query.sql)), false);
+  } finally {
+    restoreChecklist();
+    restoreTask();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+    db.query = originalQuery;
+  }
+});
+
+test('orchestrator: restore status selection updates checklist status', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      { content: 'provider should not be used', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const db = require('../../../config/db.config');
+  const originalQuery = db.query;
+  const restoreMirror = patchLegacyMirror();
+  const queries = [];
+  db.query = async (sql, params) => {
+    queries.push({ sql, params });
+    if (/SELECT id, question, status/i.test(sql)) {
+      return {
+        rows: [
+          { id: 44, question: 'ERP Validation Work', status: 'Completed' },
+        ],
+      };
+    }
+    if (/UPDATE checklist/i.test(sql)) {
+      return {
+        rows: [
+          { id: 44, question: 'ERP Validation Work', status: 'Pending' },
+        ],
+      };
+    }
+    return { rows: [] };
+  };
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  Object.assign(session.slots, {
+    pendingAction: 'restoreStatus',
+    targetType: 'checklist',
+    targetId: 44,
+    targetName: 'ERP Validation Work',
+    previousStatus: 'Completed',
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'Pending',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(envelope.toolsInvoked, ['updateChecklistStatus']);
+    assert.equal(envelope.intent, 'restoreStatus');
+    assert.equal(envelope.text, [
+      'Checklist "ERP Validation Work" status changed successfully.',
+      '',
+      'Previous Status: Completed',
+      'Current Status: Pending',
+    ].join('\n'));
+    const updateQuery = queries.find((query) => /UPDATE checklist/i.test(query.sql));
+    assert.ok(updateQuery);
+    assert.deepEqual(updateQuery.params.slice(0, 3), ['Pending', null, 44]);
+    assert.equal(session.slots.pendingAction, null);
+  } finally {
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+    db.query = originalQuery;
+  }
+});
+
+test('orchestrator: checklist status update is not routed to task status', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'status_1', name: 'updateTaskStatus', args: { status: 'Completed' } }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const db = require('../../../config/db.config');
+  const originalQuery = db.query;
+  const restoreMirror = patchLegacyMirror();
+  const queries = [];
+  db.query = async (sql, params) => {
+    queries.push({ sql, params });
+    if (/SELECT id, question, status/i.test(sql)) {
+      return {
+        rows: [
+          { id: 44, question: 'Test Login Functionality', status: 'Pending' },
+        ],
+      };
+    }
+    if (/UPDATE checklist/i.test(sql)) {
+      return {
+        rows: [
+          { id: 44, question: 'Test Login Functionality', status: 'Completed' },
+        ],
+      };
+    }
+    return { rows: [] };
+  };
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  let taskStatusCalled = false;
+  const restoreTaskStatus = patchRegistry('updateTaskStatus', async () => {
+    taskStatusCalled = true;
+    return { ok: true };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'Test Login Functionality this is my checklist can you change the status into complete',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+
+    assert.equal(taskStatusCalled, false);
+    assert.deepEqual(envelope.toolsInvoked, ['updateChecklistStatus']);
+    assert.equal(envelope.text, [
+      'Checklist "Test Login Functionality" status changed successfully.',
+      '',
+      'Previous Status: Pending',
+      'Current Status: Completed',
+    ].join('\n'));
+    const updateQuery = queries.find((query) => /UPDATE checklist/i.test(query.sql));
+    assert.ok(updateQuery);
+    assert.equal(updateQuery.params[0], 'Completed');
+    assert.ok(updateQuery.params[1] instanceof Date);
+    assert.equal(updateQuery.params[2], 44);
+  } finally {
+    restoreTaskStatus();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+    db.query = originalQuery;
+  }
+});
+
+test('orchestrator: task priority update is not routed to task listing', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'list_1', name: 'getMyTasks', args: { priority: 'High' } }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  let taskPriorityArgs;
+  let getMyTasksCalled = false;
+  const restorePriority = patchRegistry('updateTaskPriority', async (args) => {
+    taskPriorityArgs = args;
+    return {
+      ok: true,
+      summary: {
+        title: 'task',
+        previousPriority: 'Low',
+        priority: 'High',
+      },
+    };
+  });
+  const restoreGetMyTasks = patchRegistry('getMyTasks', async () => {
+    getMyTasksCalled = true;
+    return { ok: true, tasks: [] };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'can you change the priority for my task task tile is task priority into hight',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+
+    assert.equal(getMyTasksCalled, false);
+    assert.deepEqual(envelope.toolsInvoked, ['updateTaskPriority']);
+    assert.deepEqual(taskPriorityArgs, { priority: 'High', taskTitle: 'task' });
+    assert.equal(envelope.text, [
+      'Task "task" priority changed successfully.',
+      '',
+      'Previous Priority: Low',
+      'Current Priority: High',
+    ].join('\n'));
+  } finally {
+    restoreGetMyTasks();
+    restorePriority();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
 test('orchestrator: things-to-complete prompt creates checklist only', async () => {
   const provider = mockProvider({
     scriptedResponses: [

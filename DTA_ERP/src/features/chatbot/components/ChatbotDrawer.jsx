@@ -72,6 +72,12 @@ const ChatbotDrawer = () => {
     if (isOpen && showHistory) dispatch(loadSessions());
   }, [isOpen, showHistory, dispatch]);
 
+  useEffect(() => {
+    if (isOpen && sessionId && messages.length === 0) {
+      dispatch(loadHistory(sessionId));
+    }
+  }, [isOpen, sessionId, messages.length, dispatch]);
+
   const handleSendMessage = (message) => {
     if (!message) return;
     dispatch(sendMessageStream(message));

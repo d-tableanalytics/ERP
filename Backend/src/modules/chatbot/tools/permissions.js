@@ -21,6 +21,8 @@ const TOOL_ROLES = Object.freeze({
   createTask: 'any',
   createChecklist: 'any',
   updateTaskStatus: 'any',
+  updateTaskPriority: 'any',
+  updateChecklistStatus: 'any',
   updateTaskDueDate: 'any',
   updateTaskTitle: 'any',
   updateTaskLoopUsers: 'any',

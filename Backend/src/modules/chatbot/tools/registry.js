@@ -24,6 +24,8 @@ const HANDLERS = {
   createTask:             require('./handlers/createTask'),
   createChecklist:        require('./handlers/createChecklist'),
   updateTaskStatus:       require('./handlers/updateTaskStatus'),
+  updateTaskPriority:     require('./handlers/updateTaskPriority'),
+  updateChecklistStatus:  require('./handlers/updateChecklistStatus'),
   updateTaskDueDate:      require('./handlers/updateTaskDueDate'),
   updateTaskTitle:        require('./handlers/updateTaskTitle'),
   updateTaskLoopUsers:    require('./handlers/updateTaskLoopUsers'),

@@ -23,6 +23,7 @@ const IntentType = Object.freeze({
   REFUSAL: 'refusal',
   TASK_UPDATE: 'task_update',
   TASK_DELETE: 'task_delete',
+  RESTORE_STATUS: 'restoreStatus',
   UNKNOWN: 'unknown',
 });
 
@@ -45,6 +46,9 @@ const TOOL_TO_INTENT = {
   getHelpGuidance: IntentType.GUIDANCE,
   createTask: IntentType.TASK_CREATE,
   updateTaskStatus: IntentType.TASK_UPDATE,
+  updateTaskPriority: IntentType.TASK_UPDATE,
+  updateChecklistStatus: IntentType.RESTORE_STATUS,
+  restoreStatus: IntentType.RESTORE_STATUS,
   updateTaskDueDate: IntentType.TASK_UPDATE,
   updateTaskTitle: IntentType.TASK_UPDATE,
   updateTaskLoopUsers: IntentType.TASK_UPDATE,

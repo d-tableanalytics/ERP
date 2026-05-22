@@ -42,7 +42,34 @@ async function insert(row) {
       latencyMs,
     ]
   );
+  await touchSession(sessionId, role === 'user' ? content : null);
   return rows[0];
+}
+
+async function touchSession(sessionId, titleSource = null) {
+  if (!sessionId) return;
+  const title = buildTitle(titleSource);
+  if (title) {
+    await db.query(
+      `UPDATE chatbot_sessions
+          SET last_activity = NOW(),
+              title = COALESCE(NULLIF(title, ''), $2)
+        WHERE session_id = $1`,
+      [sessionId, title]
+    );
+    return;
+  }
+
+  await db.query(
+    `UPDATE chatbot_sessions SET last_activity = NOW() WHERE session_id = $1`,
+    [sessionId]
+  );
+}
+
+function buildTitle(value = '') {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  return text.length > 48 ? `${text.slice(0, 45).trim()}...` : text;
 }
 
 async function listRecent(sessionId, limit = 20) {

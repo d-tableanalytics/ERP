@@ -297,6 +297,49 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     role: 'any',
     function: {
+      name: 'updateTaskPriority',
+      description: [
+        'Update the priority of an existing task by task ID or title.',
+        'Use this when the user says to change/update/set task priority.',
+        'Priority values are High, Medium, and Low. Map typos like "hight" to High.',
+        'Do NOT list tasks for priority update requests.',
+      ].join(' '),
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'integer', description: 'The exact task ID to update.' },
+          taskTitle: { type: 'string', description: 'Task title or exact title fragment.' },
+          priority: { type: 'string', enum: ['High', 'Medium', 'Low'], description: 'The new priority.' },
+        },
+        required: ['priority'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateChecklistStatus',
+      description: [
+        'Update the status of an existing checklist by checklist ID or name.',
+        'Use this when the user selects a new status after saying a checklist was completed by mistake.',
+        'Do NOT delete the checklist for accidental completion, restore, undo, or revert wording.',
+      ].join(' '),
+      parameters: {
+        type: 'object',
+        properties: {
+          checklistId: { type: 'integer', description: 'The exact checklist ID to update.' },
+          name: { type: 'string', description: 'Checklist name or fragment.' },
+          status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Hold'], description: 'The new checklist status.' },
+        },
+        required: ['status'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
       name: 'updateTaskLoopUsers',
       description: [
         'Add one or more users to the "in loop" (CC / watcher) list of an EXISTING task.',
