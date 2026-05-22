@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import chatbotApi from '../services/chatbotApi';
 
 /**
  * ChatInput Component - Input field for sending messages
@@ -33,13 +34,24 @@ const ChatInput = ({ onSendMessage, disabled }) => {
           className="w-full pl-4 pr-12 py-3 text-sm border border-border-main rounded-xl bg-bg-main text-text-main placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all disabled:opacity-50"
           maxLength={500}
         />
-        <button
-          type="submit"
-          disabled={!message.trim() || disabled}
-          className="absolute right-1.5 p-2 bg-primary text-white rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-30 disabled:grayscale transition-all"
-        >
-          <span className="material-symbols-outlined text-lg">send</span>
-        </button>
+        {disabled ? (
+          <button
+            type="button"
+            onClick={() => chatbotApi.abortStream()}
+            className="absolute right-1.5 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 transition-all"
+            title="Stop"
+          >
+            <span className="material-symbols-outlined text-lg">stop</span>
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!message.trim()}
+            className="absolute right-1.5 p-2 bg-primary text-white rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-30 disabled:grayscale transition-all"
+          >
+            <span className="material-symbols-outlined text-lg">send</span>
+          </button>
+        )}
       </div>
       <p className="text-[9px] text-text-muted mt-2 px-1 flex justify-between">
         <span>Max 500 characters</span>

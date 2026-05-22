@@ -227,21 +227,24 @@ const chatbotSlice = createSlice({
       const env = a.payload.envelope || {};
       // Real error details may live in any of these fields depending on the
       // failure layer (fetch-level vs. orchestrator-level vs. fallback).
-      const reason =
-        env.error?.message ||
-        env.message ||
-        env.text ||
-        'Stream failed';
+      const rawReason = env.error?.message || env.message || env.text || 'Stream failed';
+      const isAbort = (env.error && env.error.code === 'ABORT') || /abort(ed)?/i.test(rawReason);
+
+      // Friendly messaging for user-initiated aborts
+      const displayText = isAbort ? (env.text || 'Stopped') : (env.text || `Sorry — ${rawReason}`);
+
       const msg = s.messages.find((m) => m.id === a.payload.id);
       if (msg) {
         msg.streaming = false;
-        msg.text = env.text || `Sorry — ${reason}`;
-        msg.error = true;
+        msg.text = displayText;
+        msg.error = !isAbort;
         msg.timestamp = normalizeTimestamp(env.timestamp) || msg.timestamp;
       }
-      s.error = reason;
+
+      // Only set global error for genuine failures (not for user aborts)
+      s.error = isAbort ? null : rawReason;
       // Helpful debug breadcrumb in the browser console
-      console.error('[chatbot] failMessage', { reason, envelope: env });
+      console.error('[chatbot] failMessage', { reason: rawReason, aborted: isAbort, envelope: env });
     },
     updateMessageTimestamp: (s, a) => {
       const timestamp = normalizeTimestamp(a.payload?.timestamp);

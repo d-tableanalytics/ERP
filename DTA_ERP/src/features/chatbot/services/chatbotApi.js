@@ -84,6 +84,8 @@ class ChatbotApi {
     }
 
     const controller = new AbortController();
+    // Expose controller so callers (UI) can abort the current stream.
+    this._currentController = controller;
     let finalEnvelope = null;
     let eventCount = 0;
 
@@ -150,6 +152,9 @@ class ChatbotApi {
         ms: Math.round(performance.now() - t0),
       });
 
+      // Clear current controller when done
+      this._currentController = null;
+
       if (!finalEnvelope) {
         handlers.onError?.({ success: false, message: 'Stream ended without a final envelope' });
       }
@@ -157,6 +162,13 @@ class ChatbotApi {
     } catch (err) {
       if (err.name === 'AbortError') {
         console.warn('[chatbot.api] stream aborted');
+        // Notify handlers so UI can update appropriately (show stopped state)
+        handlers.onError?.({
+          success: false,
+          message: 'Stream aborted by user',
+          error: { code: 'ABORT', message: err.message || 'Aborted' },
+        });
+        this._currentController = null;
         return null;
       }
       console.error('[chatbot.api] stream failed', {
@@ -171,6 +183,20 @@ class ChatbotApi {
         error: { code: err.status || 'STREAM_ERROR', message: err.message },
       });
       throw err;
+    }
+  }
+
+  /**
+   * Abort the currently active stream request, if any.
+   */
+  abortStream() {
+    try {
+      if (this._currentController) {
+        this._currentController.abort();
+        this._currentController = null;
+      }
+    } catch (e) {
+      // noop
     }
   }
 
