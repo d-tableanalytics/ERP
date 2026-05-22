@@ -9,6 +9,7 @@ import {
   clearError,
   loadHistory,
   loadSessions,
+  deleteSession,
 } from '../store/chatbotSlice';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
@@ -104,6 +105,11 @@ const ChatbotDrawer = () => {
     if (!nextSessionId || nextSessionId === sessionId) return;
     dispatch(loadHistory(nextSessionId));
   };
+  const handleDeleteSession = (event, nextSessionId) => {
+    event.stopPropagation();
+    if (!nextSessionId) return;
+    dispatch(deleteSession(nextSessionId));
+  };
 
   // The bot bubble is created lazily on the first delta/card/done. So while we're
   // still waiting, the last message is the user's turn - show typing indicator.
@@ -148,21 +154,35 @@ const ChatbotDrawer = () => {
                 <p className="px-1 py-2 text-[11px] text-text-muted">No chats yet</p>
               ) : (
                 sessions.map((session) => (
-                  <button
+                  <div
                     key={session.session_id}
-                    onClick={() => handleOpenSession(session.session_id)}
-                    className={`w-full rounded-lg px-2 py-2 text-left transition-colors ${
+                    className={`group flex w-full items-center gap-1 rounded-lg px-2 py-2 transition-colors ${
                       session.session_id === sessionId
                         ? 'bg-primary/10 text-primary'
                         : 'text-text-main hover:bg-bg-card'
                     }`}
-                    title={sessionLabel(session)}
                   >
-                    <span className="block truncate text-xs font-medium">{sessionLabel(session)}</span>
-                    <span className="block text-[10px] text-text-muted mt-0.5">
-                      {formatSessionTime(session.last_activity || session.created_at)}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenSession(session.session_id)}
+                      className="min-w-0 flex-1 text-left"
+                      title={sessionLabel(session)}
+                    >
+                      <span className="block truncate text-xs font-medium">{sessionLabel(session)}</span>
+                      <span className="block text-[10px] text-text-muted mt-0.5">
+                        {formatSessionTime(session.last_activity || session.created_at)}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => handleDeleteSession(event, session.session_id)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted opacity-0 transition-all hover:bg-red-50 hover:text-red-600 focus:opacity-100 group-hover:opacity-100"
+                      title="Delete chat"
+                      aria-label={`Delete ${sessionLabel(session)}`}
+                    >
+                      <span className="material-symbols-outlined text-base">delete</span>
+                    </button>
+                  </div>
                 ))
               )}
             </div>

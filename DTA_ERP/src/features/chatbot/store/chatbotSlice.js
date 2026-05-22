@@ -149,6 +149,18 @@ export const loadSessions = createAsyncThunk(
   }
 );
 
+export const deleteSession = createAsyncThunk(
+  'chatbot/deleteSession',
+  async (sessionId, { rejectWithValue }) => {
+    try {
+      await chatbotApi.clearSessionRemote(sessionId);
+      return sessionId;
+    } catch (e) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
 const initialState = {
   messages: [],
   isOpen: false,
@@ -229,7 +241,6 @@ const chatbotSlice = createSlice({
       }
       s.error = reason;
       // Helpful debug breadcrumb in the browser console
-      // eslint-disable-next-line no-console
       console.error('[chatbot] failMessage', { reason, envelope: env });
     },
     updateMessageTimestamp: (s, a) => {
@@ -265,7 +276,18 @@ const chatbotSlice = createSlice({
         s.isLoadingSessions = false;
         s.sessions = a.payload?.sessions || [];
       })
-      .addCase(loadSessions.rejected, (s) => { s.isLoadingSessions = false; });
+      .addCase(loadSessions.rejected, (s) => { s.isLoadingSessions = false; })
+      .addCase(deleteSession.fulfilled, (s, a) => {
+        const deletedSessionId = a.payload;
+        s.sessions = s.sessions.filter((session) => session.session_id !== deletedSessionId);
+        if (s.sessionId === deletedSessionId) {
+          s.messages = [];
+          s.sessionId = null;
+        }
+      })
+      .addCase(deleteSession.rejected, (s, a) => {
+        s.error = a.payload || 'Failed to delete chat';
+      });
   },
 });
 
