@@ -65,7 +65,11 @@ const ChatbotDrawer = () => {
   useEffect(() => () => { if (error) dispatch(clearError()); }, [error, dispatch]);
 
   useEffect(() => {
-    if (isChatbotRoute && !isOpen) dispatch(openChatbot());
+    if (isChatbotRoute && !isOpen) {
+      // Start a fresh chat when navigating to /chatbot (like ChatGPT's new chat)
+      dispatch(resetSession());
+      dispatch(openChatbot());
+    }
   }, [dispatch, isChatbotRoute, isOpen]);
 
   useEffect(() => {
@@ -84,12 +88,10 @@ const ChatbotDrawer = () => {
   };
 
   const handleOpen = () => {
+    // Always reset session when opening the drawer to start a new chat by default
+    dispatch(resetSession());
     dispatch(openChatbot());
-    if (!isChatbotRoute) {
-      navigate('/chatbot', {
-        state: { from: `${location.pathname}${location.search}${location.hash}` },
-      });
-    }
+    // Do not navigate to a different route; open inline for instant UX.
   };
 
   const handleClose = () => {
