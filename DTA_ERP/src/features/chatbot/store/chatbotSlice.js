@@ -149,6 +149,32 @@ export const loadSessions = createAsyncThunk(
   }
 );
 
+export const loadSharedChat = createAsyncThunk(
+  'chatbot/loadSharedChat',
+  async (shareToken, { rejectWithValue }) => {
+    try {
+      return await chatbotApi.loadSharedChat(shareToken);
+    } catch (e) {
+      const status = e?.response?.status;
+      const message = e?.response?.data?.message || e.message || 'Failed to load shared chat';
+      return rejectWithValue({ status, message });
+    }
+  }
+);
+
+export const createShareLink = createAsyncThunk(
+  'chatbot/createShareLink',
+  async (sessionId, { rejectWithValue }) => {
+    try {
+      return await chatbotApi.createShareLink(sessionId);
+    } catch (e) {
+      const status = e?.response?.status;
+      const message = e?.response?.data?.message || e.message || 'Failed to create share link';
+      return rejectWithValue({ status, message });
+    }
+  }
+);
+
 export const deleteSession = createAsyncThunk(
   'chatbot/deleteSession',
   async (sessionId, { rejectWithValue }) => {
@@ -169,6 +195,10 @@ const initialState = {
   sessionId: chatbotApi.getSessionId() || null,
   sessions: [],
   isLoadingSessions: false,
+  isLoadingSharedChat: false,
+  sharedChatError: null,
+  sharedChatStatus: null,
+  isSharedChat: false,
 };
 
 const chatbotSlice = createSlice({
@@ -189,6 +219,9 @@ const chatbotSlice = createSlice({
     resetSession: (s) => {
       s.messages = [];
       s.sessionId = null;
+      s.isSharedChat = false;
+      s.sharedChatError = null;
+      s.sharedChatStatus = null;
       chatbotApi.clearSession();
     },
     appendDelta: (s, a) => {
@@ -258,8 +291,15 @@ const chatbotSlice = createSlice({
       .addCase(sendMessageStream.pending, (s) => { s.isTyping = true; s.error = null; })
       .addCase(sendMessageStream.fulfilled, (s) => { s.isTyping = false; })
       .addCase(sendMessageStream.rejected, (s, a) => { s.isTyping = false; s.error = a.payload || 'Failed'; })
+      .addCase(loadHistory.pending, (s) => {
+        s.error = null;
+        s.sharedChatError = null;
+      })
       .addCase(loadHistory.fulfilled, (s, a) => {
         const rows = a.payload?.messages || [];
+        s.isSharedChat = false;
+        s.sharedChatError = null;
+        s.sharedChatStatus = null;
         s.messages = rows
           .filter((r) => r.role === 'user' || r.role === 'assistant')
           .map((r, i) => ({
@@ -274,12 +314,51 @@ const chatbotSlice = createSlice({
           chatbotApi.setSessionId(a.payload.sessionId);
         }
       })
+      .addCase(loadHistory.rejected, (s, a) => {
+        s.messages = [];
+        s.sessionId = null;
+        s.error = a.payload || 'Chat not found';
+      })
       .addCase(loadSessions.pending, (s) => { s.isLoadingSessions = true; })
       .addCase(loadSessions.fulfilled, (s, a) => {
         s.isLoadingSessions = false;
         s.sessions = a.payload?.sessions || [];
       })
       .addCase(loadSessions.rejected, (s) => { s.isLoadingSessions = false; })
+      .addCase(loadSharedChat.pending, (s) => {
+        s.isLoadingSharedChat = true;
+        s.sharedChatError = null;
+        s.sharedChatStatus = null;
+        s.isSharedChat = true;
+        s.messages = [];
+      })
+      .addCase(loadSharedChat.fulfilled, (s, a) => {
+        const rows = a.payload?.messages || [];
+        s.isLoadingSharedChat = false;
+        s.isSharedChat = true;
+        s.sharedChatError = null;
+        s.sharedChatStatus = null;
+        s.messages = rows
+          .filter((r) => r.role === 'user' || r.role === 'assistant')
+          .map((r, i) => ({
+            id: `sh-${r.id || i}`,
+            text: r.content || '',
+            sender: r.role === 'user' ? 'user' : 'bot',
+            timestamp: normalizeTimestamp(r.created_at),
+            intent: r.intent,
+          }));
+        if (a.payload?.session?.session_id) {
+          s.sessionId = a.payload.session.session_id;
+        }
+      })
+      .addCase(loadSharedChat.rejected, (s, a) => {
+        const payload = a.payload || {};
+        s.isLoadingSharedChat = false;
+        s.isSharedChat = true;
+        s.sharedChatStatus = payload.status || null;
+        s.sharedChatError = sharedChatDisplayMessage(payload);
+        s.messages = [];
+      })
       .addCase(deleteSession.fulfilled, (s, a) => {
         const deletedSessionId = a.payload;
         s.sessions = s.sessions.filter((session) => session.session_id !== deletedSessionId);
@@ -342,4 +421,13 @@ function normalizeTimestamp(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function sharedChatDisplayMessage(payload = {}) {
+  const message = String(payload.message || '').toLowerCase();
+  if (payload.status === 403) return 'Access denied';
+  if (message.includes('expired')) return 'Shared chat link expired';
+  if (payload.status === 404) return 'Shared chat not found';
+  if (payload.status === 401) return 'Please login to view this shared chat';
+  return payload.message || 'Shared chat not found';
 }

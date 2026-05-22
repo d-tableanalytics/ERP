@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import {
   openChatbot,
   closeChatbot,
@@ -10,6 +11,8 @@ import {
   loadHistory,
   loadSessions,
   deleteSession,
+  loadSharedChat,
+  createShareLink,
 } from '../store/chatbotSlice';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
@@ -51,10 +54,22 @@ const ChatbotDrawer = () => {
     sessionId,
     sessions,
     isLoadingSessions,
+    isLoadingSharedChat,
+    sharedChatError,
+    isSharedChat,
   } = useSelector((s) => s.chatbot);
+  const { token } = useSelector((s) => s.auth);
   const messagesEndRef = useRef(null);
+  const loadedSessionRef = useRef(null);
+  const loadedShareTokenRef = useRef(null);
+  const justCreatedShareTokenRef = useRef(null);
   const [showHistory, setShowHistory] = useState(false);
-  const isChatbotRoute = location.pathname === '/chatbot';
+  const isErpGptHome = location.pathname === '/erpgpt' || location.pathname === '/chatbot';
+  const sessionMatch = location.pathname.match(/^\/erpgpt\/c\/([^/]+)$/);
+  const routeSessionId = sessionMatch ? decodeURIComponent(sessionMatch[1]) : null;
+  const shareMatch = location.pathname.match(/^\/erpgpt\/share\/([^/]+)$/);
+  const shareToken = shareMatch ? decodeURIComponent(shareMatch[1]) : null;
+  const isErpGptRoute = isErpGptHome || !!routeSessionId || !!shareToken;
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -65,43 +80,76 @@ const ChatbotDrawer = () => {
   useEffect(() => () => { if (error) dispatch(clearError()); }, [error, dispatch]);
 
   useEffect(() => {
-    if (isChatbotRoute && !isOpen) {
-      // Start a fresh chat when navigating to /chatbot (like ChatGPT's new chat)
+    if (isErpGptHome && (!isOpen || isSharedChat)) {
+      // Start a fresh chat when navigating to /erpgpt (like ChatGPT's new chat).
       dispatch(resetSession());
       dispatch(openChatbot());
     }
-  }, [dispatch, isChatbotRoute, isOpen]);
+  }, [dispatch, isErpGptHome, isOpen, isSharedChat]);
+
+  useEffect(() => {
+    if (!routeSessionId) return;
+    if (!isOpen) dispatch(openChatbot());
+    if (loadedSessionRef.current === routeSessionId && sessionId === routeSessionId) return;
+    loadedSessionRef.current = routeSessionId;
+    setShowHistory(false);
+    dispatch(loadHistory(routeSessionId));
+  }, [dispatch, routeSessionId, sessionId, isOpen]);
+
+  useEffect(() => {
+    if (!shareToken || !token) return;
+    if (!isOpen) dispatch(openChatbot());
+    if (justCreatedShareTokenRef.current === shareToken) {
+      justCreatedShareTokenRef.current = null;
+      loadedShareTokenRef.current = shareToken;
+      return;
+    }
+    if (loadedShareTokenRef.current === shareToken) return;
+    loadedShareTokenRef.current = shareToken;
+    setShowHistory(false);
+    dispatch(loadSharedChat(shareToken));
+  }, [dispatch, shareToken, token, isOpen]);
 
   useEffect(() => {
     if (isOpen && showHistory) dispatch(loadSessions());
   }, [isOpen, showHistory, dispatch]);
 
   useEffect(() => {
-    if (isOpen && sessionId && messages.length === 0) {
+    if (isOpen && sessionId && messages.length === 0 && !routeSessionId && !isSharedChat) {
       dispatch(loadHistory(sessionId));
     }
-  }, [isOpen, sessionId, messages.length, dispatch]);
+  }, [isOpen, sessionId, messages.length, routeSessionId, isSharedChat, dispatch]);
 
   const handleSendMessage = (message) => {
     if (!message) return;
-    dispatch(sendMessageStream(message));
+    if (isSharedChat) return;
+    dispatch(sendMessageStream(message))
+      .unwrap()
+      .then((envelope) => {
+        if (envelope?.sessionId && location.pathname !== `/erpgpt/c/${envelope.sessionId}`) {
+          navigate(`/erpgpt/c/${envelope.sessionId}`, { replace: location.pathname === '/erpgpt' });
+        }
+      })
+      .catch(() => {});
   };
 
   const handleOpen = () => {
     // Always reset session when opening the drawer to start a new chat by default
     dispatch(resetSession());
     dispatch(openChatbot());
-    // Do not navigate to a different route; open inline for instant UX.
+    navigate('/erpgpt');
   };
 
   const handleClose = () => {
     dispatch(closeChatbot());
-    if (isChatbotRoute) {
+    if (isErpGptRoute) {
       navigate(location.state?.from || '/dashboard', { replace: true });
     }
   };
   const handleNewChat = () => {
     dispatch(resetSession());
+    loadedSessionRef.current = null;
+    navigate('/erpgpt');
     if (showHistory) dispatch(loadSessions());
   };
   const handleToggleHistory = () => {
@@ -111,7 +159,7 @@ const ChatbotDrawer = () => {
   };
   const handleOpenSession = (nextSessionId) => {
     if (!nextSessionId || nextSessionId === sessionId) return;
-    dispatch(loadHistory(nextSessionId));
+    navigate(`/erpgpt/c/${nextSessionId}`);
   };
   const handleDeleteSession = (event, nextSessionId) => {
     event.stopPropagation();
@@ -125,6 +173,29 @@ const ChatbotDrawer = () => {
   const lastMsg = messages[messages.length - 1];
   const noBotBubbleYet = !lastMsg || lastMsg.sender === 'user';
   const showTyping = isTyping && noBotBubbleYet;
+
+  const handleShareChat = async () => {
+    if (!sessionId) return;
+    try {
+      const data = await dispatch(createShareLink(sessionId)).unwrap();
+      const nextShareToken = data?.shareToken;
+      if (!nextShareToken) throw new Error('Share token was not returned');
+
+      const sharePath = `/erpgpt/share/${nextShareToken}`;
+      const shareUrl = new URL(sharePath, window.location.origin).toString();
+      justCreatedShareTokenRef.current = nextShareToken;
+      navigate(sharePath);
+
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Share link copied');
+      } catch (_) {
+        toast.success('Share link ready');
+      }
+    } catch (err) {
+      toast.error(err?.message || 'Could not create share link');
+    }
+  };
 
   return (
     <>
@@ -213,6 +284,17 @@ const ChatbotDrawer = () => {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {token && (
+                <button
+                  onClick={handleShareChat}
+                  disabled={!sessionId || isSharedChat}
+                  className="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all disabled:opacity-40 disabled:hover:text-text-muted disabled:hover:bg-transparent"
+                  title={isSharedChat ? 'Shared chats are read-only' : 'Share chat'}
+                  aria-label="Share chat"
+                >
+                  <span className="material-symbols-outlined text-xl">ios_share</span>
+                </button>
+              )}
               <button
                 onClick={handleToggleHistory}
                 className="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
@@ -241,7 +323,19 @@ const ChatbotDrawer = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar bg-bg-card/50">
-            {messages.length === 0 ? (
+            {isLoadingSharedChat ? (
+              <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
+                <span className="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
+                <p className="text-sm font-semibold text-text-main">Loading shared chat...</p>
+              </div>
+            ) : sharedChatError ? (
+              <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
+                <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center">
+                  <span className="material-symbols-outlined text-3xl text-red-500">lock</span>
+                </div>
+                <p className="text-sm font-semibold text-text-main">{sharedChatError}</p>
+              </div>
+            ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
                 <div className="w-16 h-16 bg-primary/5 rounded-3xl flex items-center justify-center mb-2">
                   <span className="material-symbols-outlined text-4xl text-primary/40">chat_bubble</span>
@@ -289,7 +383,14 @@ const ChatbotDrawer = () => {
           )}
 
           <div className="chatbot-input-container">
-            <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} />
+            {isSharedChat ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border-main bg-bg-card px-3 py-2 text-xs text-text-muted">
+                <span className="material-symbols-outlined text-base">visibility</span>
+                Shared chat is read-only.
+              </div>
+            ) : (
+              <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} />
+            )}
           </div>
         </div>
       </div>

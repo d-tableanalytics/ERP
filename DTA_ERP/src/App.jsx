@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LoginPage from "./pages/Login/LoginPage";
@@ -42,7 +43,15 @@ const Notifications   = lazy(() => import("./pages/Notifications/Notifications")
 
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
-  return token ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+  const message = location.pathname.startsWith("/erpgpt/share/")
+    || location.pathname.startsWith("/chatbot/share/")
+    ? "Please login to view this shared chat"
+    : undefined;
+
+  return token
+    ? children
+    : <Navigate to="/login" replace state={{ from: location, message }} />;
 };
 
 const LoadingFallback = () => (
@@ -172,9 +181,37 @@ function App() {
           <Route
             path="/chatbot"
             element={
+              <Navigate to="/erpgpt" replace />
+            }
+          />
+          <Route
+            path="/erpgpt"
+            element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/erpgpt/c/:sessionId"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/erpgpt/share/:shareToken"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chatbot/share/:shareToken"
+            element={
+              <Navigate to={(window.location.pathname || '').replace('/chatbot/share/', '/erpgpt/share/')} replace />
             }
           />
           <Route

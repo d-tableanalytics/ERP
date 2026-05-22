@@ -104,6 +104,19 @@ async function listForUser(userId, sessionId = null, limit = 50, offset = 0) {
   return rows;
 }
 
+async function listForSession(sessionId, limit = 200, offset = 0) {
+  const { rows } = await db.query(
+    `SELECT id, role, content, intent, created_at AT TIME ZONE 'UTC' AS created_at
+       FROM chatbot_messages
+      WHERE session_id = $1
+        AND role IN ('user', 'assistant')
+      ORDER BY created_at ASC, id ASC
+      LIMIT $2 OFFSET $3`,
+    [sessionId, limit, offset]
+  );
+  return rows;
+}
+
 async function listForUserByRange(userId, from, to, limit = 200) {
   const { rows } = await db.query(
     `SELECT id, session_id, role, content, intent, created_at AT TIME ZONE 'UTC' AS created_at
@@ -119,4 +132,4 @@ async function listForUserByRange(userId, from, to, limit = 200) {
   return rows;
 }
 
-module.exports = { insert, listRecent, listForUser, listForUserByRange };
+module.exports = { insert, listRecent, listForUser, listForSession, listForUserByRange };

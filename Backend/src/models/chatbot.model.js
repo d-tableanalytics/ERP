@@ -4,6 +4,7 @@ const { pool } = require("../config/db.config");
  * Create chatbot conversations table (legacy log) + the v2 tables:
  *   - chatbot_sessions   : one row per conversation thread (slot context in JSONB)
  *   - chatbot_messages   : turn-by-turn log (user/assistant/tool)
+ *   - chatbot_share_links: private member-only share tokens for sessions
  *   - chatbot_knowledge  : structured KB with tsvector for full-text search
  *
  * All statements are idempotent — safe to re-run on every boot.
@@ -65,6 +66,25 @@ const createChatbotConversationsTable = async () => {
       );
       CREATE INDEX IF NOT EXISTS idx_chatbot_messages_session
         ON chatbot_messages (session_id, created_at);
+    `);
+
+    // v2: private share links. Only a hash of the URL token is stored.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chatbot_share_links (
+        id           SERIAL PRIMARY KEY,
+        share_hash   VARCHAR(64) NOT NULL UNIQUE,
+        session_id   UUID NOT NULL REFERENCES chatbot_sessions(session_id) ON DELETE CASCADE,
+        created_by   INTEGER NOT NULL REFERENCES employees(user_id) ON DELETE CASCADE,
+        is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+        expires_at   TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+        revoked_at   TIMESTAMP,
+        created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_chatbot_share_links_session
+        ON chatbot_share_links (session_id, created_by);
+      CREATE INDEX IF NOT EXISTS idx_chatbot_share_links_active
+        ON chatbot_share_links (share_hash, is_active, expires_at);
     `);
 
     // v2: knowledge base with generated tsvector column

@@ -209,6 +209,23 @@ class ChatbotApi {
     return data;
   }
 
+  async createShareLink(sessionId) {
+    if (!sessionId) throw new Error('No chat selected to share');
+    const { data } = await api.post(`/chatbot/chats/${sessionId}/share`);
+    return data;
+  }
+
+  async loadSharedChat(shareToken) {
+    const { data } = await api.get(`/chatbot/share/${shareToken}`);
+    return data;
+  }
+
+  async revokeShareLink(sessionId) {
+    if (!sessionId) return;
+    const { data } = await api.delete(`/chatbot/chats/${sessionId}/share`);
+    return data;
+  }
+
   /**
    * List the user's sessions.
    */

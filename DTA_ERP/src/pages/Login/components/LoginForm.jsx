@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { loginUser, clearError } from "../../../store/slices/authSlice";
-import { useNavigate } from "react-router-dom";
+import { loginUser } from "../../../store/slices/authSlice";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const LoginForm = ({ selectedModule }) => {
   const [email, setEmail] = useState("");
@@ -9,7 +9,14 @@ const LoginForm = ({ selectedModule }) => {
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isLoading, error, token } = useSelector((state) => state.auth);
+  const loginMessage = location.state?.message;
+  const redirectParam = new URLSearchParams(location.search).get("redirect");
+  const rawRedirectPath = location.state?.from
+    ? `${location.state.from.pathname || "/dashboard"}${location.state.from.search || ""}`
+    : redirectParam || "/dashboard";
+  const redirectPath = rawRedirectPath.startsWith("/") ? rawRedirectPath : "/dashboard";
 
   useEffect(() => {
     if (token) {
@@ -19,9 +26,9 @@ const LoginForm = ({ selectedModule }) => {
       } else {
         localStorage.removeItem("selectedModule");
       }
-      navigate("/dashboard", { replace: true });
+      navigate(redirectPath, { replace: true });
     }
-  }, [token, navigate, selectedModule]);
+  }, [token, navigate, selectedModule, redirectPath]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -59,6 +66,12 @@ const LoginForm = ({ selectedModule }) => {
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
             <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+
+        {loginMessage && !error && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">{loginMessage}</span>
           </div>
         )}
 
