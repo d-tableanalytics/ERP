@@ -6,5 +6,30 @@ const runtimeOrigin =
     ? window.location.origin
     : "";
 
-export const API_BASE_URL = (envApiUrl || runtimeOrigin || "http://localhost:5000").replace(/\/+$/, "");
+const runtimeHostname =
+  typeof window !== "undefined" && window.location?.hostname
+    ? window.location.hostname
+    : "";
+
+function isLoopbackHostname(hostname) {
+  return ["localhost", "127.0.0.1", "::1"].includes(hostname);
+}
+
+function isLoopbackUrl(url) {
+  try {
+    return isLoopbackHostname(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+const shouldIgnoreEnvApiUrl =
+  envApiUrl &&
+  runtimeHostname &&
+  !isLoopbackHostname(runtimeHostname) &&
+  isLoopbackUrl(envApiUrl);
+
+export const API_BASE_URL = (
+  shouldIgnoreEnvApiUrl ? runtimeOrigin : envApiUrl || runtimeOrigin || "http://localhost:5000"
+).replace(/\/+$/, "");
 
