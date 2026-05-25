@@ -84,7 +84,7 @@ jobs:
             rm -f /tmp/backend.tar.gz &&
             cd \"\$BACKEND_DIR\" &&
             if [ ! -f .env ]; then
-              echo \"Missing backend .env at \$BACKEND_DIR/.env\"
+              echo \"Missing backend .env at \$BACKEND_DIR/.env. Create this file directly on the server before deploying.\"
               exit 1
             fi &&
             sudo npm ci --omit=dev &&
