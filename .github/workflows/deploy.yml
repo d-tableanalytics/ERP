@@ -89,7 +89,7 @@ jobs:
             fi &&
             sudo npm ci --omit=dev &&
             if [ -n '${BACKEND_RESTART_COMMAND}' ]; then
-              ${BACKEND_RESTART_COMMAND}
+              eval '${BACKEND_RESTART_COMMAND}'
             elif command -v pm2 >/dev/null 2>&1; then
               if pm2 describe erp-backend >/dev/null 2>&1; then
                 pm2 restart erp-backend --update-env
