@@ -1,4 +1,4 @@
-name: Deploy ERP Frontend
+name: Deploy ERP
 
 on:
   push:
@@ -37,6 +37,15 @@ jobs:
       - name: Create archive
         run: tar -czf dist.tar.gz dist
 
+      - name: Create backend archive
+        working-directory: .
+        run: |
+          tar \
+            --exclude='Backend/node_modules' \
+            --exclude='Backend/.env' \
+            --exclude='Backend/*.log' \
+            -czf backend.tar.gz Backend
+
       - name: Setup SSH
         working-directory: .
         run: |
@@ -48,16 +57,50 @@ jobs:
       - name: Upload archive to server
         run: scp dist.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dist.tar.gz
 
+      - name: Upload backend archive to server
+        working-directory: .
+        run: scp backend.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/backend.tar.gz
+
       - name: Deploy on server
         working-directory: .
+        env:
+          SERVER_BACKEND_DIR: ${{ secrets.SERVER_BACKEND_DIR }}
+          BACKEND_RESTART_COMMAND: ${{ secrets.BACKEND_RESTART_COMMAND }}
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+            set -e
+            BACKEND_DIR='${SERVER_BACKEND_DIR:-/var/www/erp-backend}'
+
             sudo mkdir -p /var/www/erp &&
             sudo rm -rf /var/www/erp/* &&
             sudo tar -xzf /tmp/dist.tar.gz -C /var/www/erp --strip-components=1 &&
             rm -f /tmp/dist.tar.gz &&
             sudo chown -R www-data:www-data /var/www/erp &&
             sudo chmod -R 755 /var/www/erp &&
+
+            sudo mkdir -p \"\$BACKEND_DIR\" &&
+            sudo find \"\$BACKEND_DIR\" -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} + &&
+            sudo tar -xzf /tmp/backend.tar.gz -C \"\$BACKEND_DIR\" --strip-components=1 &&
+            rm -f /tmp/backend.tar.gz &&
+            cd \"\$BACKEND_DIR\" &&
+            if [ ! -f .env ]; then
+              echo \"Missing backend .env at \$BACKEND_DIR/.env\"
+              exit 1
+            fi &&
+            sudo npm ci --omit=dev &&
+            if [ -n '${BACKEND_RESTART_COMMAND}' ]; then
+              ${BACKEND_RESTART_COMMAND}
+            elif command -v pm2 >/dev/null 2>&1; then
+              if pm2 describe erp-backend >/dev/null 2>&1; then
+                pm2 restart erp-backend --update-env
+              else
+                pm2 start Index.js --name erp-backend
+              fi
+              pm2 save || true
+            else
+              sudo systemctl restart erp-backend
+            fi &&
+
             sudo nginx -t &&
             sudo systemctl reload nginx
           "
