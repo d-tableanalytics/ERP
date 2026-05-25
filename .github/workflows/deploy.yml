@@ -69,7 +69,7 @@ jobs:
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
             set -e
-            BACKEND_DIR='${SERVER_BACKEND_DIR:-/var/www/erp-backend}'
+            BACKEND_DIR='${SERVER_BACKEND_DIR:-/home/ubuntu/ERP/Backend}'
 
             sudo mkdir -p /var/www/erp &&
             sudo rm -rf /var/www/erp/* &&
