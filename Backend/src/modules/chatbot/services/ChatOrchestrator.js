@@ -73,6 +73,13 @@ async function run({ message, user, sessionId }) {
     slotKeys: Object.keys(slots),
   });
 
+  const deterministicEnvelope = await handleDeterministicPreToolTurn({
+    pre,
+    userId,
+    sid,
+  });
+  if (deterministicEnvelope) return deterministicEnvelope;
+
   const restoreEnvelope = await handleRestoreStatusTurn({
     pre,
     user,
@@ -328,6 +335,104 @@ async function runToolLoop({ provider, messages, tools, user, slots, userMessage
   return { toolCallsAll, toolResults, finalContent, usage, hops };
 }
 
+async function handleDeterministicPreToolTurn({ pre, userId, sid, callbacks = {} }) {
+  const greetingText = buildCasualGreetingResponse(pre.original || pre.normalized);
+  if (greetingText) {
+    return persistDeterministicTurn({
+      pre,
+      userId,
+      sid,
+      text: greetingText,
+      toolCalls: [],
+      toolResults: [],
+      slotPatch: {},
+      quickActions: [],
+      responseType: ResponseType.GREETING,
+      callbacks,
+    });
+  }
+
+  if (isIncompleteChecklistCreationRequest(pre.original || pre.normalized)) {
+    return persistDeterministicTurn({
+      pre,
+      userId,
+      sid,
+      text: checklistCreationFollowUpText(),
+      toolCalls: [],
+      toolResults: [],
+      slotPatch: { lastEntity: 'checklist' },
+      quickActions: [],
+      responseType: ResponseType.CLARIFY,
+      callbacks,
+    });
+  }
+
+  return null;
+}
+
+function buildCasualGreetingResponse(message = '') {
+  const text = String(message || '').replace(/\s+/g, ' ').trim();
+  const lower = text.toLowerCase();
+  if (!text || hasActionableErpIntent(lower)) return null;
+
+  const isGreeting =
+    /\b(hello|hi|hey|good\s+(?:morning|afternoon|evening)|how\s+are\s+you|how\s+r\s+u|kaise\s+ho|kya\s+hal\s+hai|kya\s+haal\s+hai|kya\s+haal|kya\s+hal)\b/i.test(text);
+  if (!isGreeting) return null;
+
+  const relatedName = extractGreetingRelatedName(text);
+  if (relatedName) {
+    return `Main theek hoon 😊 ${relatedName} ke related task, attendance, checklist ya dashboard dekhna ho to batao.`;
+  }
+
+  if (/\b(kya\s+hal|kya\s+haal|kaise\s+ho)\b/i.test(text)) {
+    return 'Main theek hoon 😊 Aap task, checklist, attendance ya dashboard ke liye bol sakte ho.';
+  }
+
+  return "Hello, I'm good 😊 How can I help you with tasks, checklists, attendance, or dashboard today?";
+}
+
+function hasActionableErpIntent(message = '') {
+  return /\b(show|list|get|view|create|add|make|delete|remove|update|change|mark|assign|delegate|dashboard|tasks?|checklists?|attendance|tickets?|overdue|pending|completed)\b/i.test(message);
+}
+
+function extractGreetingRelatedName(message = '') {
+  const match = message.match(/\b(?:baji|bhai|for|of|about|related\s+to)\s+([A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*){0,2})\b/i);
+  if (!match?.[1]) return null;
+  const name = match[1]
+    .replace(/\b(?:task|attendance|checklist|dashboard)\b/ig, '')
+    .trim();
+  return name ? toTitleCase(name) : null;
+}
+
+function isIncompleteChecklistCreationRequest(message = '') {
+  if (!isChecklistOnlyCreate(message)) return false;
+  const args = buildCreateChecklistArgsFromMessage(message);
+  return !hasEnoughChecklistCreateInfo(args);
+}
+
+function hasEnoughChecklistCreateInfo(args = {}) {
+  const hasPurpose = !!String(args.question || '').trim();
+  const hasItems = Array.isArray(args.checklistItems) && args.checklistItems.length > 0;
+  return hasPurpose && hasItems;
+}
+
+function checklistCreationFollowUpText() {
+  return [
+    'Sure 😊 Please share checklist details:',
+    '- Checklist title',
+    '- Assigned to',
+    '- Due date',
+    '- Priority',
+    '- Checklist items',
+    '',
+    'Example:',
+    'Create ERP testing checklist assigned to Aashu due tomorrow high priority:',
+    '- Check login',
+    '- Test dashboard',
+    '- Verify notifications',
+  ].join('\n');
+}
+
 function mergeUsage(a, b) {
   const out = { ...(a || {}) };
   for (const k of ['prompt_tokens', 'completion_tokens', 'total_tokens']) {
@@ -434,7 +539,7 @@ async function completeRestoreStatusTurn({ pre, user, userId, sid, slots, reques
   });
 }
 
-async function persistDeterministicTurn({ pre, userId, sid, text, toolCalls, toolResults, slotPatch, quickActions, callbacks = {} }) {
+async function persistDeterministicTurn({ pre, userId, sid, text, toolCalls, toolResults, slotPatch, quickActions, responseType = ResponseType.TEXT, callbacks = {} }) {
   const userMsg = await sessionStore.logTurn({
     sessionId: sid,
     userId,
@@ -476,7 +581,7 @@ async function persistDeterministicTurn({ pre, userId, sid, text, toolCalls, too
     toolCalls,
     toolResults,
     suppressCards: true,
-    responseType: ResponseType.TEXT,
+    responseType,
     verbosity: 'medium',
     sessionId: sid,
     messageId: assistantMsg?.id || null,
@@ -809,6 +914,12 @@ function buildDeleteChecklistArgsFromMessage(message = '') {
 function normalizeChecklistOnlyCreateCalls(toolCalls = [], message = '') {
   const extractedArgs = buildCreateChecklistArgsFromMessage(message);
   const keptCalls = toolCalls.filter((call) => call.name !== 'createTask');
+  const existingChecklistCall = keptCalls.find((call) => call.name === 'createChecklist');
+  const previewArgs = mergeCreateChecklistArgs(existingChecklistCall?.args || {}, extractedArgs);
+
+  if (!hasEnoughChecklistCreateInfo(previewArgs)) {
+    return keptCalls.filter((call) => call.name !== 'createChecklist');
+  }
 
   if (keptCalls.some((call) => call.name === 'createChecklist')) {
     return keptCalls.map((call) => {
@@ -823,7 +934,7 @@ function normalizeChecklistOnlyCreateCalls(toolCalls = [], message = '') {
   const taskCall = toolCalls.find((call) => call.name === 'createTask');
   const taskArgs = buildChecklistCallFromTaskCall(taskCall, message)[0]?.args || {};
   const createArgs = mergeCreateChecklistArgs(taskArgs, extractedArgs);
-  if (!createArgs?.question) return keptCalls;
+  if (!hasEnoughChecklistCreateInfo(createArgs)) return keptCalls;
 
   return keptCalls.concat({
     id: taskCall?.id || `normalized_${randomUUID()}`,
@@ -985,8 +1096,8 @@ function extractFreshTaskTitle(message = '') {
 function isChecklistOnlyCreate(message) {
   const msg = String(message || '').toLowerCase();
   const hasChecklistItems = isChecklistItemListMessage(message);
-  const asksChecklist = /\b(create|add|make)\b.*\bchecklists?\b/.test(msg)
-    || /\bchecklists?\b.*\b(create|add|make)\b/.test(msg)
+  const asksChecklist = /\b(create|add|make|ban[a-z]*|banao|banana|karo)\b.*\bchecklists?\b/.test(msg)
+    || /\bchecklists?\b.*\b(create|add|make|ban[a-z]*|banao|banana|karo)\b/.test(msg)
     || hasChecklistItems;
   if (!asksChecklist) return false;
   const asksSeparateTask = /\bcreate\b.*\btask\b.*\b(create|add|make)\b.*\bchecklists?\b/.test(msg)
@@ -1380,7 +1491,8 @@ function buildChecklistFallbackCall(message) {
   const original = String(message || '').trim();
   const msg = original.toLowerCase();
   const isChecklistCreate =
-    /\b(create|add|make)\b.*\bchecklist\b/.test(msg) ||
+    /\b(create|add|make|ban[a-z]*|banao|banana|karo)\b.*\bchecklist\b/.test(msg) ||
+    /\bchecklist\b.*\b(create|add|make|ban[a-z]*|banao|banana|karo)\b/.test(msg) ||
     isChecklistItemListMessage(original) ||
     /\bremind me\b.*\b(check|test|verify)\b/.test(msg) ||
     /\bneed to\b.*\b(test|check|verify)\b.*\b(including|include)\b/.test(msg);
@@ -1476,6 +1588,18 @@ function extractChecklistItems(message = '') {
     .filter(Boolean);
   if (inlineBulletItems.length) return [...new Set(inlineBulletItems)];
 
+  const explicitItems = text.match(/\b(?:with\s+items?|items?|checklist\s+items?)\s*:?\s*([\s\S]+)$/i)?.[1] || '';
+  if (explicitItems) {
+    const cleanedItems = explicitItems
+      .replace(/\b(?:assigned\s+to|assign\s+to|for)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\b/ig, '')
+      .replace(/\b(?:due|by|before)\s+(?:today|tomorrow|[^,.;]+?)(?=\s+(?:high|medium|low|priority|with|items?\b)|[,.;]|$)/ig, '')
+      .replace(/\b(?:high|medium|low)\s+priority\b/ig, '')
+      .split(/\r?\n|;|\u2022|,(?=\s*(?:and\s+)?[A-Za-z])|\s+\band\s+/i)
+      .map((item) => cleanChecklistItem(item))
+      .filter(Boolean);
+    if (cleanedItems.length) return [...new Set(cleanedItems)];
+  }
+
   const afterColon = text.match(/\b(?:checklist|items?)\b[^:\n]*:\s*([\s\S]+)$/i)?.[1] || '';
   const source = afterColon || text;
   const stopCleaned = source
@@ -1504,11 +1628,12 @@ function cleanChecklistItem(item = '') {
 
 function extractChecklistTitle(message = '', checklistItems = []) {
   const text = String(message || '').trim();
+  const createTitle = text.match(/\b(?:create|add|make)\s+(?:a\s+|an\s+|ek\s+)?(.+?)\s+checklists?\b/i)?.[1];
   const asked = text.match(/\b(?:i\s+asked|asked|i\s+told|told|ask)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+to\s+(.+?)(?:\b(?:before|by|due|today|tomorrow|keep|create\s+(?:a\s+)?checklist|checklist|items?)\b|[.!?]|$)/i)?.[1];
   const pendingContext = text.match(/\bmentioned\s+that\s+([A-Za-z][A-Za-z\s]{2,80}?)\s+is\s+still\s+pending(?:\s+before\b|\s+for\b|[.!?]|$)/i)?.[1]
     || text.match(/\b([A-Za-z][A-Za-z\s]{2,80}?)\s+is\s+still\s+pending(?:\s+before\b|\s+for\b|[.!?]|$)/i)?.[1];
   const quoted = text.match(/"([^"]+)"/)?.[1];
-  const raw = pendingContext || asked || quoted || (checklistItems.length ? checklistItems[0] : null);
+  const raw = pendingContext || asked || quoted || createTitle || (checklistItems.length ? checklistItems[0] : null);
   if (!raw) return null;
 
   const cleaned = cleanChecklistTitle(raw);
@@ -1792,7 +1917,7 @@ function formatDuplicateTaskText(result = {}) {
 }
 
 function formatCreateChecklistText(result = {}) {
-  if (!result.ok) return result.error || 'Checklist could not be created.';
+  if (!result.ok) return friendlyChecklistError(result.error || result.message);
   if (result.duplicate) {
     const title = result.summary?.question;
     return title
@@ -1817,6 +1942,27 @@ function formatCreateChecklistText(result = {}) {
   }
 
   return lines.join('\n').replace(/\u00e2\u2013\u00a1/g, '\u25a1');
+}
+
+function friendlyChecklistError(error = '') {
+  const text = String(error || '').trim();
+  if (/\bquestion is required\b|\btitle is required\b/i.test(text)) {
+    return 'Please tell me what checklist you want to create and include checklist items.';
+  }
+  if (/\bitems? (?:are|is) required\b|\bchecklistItems is required\b/i.test(text)) {
+    return 'Please include at least one checklist item.';
+  }
+  if (/\bassignee is required\b|\bassigned user is required\b/i.test(text)) {
+    return 'Please mention who this checklist should be assigned to.';
+  }
+  if (/\bdue date is required\b|\bfrom date is required\b/i.test(text)) {
+    return 'Please mention the checklist due date.';
+  }
+  if (!text) return 'Checklist could not be created. Please share the checklist title and items.';
+  if (/\bis required\b/i.test(text)) {
+    return 'Please share the missing checklist details: title, assigned to, due date, priority, and checklist items.';
+  }
+  return text;
 }
 
 function addLineIfValue(lines, label, value) {
@@ -2017,6 +2163,14 @@ async function runStream({ message, user, sessionId }, callbacks) {
     const slots = session.context_json || {};
     stage('loadSession', tSession);
     log.debug('session loaded', { sessionId: sid, slotKeys: Object.keys(slots) });
+
+    const deterministicEnvelope = await handleDeterministicPreToolTurn({
+      pre,
+      userId,
+      sid,
+      callbacks: { onDelta, onDone },
+    });
+    if (deterministicEnvelope) return deterministicEnvelope;
 
     const restoreEnvelope = await handleRestoreStatusTurn({
       pre,

@@ -1,0 +1,32 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+Connected to the Neon Database
+Employees table ensured in database
+Delegation tables ensured in database
+Departments table ensured in database
+Checklist tables ensured in database
+Help Ticket tables ensured in database
+Kanban ToDo table ensured in database
+Help Ticket Config & Holidays tables ensured in database
+Locations table ensured in database
+Attendance table ensured in database
+Advance applications table ready
+Expense Master table ensured in database
+Expense Days table ensured in database
+Onboarding Master table ensured in database
+Interview table created successfully
+🌱 Creating Tables + Seeding Dummy Data...
+✅ Inventory Tables Created
+O2D Tables Ready ✅
+Scores table ensured in database
+✅ Chatbot v2 tables ready (conversations, sessions, messages, knowledge)
+{"ts":"2026-05-25T06:56:24.902Z","level":"info","scope":"chatbot","entries":14,"message":"Chatbot KB seeded"}
+Delegation extras tables ensured in database
+Action tracking migration applied automatically
+✅ Notifications table created or already exists
+Database synchronization complete
+Checklist automation cron job scheduled.
+Task automation cron job scheduled (00:05 AM daily).
+✅ Reminder cron job initialized
+Server is running on port 5000

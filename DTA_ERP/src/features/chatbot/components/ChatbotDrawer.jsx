@@ -114,12 +114,6 @@ const ChatbotDrawer = () => {
     if (isOpen && showHistory) dispatch(loadSessions());
   }, [isOpen, showHistory, dispatch]);
 
-  useEffect(() => {
-    if (isOpen && sessionId && messages.length === 0 && !routeSessionId && !isSharedChat) {
-      dispatch(loadHistory(sessionId));
-    }
-  }, [isOpen, sessionId, messages.length, routeSessionId, isSharedChat, dispatch]);
-
   const handleSendMessage = (message) => {
     if (!message) return;
     if (isSharedChat) return;

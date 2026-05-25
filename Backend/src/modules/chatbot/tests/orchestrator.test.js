@@ -215,6 +215,78 @@ test('orchestrator: accidental checklist completion asks for restore status with
   }
 });
 
+test('orchestrator: casual English and Hindi greetings are answered warmly without provider refusal', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      { content: 'provider should not be used', toolCalls: [], usage: {} },
+    ],
+  });
+  const restoreProvider = patchProvider(provider);
+  const restoreMirror = patchLegacyMirror();
+  const session = patchSessionStore();
+
+  try {
+    const english = await orchestrator.run({
+      message: 'hello how are you',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+    assert.match(english.text, /I'm good/);
+    assert.match(english.text, /tasks, checklists, attendance, or dashboard/i);
+    assert.doesNotMatch(english.text, /can only assist/i);
+
+    const hindi = await orchestrator.run({
+      message: 'kya hal hai baji Shashi Lal',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+    assert.match(hindi.text, /Main theek hoon/);
+    assert.match(hindi.text, /Shashi Lal ke related task/i);
+    assert.doesNotMatch(hindi.text, /can only assist/i);
+  } finally {
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: incomplete checklist creation asks follow-up and does not call tool', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      { content: null, toolCalls: [{ id: 'c1', name: 'createChecklist', args: {} }], usage: {} },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+  let createCalled = false;
+  const restoreProvider = patchProvider(provider);
+  const restoreMirror = patchLegacyMirror();
+  const session = patchSessionStore();
+  const restoreTool = patchRegistry('createChecklist', async () => {
+    createCalled = true;
+    return { ok: false, error: 'question is required' };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'can you create a checklist',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+
+    assert.equal(createCalled, false);
+    assert.deepEqual(envelope.toolsInvoked, []);
+    assert.match(envelope.text, /Please share checklist details/i);
+    assert.match(envelope.text, /Checklist title/i);
+    assert.match(envelope.text, /Example:/i);
+    assert.doesNotMatch(envelope.text, /question is required/i);
+  } finally {
+    restoreTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
 test('orchestrator: restore status selection updates checklist status', async () => {
   const provider = mockProvider({
     scriptedResponses: [
@@ -599,7 +671,7 @@ test('orchestrator: checklist creation extracts clean fields and compact respons
 test('orchestrator: duplicate checklist returns already exists message', async () => {
   const provider = mockProvider({
     scriptedResponses: [
-      { content: null, toolCalls: [{ id: 'c1', name: 'createChecklist', args: { question: 'ERP Validation Work' } }], usage: {} },
+      { content: null, toolCalls: [{ id: 'c1', name: 'createChecklist', args: { question: 'ERP Validation Work', checklistItems: ['Review login'] } }], usage: {} },
       { content: 'unused', toolCalls: [], usage: {} },
     ],
   });
@@ -616,7 +688,7 @@ test('orchestrator: duplicate checklist returns already exists message', async (
 
   try {
     const envelope = await orchestrator.run({
-      message: 'Create checklist for ERP validation work',
+      message: 'Create checklist for ERP validation work with items: review login',
       user: { user_id: 5, role: 'Employee', name: 'Test User' },
       sessionId: null,
     });

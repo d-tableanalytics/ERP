@@ -16,8 +16,10 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-    console.error('Unexpected error on idle client', err);
-    process.exit(-1);
+    console.error('Unexpected error on idle database client', {
+        code: err.code,
+        message: err.message,
+    });
 });
 
 // Safe retry wrapper for ENOTFOUND (DNS issues)
