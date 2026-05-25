@@ -91,14 +91,14 @@ jobs:
             if [ -n '${BACKEND_RESTART_COMMAND}' ]; then
               eval '${BACKEND_RESTART_COMMAND}'
             elif command -v pm2 >/dev/null 2>&1; then
-              if pm2 describe erp-backend >/dev/null 2>&1; then
-                pm2 restart erp-backend --update-env
+              if pm2 describe backend >/dev/null 2>&1; then
+                pm2 restart backend --update-env
               else
-                pm2 start Index.js --name erp-backend
+                pm2 start Index.js --name backend
               fi
               pm2 save || true
             else
-              sudo systemctl restart erp-backend
+              sudo systemctl restart backend
             fi &&
 
             sudo nginx -t &&
