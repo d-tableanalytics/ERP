@@ -2,6 +2,7 @@ const { Task } = require('../../../../models/task.model');
 const { validate } = require('../../validators/toolArgs');
 const { resolveUserId } = require('../../validators/permissions');
 const { bestMatch } = require('../../utils/fuzzy');
+const { formatDDMMYYYYWithOptionalTime } = require('../../utils/time');
 
 const schema = {
   taskId: { type: 'integer' },
@@ -72,7 +73,7 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
       targetTaskIds = pendingTasks.map(t => t.id);
   } else if (taskTitle) {
       const candidates = await Task.findAll({}, userId);
-      const m = bestMatch(taskTitle, candidates, (t) => t.taskTitle || t.task_title || '');
+      const m = resolveTaskTitleMatch(taskTitle, candidates);
       if (m) {
           targetTaskIds.push(m.item.id);
       } else {
@@ -81,7 +82,7 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
   } else if (Array.isArray(taskTitles) && taskTitles.length) {
       const candidates = await Task.findAll({}, userId);
       for (const title of taskTitles) {
-          const m = bestMatch(title, candidates, (t) => t.taskTitle || t.task_title || '');
+          const m = resolveTaskTitleMatch(title, candidates);
           if (m) targetTaskIds.push(m.item.id);
       }
       if (targetTaskIds.length === 0) {
@@ -99,6 +100,7 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
 
   // Update tasks
   const updatedTitles = [];
+  const summaries = [];
   for (const id of targetTaskIds) {
       const task = await Task.findById(id);
       if (!task) continue;
@@ -111,7 +113,16 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
       }
       
       await Task.update(id, updateData);
+      const confirmed = await Task.findById(id);
       updatedTitles.push(task.taskTitle || task.taskTitle || 'Task');
+      summaries.push({
+          title: confirmed?.taskTitle || task.taskTitle || task.task_title || 'Task',
+          dueDate: formatDDMMYYYYWithOptionalTime(confirmed?.dueDate || task.dueDate || task.due_date),
+          assignedTo: taskPersonName(confirmed, 'doer') || taskPersonName(task, 'doer'),
+          assignedBy: taskPersonName(confirmed, 'assigner') || taskPersonName(task, 'assigner'),
+          priority: confirmed?.priority || task.priority,
+          status: confirmed?.status || targetStatus,
+      });
   }
 
   if (updatedTitles.length === 0) {
@@ -123,6 +134,31 @@ module.exports = async function updateTaskStatus(args, user, ctx) {
       updatedCount: updatedTitles.length,
       titles: updatedTitles,
       newStatus: targetStatus,
+      summary: summaries.length === 1 ? summaries[0] : undefined,
+      summaries,
       slot: { lastEntity: 'task', lastStatus: targetStatus }
   };
 };
+
+function resolveTaskTitleMatch(taskTitle, candidates) {
+    const targetKey = normalizeText(taskTitle);
+    const exact = candidates.find((task) => normalizeText(task.taskTitle || task.task_title || '') === targetKey);
+    if (exact) return { item: exact, score: 1 };
+
+    const wordCount = targetKey.split(/\s+/).filter(Boolean).length;
+    if (wordCount <= 1) return null;
+
+    return bestMatch(taskTitle, candidates, (t) => t.taskTitle || t.task_title || '', 0.55);
+}
+
+function normalizeText(value = '') {
+    return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function taskPersonName(task, role) {
+    if (!task) return null;
+    const direct = role === 'assigner' ? task.assignerName : task.doerName;
+    const first = role === 'assigner' ? task.assignerFirstName : task.doerFirstName;
+    const last = role === 'assigner' ? task.assignerLastName : task.doerLastName;
+    return [first, last].filter(Boolean).join(' ').trim() || direct || null;
+}

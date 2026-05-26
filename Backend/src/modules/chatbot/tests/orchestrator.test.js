@@ -426,6 +426,572 @@ test('orchestrator: checklist status update is not routed to task status', async
   }
 });
 
+test('orchestrator: task status transition uses destination status', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'status_1', name: 'updateTaskStatus', args: { status: 'Pending' } }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  let statusArgs;
+  const restoreTaskStatus = patchRegistry('updateTaskStatus', async (args) => {
+    statusArgs = args;
+    return { ok: true, titles: ['onto'], newStatus: args.status };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'can you change the status is pending to complete',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(statusArgs, { status: 'Completed' });
+    assert.deepEqual(envelope.toolsInvoked, ['updateTaskStatus']);
+    assert.equal(envelope.text, [
+      'Task Status Updated',
+      '**Task Title:** onto',
+      '**New Status:** Completed',
+    ].join('\n'));
+  } finally {
+    restoreTaskStatus();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: combined task field update keeps short exact title', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'bad_1', name: 'updateTaskPriority', args: { taskTitle: 'debug now i want to', priority: 'High' } }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  const calls = [];
+  const restoreDueDate = patchRegistry('updateTaskDueDate', async (args) => {
+    calls.push({ name: 'updateTaskDueDate', args });
+    return {
+      ok: true,
+      summary: {
+        title: 'debug',
+        dueDate: '03/07/2026',
+        assignedTo: 'Aashu',
+        assignedBy: 'Bhumika Girhare',
+        priority: 'Low',
+        status: 'Pending',
+      },
+    };
+  });
+  const restoreStatus = patchRegistry('updateTaskStatus', async (args) => {
+    calls.push({ name: 'updateTaskStatus', args });
+    return { ok: true, titles: ['debug'], newStatus: args.status };
+  });
+  const restorePriority = patchRegistry('updateTaskPriority', async (args) => {
+    calls.push({ name: 'updateTaskPriority', args });
+    return { ok: true, summary: { title: 'debug', priority: args.priority, status: 'Completed' } };
+  });
+  const restoreLoopUsers = patchRegistry('updateTaskLoopUsers', async (args) => {
+    calls.push({ name: 'updateTaskLoopUsers', args });
+    return { ok: true, summary: { title: 'debug', assignedTo: 'Aashu', inLoop: 'Aashu' } };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'can you some feild in the task title is debug now i want to update due date priority status so duw date is 3/7/2026 priority is high status is complete in loop have aashu',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(calls.map((call) => call.name), ['updateTaskDueDate', 'updateTaskStatus', 'updateTaskPriority', 'updateTaskLoopUsers']);
+    assert.deepEqual(calls.map((call) => call.args.taskTitle), ['debug', 'debug', 'debug', 'debug']);
+    assert.equal(calls[0].args.dueDate, '3/7/2026');
+    assert.equal(calls[1].args.status, 'Completed');
+    assert.equal(calls[2].args.priority, 'High');
+    assert.deepEqual(calls[3].args.loopUsers, ['aashu']);
+    assert.match(envelope.text, /\*\*New Task Title:\*\* debug/);
+    assert.match(envelope.text, /\*\*Priority:\*\* High/);
+    assert.match(envelope.text, /\*\*In Loop:\*\* Aashu/);
+  } finally {
+    restoreLoopUsers();
+    restorePriority();
+    restoreStatus();
+    restoreDueDate();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: combined status and priority update keeps task details in response', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [
+          { id: 'status_1', name: 'updateTaskStatus', args: { status: 'Pending' } },
+          { id: 'priority_1', name: 'updateTaskPriority', args: { priority: 'Low' } },
+        ],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  session.slots.lastCreatedTaskId = 99;
+  session.slots.lastCreatedTaskTitle = 'newto';
+  const restoreMirror = patchLegacyMirror();
+  const restoreStatus = patchRegistry('updateTaskStatus', async (args) => ({
+    ok: true,
+    titles: ['newto'],
+    newStatus: args.status,
+    summary: {
+      title: 'newto',
+      dueDate: '08/07/2026',
+      assignedTo: 'Bhumika Girhare',
+      assignedBy: 'Bhumika Girhare',
+      priority: 'High',
+      status: args.status,
+    },
+  }));
+  const restorePriority = patchRegistry('updateTaskPriority', async (args) => ({
+    ok: true,
+    summary: {
+      title: 'newto',
+      dueDate: '08/07/2026',
+      assignedTo: 'Bhumika Girhare',
+      assignedBy: 'Bhumika Girhare',
+      priority: args.priority,
+      status: 'Pending',
+    },
+  }));
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'status change complete to pending and aslo priority is high to low',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(envelope.toolsInvoked, ['updateTaskStatus', 'updateTaskPriority']);
+    assert.equal(envelope.text, [
+      'Task Updated',
+      '**Old Task Title:** newto',
+      '**New Task Title:** newto',
+      '**New Due Date:** 08/07/2026',
+      '**New Status:** Pending',
+      '**Assigned To:** Bhumika Girhare',
+      '**Assigned By:** Bhumika Girhare',
+      '**Priority:** Low',
+    ].join('\n'));
+    assert.doesNotMatch(envelope.text, /Not Available/);
+    assert.doesNotMatch(envelope.text, /In Loop/);
+  } finally {
+    restorePriority();
+    restoreStatus();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: task titled phrasing updates title due date priority and status', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'bad_1', name: 'updateTaskStatus', args: { status: 'In Progress' } }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  const calls = [];
+  const commonSummary = {
+    title: 'ERP Final Testing and Bug Fixing',
+    dueDate: '30/05/2026',
+    assignedTo: 'Adarsh Shrivastava',
+    assignedBy: 'Bhumika Girhare',
+    priority: 'High',
+    status: 'In Progress',
+  };
+  const restoreDueDate = patchRegistry('updateTaskDueDate', async (args) => {
+    calls.push({ name: 'updateTaskDueDate', args });
+    return { ok: true, summary: { ...commonSummary, title: 'Finish ERP testing before client review' } };
+  });
+  const restoreStatus = patchRegistry('updateTaskStatus', async (args) => {
+    calls.push({ name: 'updateTaskStatus', args });
+    return { ok: true, titles: ['Finish ERP testing before client review'], newStatus: args.status, summary: { ...commonSummary, status: args.status } };
+  });
+  const restorePriority = patchRegistry('updateTaskPriority', async (args) => {
+    calls.push({ name: 'updateTaskPriority', args });
+    return { ok: true, summary: { ...commonSummary, priority: args.priority } };
+  });
+  const restoreTitle = patchRegistry('updateTaskTitle', async (args) => {
+    calls.push({ name: 'updateTaskTitle', args });
+    return { ok: true, summary: { ...commonSummary, oldTitle: 'Finish ERP testing before client review', title: args.newTitle } };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'Update the task titled "Finish ERP testing before client review". Change the title to "ERP Final Testing and Bug Fixing". Set the due date to 30 May 2026. Set the priority to High. Set the status to In Progress. After updating, show me the updated task details with: - Task Title - Assigned To - Due Date - Priority - Status - Assigned By',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(calls.map((call) => call.name), ['updateTaskDueDate', 'updateTaskStatus', 'updateTaskPriority', 'updateTaskTitle']);
+    assert.deepEqual(calls.map((call) => call.args.taskTitle), [
+      'Finish ERP testing before client review',
+      'Finish ERP testing before client review',
+      'Finish ERP testing before client review',
+      'Finish ERP testing before client review',
+    ]);
+    assert.equal(calls[0].args.dueDate, '30 May 2026');
+    assert.equal(calls[1].args.status, 'In Progress');
+    assert.equal(calls[2].args.priority, 'High');
+    assert.equal(calls[3].args.newTitle, 'ERP Final Testing and Bug Fixing');
+    assert.match(envelope.text, /\*\*New Task Title:\*\* ERP Final Testing and Bug Fixing/);
+    assert.match(envelope.text, /\*\*New Due Date:\*\* 30\/05\/2026/);
+    assert.match(envelope.text, /\*\*New Status:\*\* In Progress/);
+    assert.match(envelope.text, /\*\*Priority:\*\* High/);
+    assert.doesNotMatch(envelope.text, /No recent task found/);
+  } finally {
+    restoreTitle();
+    restorePriority();
+    restoreStatus();
+    restoreDueDate();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: assigned by me to employee lists delegated tasks', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'list_1', name: 'getMyTasks', args: {} }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  let listArgs;
+  const restoreGetMyTasks = patchRegistry('getMyTasks', async (args) => {
+    listArgs = args;
+    return {
+      ok: true,
+      count: 1,
+      tasks: [{
+        id: 7,
+        title: 'Verify report',
+        status: 'Pending',
+        priority: 'High',
+        assignedBy: 'Bhumika Girhare',
+        assignedTo: 'Adarsh Shrivastava',
+        dueDateFormatted: '09/07/2026',
+      }],
+      slot: { lastFilters: args, lastResultIds: [7] },
+    };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'i want to see all task assign by mee to adarsh me ites means loggin user',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(listArgs, { role: 'delegated', assignedTo: 'adarsh' });
+    assert.deepEqual(envelope.toolsInvoked, ['getMyTasks']);
+    assert.match(envelope.text, /Here are tasks you assigned to adarsh:/);
+    assert.match(envelope.text, /Verify report/);
+  } finally {
+    restoreGetMyTasks();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: delegated typo by me to employee lists delegated tasks', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'list_1', name: 'getMyTasks', args: {} }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  let listArgs;
+  const restoreGetMyTasks = patchRegistry('getMyTasks', async (args) => {
+    listArgs = args;
+    return { ok: true, count: 0, tasks: [], slot: { lastFilters: args, lastResultIds: [] } };
+  });
+
+  try {
+    await orchestrator.run({
+      message: 'show all deletegrated task that are assign by mee to adarsh',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(listArgs, { role: 'delegated', assignedTo: 'adarsh' });
+  } finally {
+    restoreGetMyTasks();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: delegated task query with too typo filters by assignee', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'list_1', name: 'getMyTasks', args: {} }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  let listArgs;
+  const restoreGetMyTasks = patchRegistry('getMyTasks', async (args) => {
+    listArgs = args;
+    return { ok: true, count: 0, tasks: [], slot: { lastFilters: args, lastResultIds: [] } };
+  });
+
+  try {
+    await orchestrator.run({
+      message: 'can you find the all delegated task assign by me too adarsh',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(listArgs, { role: 'delegated', assignedTo: 'adarsh' });
+  } finally {
+    restoreGetMyTasks();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: delegation summary for employee is scoped to tasks assigned by me', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'list_1', name: 'getMyTasks', args: {} }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  let listArgs;
+  const restoreGetMyTasks = patchRegistry('getMyTasks', async (args) => {
+    listArgs = args;
+    return {
+      ok: true,
+      count: 4,
+      tasks: [
+        {
+          id: 1,
+          title: 'Done task',
+          status: 'Completed',
+          priority: 'High',
+          dueDateFormatted: '20/05/2026',
+          assignedTo: 'Adarsh Shrivastava',
+          assignedBy: 'Bhumika Girhare',
+          description: 'Done task',
+        },
+        {
+          id: 2,
+          title: 'Pending task',
+          status: 'Pending',
+          priority: 'Medium',
+          dueDate: '2026-06-02T00:00:00.000Z',
+          dueDateFormatted: '02/06/2026',
+          assignedTo: 'Adarsh Shrivastava',
+          assignedBy: 'Bhumika Girhare',
+          description: 'Pending task',
+        },
+        {
+          id: 3,
+          title: 'Progress task',
+          status: 'In Progress',
+          priority: 'Low',
+          dueDate: '2026-06-03T00:00:00.000Z',
+          dueDateFormatted: '03/06/2026',
+          assignedTo: 'Adarsh Shrivastava',
+          assignedBy: 'Bhumika Girhare',
+          description: 'Progress task',
+        },
+        {
+          id: 4,
+          title: 'Late task',
+          status: 'Pending',
+          priority: 'High',
+          dueDate: '2026-05-20T00:00:00.000Z',
+          dueDateFormatted: '20/05/2026',
+          overdue: true,
+          assignedTo: 'Adarsh Shrivastava',
+          assignedBy: 'Bhumika Girhare',
+          description: 'Late task',
+        },
+      ],
+      slot: { lastFilters: args, lastResultIds: [1, 2, 3, 4] },
+    };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: [
+        'Show me delegation summary for Adarsh.',
+        'I want to track only those tasks that I assigned to Adarsh.',
+        'Do not show tasks assigned by other users.',
+        'First show a summary, then show task details.',
+      ].join(' '),
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(listArgs, { role: 'delegated', assignedTo: 'Adarsh', summary: true });
+    assert.match(envelope.text, /^Delegation Summary: Adarsh/m);
+    assert.match(envelope.text, /These are only the tasks assigned by you to Adarsh\./);
+    assert.match(envelope.text, /^Summary:/m);
+    assert.match(envelope.text, /^Total Tasks: 4/m);
+    assert.match(envelope.text, /^Completed: 1/m);
+    assert.match(envelope.text, /^Pending: 2/m);
+    assert.match(envelope.text, /^In Progress: 1/m);
+    assert.match(envelope.text, /^Overdue: 1/m);
+    assert.match(envelope.text, /^Upcoming Due: 2/m);
+    assert.match(envelope.text, /^Task Details:/m);
+    assert.match(envelope.text, /^Completed Tasks:/m);
+    assert.match(envelope.text, /^1\. Done task/m);
+    assert.match(envelope.text, /   Overdue: No/);
+    assert.match(envelope.text, /^Pending Tasks:/m);
+    assert.match(envelope.text, /^2\. Late task/m);
+    assert.match(envelope.text, /   Overdue: Yes/);
+    assert.match(envelope.text, /^In Progress Tasks:/m);
+  } finally {
+    restoreGetMyTasks();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: employee work on time asks for completion accuracy analytics', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: 'provider should not be used',
+        toolCalls: [],
+        usage: {},
+      },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  let accuracyCalled = false;
+  const restoreAccuracy = patchRegistry('getTeamCompletionAccuracy', async (args) => {
+    accuracyCalled = true;
+    assert.deepEqual(args, {});
+    return {
+      ok: true,
+      count: 2,
+      employees: [
+        {
+          name: 'Adarsh Shrivastava',
+          totalAssigned: 4,
+          completed: 3,
+          onTimeCompleted: 2,
+          lateCompleted: 1,
+          overduePending: 1,
+          completionAccuracy: 66.7,
+        },
+        {
+          name: 'Aashu Yadav',
+          totalAssigned: 2,
+          completed: 2,
+          onTimeCompleted: 2,
+          lateCompleted: 0,
+          overduePending: 0,
+          completionAccuracy: 100,
+        },
+      ],
+    };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'which employe complete the work on time and calculate the accuracy og completions of work',
+      user: { user_id: 5, role: 'Admin', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(accuracyCalled, true);
+    assert.deepEqual(envelope.toolsInvoked, ['getTeamCompletionAccuracy']);
+    assert.match(envelope.text, /^Employee Work Completion Accuracy/m);
+    assert.match(envelope.text, /Accuracy = on-time completed tasks \/ completed tasks\./);
+    assert.match(envelope.text, /1\. Adarsh Shrivastava/);
+    assert.match(envelope.text, /   Completed On Time: 2/);
+    assert.match(envelope.text, /   Completion Accuracy: 66.7%/);
+    assert.match(envelope.text, /2\. Aashu Yadav/);
+    assert.match(envelope.text, /   Completion Accuracy: 100%/);
+  } finally {
+    restoreAccuracy();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
 test('orchestrator: task priority update is not routed to task listing', async () => {
   const provider = mockProvider({
     scriptedResponses: [

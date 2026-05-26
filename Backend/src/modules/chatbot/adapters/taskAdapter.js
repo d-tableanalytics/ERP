@@ -9,7 +9,7 @@ const { bestMatch } = require('../utils/fuzzy');
  * plain objects shaped for the chatbot card schema.
  */
 
-function applyFilters(tasks, { status, priority, dueBefore, dueAfter } = {}) {
+function applyFilters(tasks, { status, priority, dueBefore, dueAfter, assignedToId, assignedTo } = {}) {
   let list = Array.isArray(tasks) ? tasks.slice() : [];
   if (status) {
     const s = String(status).toLowerCase();
@@ -27,6 +27,17 @@ function applyFilters(tasks, { status, priority, dueBefore, dueAfter } = {}) {
     const limit = new Date(dueAfter).getTime();
     list = list.filter((t) => t.dueDate && new Date(t.dueDate).getTime() >= limit);
   }
+  if (assignedToId) {
+    const target = normalizeName(assignedTo);
+    list = list.filter((t) => {
+      const idMatches = Number(t.doerId || t.doer_id) === Number(assignedToId);
+      const nameMatches = target && normalizeName(t.doerName || t.doer_name).includes(target);
+      return idMatches || nameMatches;
+    });
+  } else if (assignedTo) {
+    const target = normalizeName(assignedTo);
+    list = list.filter((t) => normalizeName(t.doerName || t.doer_name).includes(target));
+  }
   return list;
 }
 
@@ -42,6 +53,10 @@ function properName(name) {
     .split(' ')
     .map((part) => part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : '')
     .join(' ');
+}
+
+function normalizeName(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function summarize(task, loopNameLookup = new Map()) {
@@ -80,6 +95,7 @@ async function summarizeMany(tasks) {
 async function getMyTasks(userId, filters = {}) {
   const tasks = await Task.findMyTasks(userId);
   const filtered = applyFilters(tasks, filters);
+  if (filters.summary) return summarizeMany(filtered);
   const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 25) : 10;
   return summarizeMany(filtered.slice(0, limit));
 }
@@ -87,13 +103,31 @@ async function getMyTasks(userId, filters = {}) {
 async function getDelegatedTasks(userId, filters = {}) {
   const tasks = await Task.findDelegatedTasks(userId);
   const filtered = applyFilters(tasks, filters);
+  if (filters.summary) return summarizeMany(filtered);
+  const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 25) : 10;
+  return summarizeMany(filtered.slice(0, limit));
+}
+
+async function getSubscribedTasks(userId, filters = {}) {
+  const tasks = await Task.findSubscribedTasks(userId);
+  const filtered = applyFilters(tasks, filters);
+  if (filters.summary) return summarizeMany(filtered);
+  const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 25) : 10;
+  return summarizeMany(filtered.slice(0, limit));
+}
+
+async function getAllInvolvedTasks(userId, filters = {}) {
+  const tasks = await Task.findAll({}, userId);
+  const filtered = applyFilters(tasks, filters);
+  if (filters.summary) return summarizeMany(filtered);
   const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 25) : 10;
   return summarizeMany(filtered.slice(0, limit));
 }
 
 async function countMyTasks(userId, { status, role } = {}) {
   let tasks;
-  if (role === 'delegated') tasks = await Task.findDelegatedTasks(userId);
+  if (role === 'all') tasks = await Task.findAll({}, userId);
+  else if (role === 'delegated') tasks = await Task.findDelegatedTasks(userId);
   else if (role === 'subscribed') tasks = await Task.findSubscribedTasks(userId);
   else tasks = await Task.findMyTasks(userId);
   if (status) {
@@ -154,6 +188,8 @@ async function getTaskDetail(userId, { taskId, taskTitle } = {}) {
 module.exports = {
   getMyTasks,
   getDelegatedTasks,
+  getSubscribedTasks,
+  getAllInvolvedTasks,
   countMyTasks,
   getOverdue,
   getTaskDetail,

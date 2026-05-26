@@ -706,17 +706,21 @@ function safeForLLM(result) {
 
 function normalizeCreateToolCallsForMessage(toolCalls = [], message = '') {
   if (!Array.isArray(toolCalls) || !toolCalls.length) return [];
+  const delegatedTaskListArgs = extractDelegatedTaskListArgs(message);
+  if (delegatedTaskListArgs) {
+    return normalizeDelegatedTaskListCalls(toolCalls, delegatedTaskListArgs);
+  }
   const checklistStatusArgs = extractChecklistStatusUpdateArgs(message);
   if (checklistStatusArgs) {
     return normalizeChecklistStatusUpdateCalls(toolCalls, checklistStatusArgs);
   }
-  const taskPriorityArgs = extractTaskPriorityUpdateArgs(message);
-  if (taskPriorityArgs) {
-    return normalizeTaskPriorityUpdateCalls(toolCalls, taskPriorityArgs);
-  }
   const taskFieldUpdateArgs = extractTaskFieldUpdateArgs(message);
   if (taskFieldUpdateArgs) {
     return normalizeTaskFieldUpdateCalls(toolCalls, taskFieldUpdateArgs);
+  }
+  const taskPriorityArgs = extractTaskPriorityUpdateArgs(message);
+  if (taskPriorityArgs) {
+    return normalizeTaskPriorityUpdateCalls(toolCalls, taskPriorityArgs);
   }
   if (isTaskDueDateUpdateMessage(message)) {
     return normalizeTaskDueDateUpdateCalls(toolCalls, message);
@@ -791,18 +795,18 @@ function normalizeTaskFieldUpdateCalls(toolCalls = [], fieldArgs = {}) {
   const keptCalls = toolCalls.filter((call) => ![
     'updateTaskDueDate',
     'updateTaskStatus',
+    'updateTaskPriority',
     'updateTaskTitle',
     'updateTaskAssignment',
-    'updateTaskLoopUsers',
     'createTask',
   ].includes(call.name));
 
   const originalCall = toolCalls.find((call) => [
     'updateTaskDueDate',
     'updateTaskStatus',
+    'updateTaskPriority',
     'updateTaskTitle',
     'updateTaskAssignment',
-    'updateTaskLoopUsers',
     'createTask',
   ].includes(call.name));
 
@@ -822,6 +826,20 @@ function normalizeTaskFieldUpdateCalls(toolCalls = [], fieldArgs = {}) {
       id: `normalized_${randomUUID()}`,
       name: 'updateTaskStatus',
       args: { ...base, status: fieldArgs.status },
+    });
+  }
+  if (fieldArgs.priority) {
+    calls.push({
+      id: `normalized_${randomUUID()}`,
+      name: 'updateTaskPriority',
+      args: { ...base, priority: fieldArgs.priority },
+    });
+  }
+  if (fieldArgs.loopUsers?.length) {
+    calls.push({
+      id: `normalized_${randomUUID()}`,
+      name: 'updateTaskLoopUsers',
+      args: { ...base, loopUsers: fieldArgs.loopUsers },
     });
   }
   if (fieldArgs.newTitle) {
@@ -1182,9 +1200,19 @@ function buildTaskFallbackCall(message) {
   if (!msg) return null;
   const chatSummaryFallback = buildChatSummaryFallbackCall(message);
   if (chatSummaryFallback) return chatSummaryFallback;
+  if (isTeamCompletionAccuracyRequest(message)) {
+    return { name: 'getTeamCompletionAccuracy', args: {} };
+  }
+  const delegatedTaskListArgs = extractDelegatedTaskListArgs(message);
+  if (delegatedTaskListArgs?.summary) {
+    return { name: 'getMyTasks', args: delegatedTaskListArgs };
+  }
   if (/\bhow many|count|number of|detail|details|explain|dashboard\b/.test(msg)) return null;
   if (isEmployeeListRequest(msg)) {
     return { name: 'listEmployees', args: { limit: 100 } };
+  }
+  if (delegatedTaskListArgs) {
+    return { name: 'getMyTasks', args: delegatedTaskListArgs };
   }
   const checklistFallback = buildChecklistFallbackCall(message);
   if (checklistFallback) return checklistFallback;
@@ -1199,13 +1227,21 @@ function buildTaskFallbackCall(message) {
   if (checklistStatusArgs) {
     return { name: 'updateChecklistStatus', args: checklistStatusArgs };
   }
+  const fieldUpdateArgs = extractTaskFieldUpdateArgs(message);
+  if (fieldUpdateArgs) {
+    if (fieldUpdateArgs.dueDate) {
+      return { name: 'updateTaskDueDate', args: { taskTitle: fieldUpdateArgs.taskTitle, dueDate: fieldUpdateArgs.dueDate } };
+    }
+    if (fieldUpdateArgs.priority) {
+      return { name: 'updateTaskPriority', args: { taskTitle: fieldUpdateArgs.taskTitle, priority: fieldUpdateArgs.priority } };
+    }
+    if (fieldUpdateArgs.status) {
+      return { name: 'updateTaskStatus', args: { taskTitle: fieldUpdateArgs.taskTitle, status: fieldUpdateArgs.status } };
+    }
+  }
   const taskPriorityArgs = extractTaskPriorityUpdateArgs(message);
   if (taskPriorityArgs) {
     return { name: 'updateTaskPriority', args: taskPriorityArgs };
-  }
-  const fieldUpdateArgs = extractTaskFieldUpdateArgs(message);
-  if (fieldUpdateArgs?.dueDate) {
-    return { name: 'updateTaskDueDate', args: { taskTitle: fieldUpdateArgs.taskTitle, dueDate: fieldUpdateArgs.dueDate } };
   }
   const dueDateUpdateArgs = extractTaskDueDateUpdateArgs(message);
   if (dueDateUpdateArgs) {
@@ -1263,6 +1299,55 @@ function buildChatSummaryFallbackCall(message = '') {
   };
 }
 
+function isTeamCompletionAccuracyRequest(message = '') {
+  const msg = String(message || '').toLowerCase();
+  const mentionsEmployee = /\bemploye|employee|staff|team|person|user\b/.test(msg);
+  const mentionsWork = /\bwork|task|completion|complete|completed\b/.test(msg);
+  const mentionsOnTime = /\bon\s*time|ontime|time\b/.test(msg);
+  const mentionsAccuracy = /\baccuracy|accurate|score|rate|percent|percentage\b/.test(msg);
+  return mentionsEmployee && mentionsWork && (mentionsOnTime || mentionsAccuracy);
+}
+
+function extractDelegatedTaskListArgs(message = '') {
+  const text = String(message || '').replace(/\s+/g, ' ').trim();
+  const lower = text.toLowerCase();
+  const wantsSummary = /\b(summary|summarize|track|group(?:ed)?|details?)\b/i.test(text);
+  if (!/\b(show|list|see|view|give|get|all|what are|which|summary|summarize|track)\b/i.test(text)) return null;
+  if (!/\btasks?\b/i.test(text)) return null;
+  if (!/\bassign(?:ed)?\s+by\s+(?:me|mee|myself|login(?:g|ged)?\s+user|current\s+user)\b/i.test(text)
+    && !/\b(?:my|mine)\s+assigned\s+tasks?\b/i.test(lower)
+    && !/\btasks?\s+i\s+assign(?:ed)?\b/i.test(lower)
+    && !/\b(?:delegated|deletegrated|delegation)\b/i.test(lower)) {
+    return null;
+  }
+
+  const assignedTo = cleanDelegatedAssignee(
+    text.match(/\b(?:delegation|delegated\s+tasks?)\s+summary\s+(?:for|to|too)\s+([A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*){0,2})\b/i)?.[1]
+      || text.match(/\bassign(?:ed)?\s+by\s+(?:me|mee|myself|login(?:g|ged)?\s+user|current\s+user)\s+(?:to|too|for)\s+(.+?)(?=\s+\b(?:me|mee|ites|it\s+means|means|login(?:g|ged)?|user|show|list|see|view|all|tasks?)\b|$)/i)?.[1]
+      || text.match(/\btasks?\s+i\s+assign(?:ed)?\s+(?:to|too|for)\s+(.+?)(?=\s+\b(?:me|mee|ites|it\s+means|means|login(?:g|ged)?|user|show|list|see|view|all|tasks?)\b|$)/i)?.[1]
+      || text.match(/\b(?:to|too|for)\s+([A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*){0,2})(?=\s+\b(?:me|mee|ites|it\s+means|means|login(?:g|ged)?|user|show|list|see|view|all|tasks?)\b|$)/i)?.[1]
+  );
+
+  const args = { role: 'delegated' };
+  if (assignedTo) args.assignedTo = assignedTo;
+  if (wantsSummary) args.summary = true;
+  if (!wantsSummary && /\bpending\b/i.test(text)) args.status = 'Pending';
+  if (!wantsSummary && /\bcomplete(?:d)?\b/i.test(text)) args.status = 'Completed';
+  if (!wantsSummary && /\bhigh\b/i.test(text)) args.priority = 'High';
+  if (!wantsSummary && /\blow\b/i.test(text)) args.priority = 'Low';
+  if (!wantsSummary && /\bmedium|normal\b/i.test(text)) args.priority = 'Medium';
+  return args;
+}
+
+function cleanDelegatedAssignee(value = '') {
+  const cleaned = String(value || '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\b(?:please|task|tasks|all|show|list|see|view|assigned|assign|by|me|mee|to|too|for)\b/ig, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || null;
+}
+
 function extractChatSummaryDate(message = '') {
   const text = String(message || '');
   const ymd = text.match(/\b\d{4}-\d{1,2}-\d{1,2}\b/);
@@ -1302,10 +1387,7 @@ function extractChecklistStatusUpdateArgs(message = '') {
   if (!text || !/\bchecklists?\b/i.test(text)) return null;
   if (!/\b(update|change|set|mark)\b/i.test(text)) return null;
 
-  const status = normalizeTaskStatus(
-    text.match(/\bstatus\s+(?:into|to|as|is)\s+(complete|completed|pending|in progress|hold|on hold)\b/i)?.[1]
-      || text.match(/\bmark\s+(?:it|checklist|this\s+checklist)?\s*(?:as)?\s*(complete|completed|pending|in progress|hold|on hold)\b/i)?.[1]
-  );
+  const status = extractStatusUpdateValue(text, 'checklist');
   if (!status) return null;
 
   const name = cleanChecklistStatusName(
@@ -1331,7 +1413,7 @@ function extractTaskPriorityUpdateArgs(message = '') {
   if (!priority) return null;
 
   const taskTitle = cleanTaskPriorityTitle(
-    text.match(/\btask\s+(?:title|tile)\s+(?:is|:)\s+(.+?)(?=\s+\b(?:priority|and|also|please|can\s+you|update|change|set|mark)\b|$)/i)?.[1]
+    text.match(/\btask\s+(?:title|tile)\s+(?:is|:)\s+(.+?)(?=\s+\b(?:now|i\s+want|priority|status|due\s*date|duw\s*date|deadline|end\s*date|and|also|please|can\s+you|update|change|set|mark)\b|$)/i)?.[1]
       || text.match(/^(.+?)\s+this\s+is\s+(?:my\s+)?task\b/i)?.[1]
       || text.match(/\b(?:update|change|set|mark)\s+(?:my\s+)?task\s+(.+?)\s+priority\b/i)?.[1]
   );
@@ -1347,38 +1429,94 @@ function extractTaskFieldUpdateArgs(message = '') {
 
   const taskTitle = cleanTaskFieldPart(
     text.match(/^(.+?)\s+this\s+is\s+the\s+current\s+title\s+of\s+task\b/i)?.[1]
-      || text.match(/\b(?:current|old)\s+task\s+title\s+(?:is|:)\s+(.+?)(?=\s+\b(?:now|and|also|change|update|set)\b|$)/i)?.[1]
-      || text.match(/\btask\s+title\s+is\s+(.+?)(?=\s+\b(?:into|to|also|and|status|due\s*date)\b|$)/i)?.[1]
+    || text.match(/\b(?:current|old)\s+task\s+title\s+(?:is|:)\s+(.+?)(?=\s+\b(?:now|and|also|change|update|set)\b|$)/i)?.[1]
+      || text.match(/\btask\s+title\s+is\s+(.+?)(?=\s+\b(?:now|i\s+want|into|to|also|and|priority|status|due\s*date|duw\s*date|deadline|end\s*date)\b|$)/i)?.[1]
+      || text.match(/\btask\s+(?:titled|named|called)\s+["'`]?(.+?)["'`]?(?=\s*[,.!?]?\s+\b(?:change|update|edit|rename|set|move)\b|\s*[,.!?]?\s+after\s+updating\b|$)/i)?.[1]
   );
 
   const newTitle = cleanTaskFieldPart(
-    text.match(/\b(?:change|update|edit|rename)\s+(?:it|its|ites|title|task\s+title|name)\s+(?:into|to|as)\s+(.+?)(?=\s+(?:also\s+)?(?:change|update|set|move)\s+(?:the\s+)?(?:status|due\s*date|deadline|end\s*date)\b|\s+(?:also\s+)?(?:status|due\s*date|deadline|end\s*date)\b|$)/i)?.[1]
+    text.match(/\b(?:change|update|edit|rename)\s+(?:it|its|ites|the\s+title|title|task\s+title|name)\s+(?:into|to|as)\s+(.+?)(?=\s*[,.!?]?\s+(?:also\s+)?(?:change|update|set|move)\s+(?:the\s+)?(?:status|due\s*date|deadline|end\s*date|priority)\b|\s*[,.!?]?\s+(?:also\s+)?(?:status|due\s*date|deadline|end\s*date|priority)\b|\s*[,.!?]?\s+after\s+updating\b|$)/i)?.[1]
   );
 
-  const status = normalizeTaskStatus(
-    text.match(/\bstatus\s+(?:into|to|as|is)\s+(complete|completed|pending|in progress|hold|on hold)\b/i)?.[1]
-      || text.match(/\bmark\s+(?:it|task|this\s+task)?\s*(?:as)?\s*(complete|completed|pending|in progress|hold|on hold)\b/i)?.[1]
+  const status = extractStatusUpdateValue(text, 'task');
+  const priority = normalizeTaskPriority(
+    text.match(/\bpriority\s+(?:into|to|as|is)\s+(hight|high|medium|low|urgent|important|normal)\b/i)?.[1]
+      || text.match(/\b(?:make|set|change|update)\s+(?:it|task|this\s+task)?\s*(?:as|to)?\s*(hight|high|medium|low|urgent|important|normal)\s+priority\b/i)?.[1]
   );
 
-  const dueDate = cleanTaskDueDatePart(
-    text.match(/\b(?:our\s+)?(?:due\s*date|deadline|end\s*date)\s*(?:is|into|to|as)?\s+(.+?)(?=\s+\b(?:fixed|fix|please|also\s+change|change\s+status|status\s+into|show\s+my|what'?s|show\s+dashboard)\b|$)/i)?.[1]
-  );
+  const dueDate = extractTaskFieldDueDate(text);
+  const loopUsers = extractTaskFieldLoopUsers(text);
 
-  if (!taskTitle && !newTitle && !status && !dueDate) return null;
-  if (!newTitle && !status && !dueDate) return null;
+  if (!taskTitle && !newTitle && !status && !priority && !dueDate && !loopUsers.length) return null;
+  if (!taskTitle && priority && !newTitle && !status && !dueDate && !loopUsers.length) return null;
+  if (!newTitle && !status && !priority && !dueDate && !loopUsers.length) return null;
 
-  return { taskTitle, newTitle, status, dueDate };
+  return { taskTitle, newTitle, status, priority, dueDate, loopUsers };
+}
+
+function normalizeDelegatedTaskListCalls(toolCalls = [], listArgs = {}) {
+  const keptCalls = toolCalls.filter((call) => ![
+    'getMyTasks',
+    'getOverdueItems',
+    'createTask',
+    'updateTaskAssignment',
+  ].includes(call.name));
+
+  const originalCall = toolCalls.find((call) => [
+    'getMyTasks',
+    'getOverdueItems',
+    'createTask',
+    'updateTaskAssignment',
+  ].includes(call.name));
+
+  return keptCalls.concat({
+    id: originalCall?.id || `normalized_${randomUUID()}`,
+    name: 'getMyTasks',
+    args: listArgs,
+  });
+}
+
+function extractTaskFieldLoopUsers(text = '') {
+  const raw = text.match(/\b(?:in\s+loop|loop|cc)\s+(?:have|has|is|are|with|to|add|keep)?\s+(.+?)(?=\s+\b(?:due|duw|deadline|priority|status|show\s+my|what'?s|show\s+dashboard)\b|$)/i)?.[1];
+  if (!raw) return [];
+  return raw
+    .split(/\s*(?:,|&| and )\s*/i)
+    .map((name) => name.replace(/\b(?:please|also|add|keep|in|loop)\b/ig, '').trim())
+    .filter(Boolean);
+}
+
+function extractTaskFieldDueDate(text = '') {
+  const directDate = text.match(/\b(?:our\s+)?(?:due|duw)\s*date\s*(?:is|into|to|as)?\s+(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?|\d{1,2}\s+(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)(?:\s+\d{2,4})?|today|tomorrow|day after tomorrow)\b/i)
+    || text.match(/\b(?:deadline|end\s*date)\s*(?:is|into|to|as)?\s+(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?|\d{1,2}\s+(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)(?:\s+\d{2,4})?|today|tomorrow|day after tomorrow)\b/i);
+  if (directDate?.[1]) return directDate[1];
+
+  const patterns = [
+    /\b(?:our\s+)?(?:due|duw)\s*date\s*(?:is|into|to|as)?\s+(.+?)(?=\s+\b(?:fixed|fix|please|priority|also\s+change|change\s+status|status\s+into|status\s+is|show\s+my|what'?s|show\s+dashboard)\b|$)/ig,
+    /\b(?:deadline|end\s*date)\s*(?:is|into|to|as)?\s+(.+?)(?=\s+\b(?:fixed|fix|please|priority|also\s+change|change\s+status|status\s+into|status\s+is|show\s+my|what'?s|show\s+dashboard)\b|$)/ig,
+  ];
+
+  const candidates = [];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const candidate = cleanTaskDueDatePart(match[1]);
+      if (candidate) candidates.push(candidate);
+    }
+  }
+
+  return candidates.find((candidate) => /\b(?:\d{1,2}[/-]\d{1,2}|today|tomorrow|day after tomorrow)\b/i.test(candidate))
+    || candidates[0]
+    || null;
 }
 
 function extractTaskDueDateUpdateArgs(message = '') {
   const text = String(message || '').trim();
-  if (!/\b(change|update|edit|set|move)\b/i.test(text) || !/\b(task|due date|deadline|end date)\b/i.test(text)) return null;
-  if (!/\b(due\s*date|deadline|end\s*date)\b/i.test(text)) return null;
+  if (!/\b(change|update|edit|set|move)\b/i.test(text) || !/\b(task|due date|duw date|deadline|end date)\b/i.test(text)) return null;
+  if (!/\b(due\s*date|duw\s*date|deadline|end\s*date)\b/i.test(text)) return null;
 
   const patterns = [
-    /\b(?:change|update|edit|set|move)\s+(?:my\s+)?task\s+(?:due\s*date|deadline|end\s*date)\s+(?:task\s+title\s+is\s+)?(.+?)\s+(?:into|to|as)\s+(.+)$/i,
-    /\b(?:change|update|edit|set|move)\s+(?:the\s+)?(?:due\s*date|deadline|end\s*date)\s+of\s+(?:task\s+)?(.+?)\s+(?:into|to|as)\s+(.+)$/i,
-    /\b(?:task\s+title\s+is\s+)(.+?)\s+(?:due\s*date|deadline|end\s*date)\s+(?:into|to|as)\s+(.+)$/i,
+    /\b(?:change|update|edit|set|move)\s+(?:my\s+)?task\s+(?:due\s*date|duw\s*date|deadline|end\s*date)\s+(?:task\s+title\s+is\s+)?(.+?)\s+(?:into|to|as)\s+(.+)$/i,
+    /\b(?:change|update|edit|set|move)\s+(?:the\s+)?(?:due\s*date|duw\s*date|deadline|end\s*date)\s+of\s+(?:task\s+)?(.+?)\s+(?:into|to|as)\s+(.+)$/i,
+    /\b(?:task\s+title\s+is\s+)(.+?)\s+(?:due\s*date|duw\s*date|deadline|end\s*date)\s+(?:into|to|as)\s+(.+)$/i,
   ];
 
   for (const pattern of patterns) {
@@ -1396,6 +1534,7 @@ function cleanTaskDueDatePart(value = '') {
   return String(value || '')
     .replace(/^["'`]+|["'`]+$/g, '')
     .replace(/[.!?]+$/g, '')
+    .replace(/\b(?:priority|status|in\s+loop)\b.*$/i, '')
     .replace(/\b(?:fixed|fix|ites|its)\b.*$/i, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -1445,6 +1584,29 @@ function normalizeTaskStatus(value = '') {
   if (text === 'in progress') return 'In Progress';
   if (text === 'hold' || text === 'on hold') return 'Hold';
   return null;
+}
+
+function extractStatusUpdateValue(text = '', entity = 'task') {
+  const statusPattern = '(completed|complete|in progress|pending|on hold|hold)';
+  const entityPattern = entity === 'checklist'
+    ? '(?:it|checklist|this\\s+checklist)?'
+    : '(?:it|task|this\\s+task)?';
+
+  const transitionPatterns = [
+    new RegExp(`\\bstatus\\s+(?:is|was|currently|current|from)?\\s*${statusPattern}\\s+(?:to|into|as)\\s+${statusPattern}\\b`, 'i'),
+    new RegExp(`\\b(?:change|update|set|mark)\\b.*?\\bstatus\\b.*?\\b(?:from\\s+)?${statusPattern}\\s+(?:to|into|as)\\s+${statusPattern}\\b`, 'i'),
+  ];
+
+  for (const pattern of transitionPatterns) {
+    const match = text.match(pattern);
+    const target = normalizeTaskStatus(match?.[2]);
+    if (target) return target;
+  }
+
+  return normalizeTaskStatus(
+    text.match(/\bstatus\s+(?:into|to|as|is)\s+(completed|complete|pending|in progress|hold|on hold)\b/i)?.[1]
+      || text.match(new RegExp(`\\bmark\\s+${entityPattern}\\s*(?:as)?\\s*${statusPattern}\\b`, 'i'))?.[1]
+  );
 }
 
 function cleanTitleUpdatePart(value = '') {
@@ -1723,6 +1885,9 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
   if (tools.includes('getMyTasks')) {
     const taskResult = (toolResults || []).find((tr) => tr.name === 'getMyTasks')?.result;
     if (taskResult?.ok && Array.isArray(taskResult.tasks)) {
+      if (taskResult.slot?.lastFilters?.summary && taskResult.slot?.lastFilters?.role === 'delegated') {
+        return formatDelegationSummaryText(taskResult.tasks, taskResult.slot.lastFilters);
+      }
       return formatTaskListText(taskResult.tasks, taskResult.slot?.lastFilters);
     }
   }
@@ -1750,6 +1915,10 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
       return formatEmployeeListText(employeeResult.employees);
     }
   }
+  if (tools.includes('getTeamCompletionAccuracy')) {
+    const accuracyResult = (toolResults || []).find((tr) => tr.name === 'getTeamCompletionAccuracy')?.result;
+    if (accuracyResult) return formatTeamCompletionAccuracyText(accuracyResult);
+  }
   if (tools.includes('deleteTask')) {
     const deleteResult = (toolResults || []).find((tr) => tr.name === 'deleteTask')?.result;
     if (deleteResult) return formatDeleteTaskText(deleteResult);
@@ -1758,7 +1927,7 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
     const deleteResult = (toolResults || []).find((tr) => tr.name === 'deleteChecklist')?.result;
     if (deleteResult) return formatDeleteChecklistText(deleteResult);
   }
-  if (tools.filter((name) => ['updateTaskDueDate', 'updateTaskStatus', 'updateTaskTitle'].includes(name)).length > 1) {
+  if (tools.filter((name) => ['updateTaskDueDate', 'updateTaskStatus', 'updateTaskPriority', 'updateTaskLoopUsers', 'updateTaskTitle'].includes(name)).length > 1) {
     return formatCombinedTaskUpdateText(toolResults);
   }
   if (tools.includes('updateTaskStatus')) {
@@ -2060,31 +2229,125 @@ function formatCombinedTaskUpdateText(toolResults = []) {
   const titleResult = toolResults.find((tr) => tr.name === 'updateTaskTitle')?.result;
   const dueDateResult = toolResults.find((tr) => tr.name === 'updateTaskDueDate')?.result;
   const statusResult = toolResults.find((tr) => tr.name === 'updateTaskStatus')?.result;
-  const failed = [dueDateResult, statusResult, titleResult].find((result) => result && !result.ok);
+  const priorityResult = toolResults.find((tr) => tr.name === 'updateTaskPriority')?.result;
+  const loopResult = toolResults.find((tr) => tr.name === 'updateTaskLoopUsers')?.result;
+  const failed = [dueDateResult, statusResult, priorityResult, loopResult, titleResult].find((result) => result && !result.ok);
   if (failed) return failed.message || failed.error || 'Task could not be fully updated.';
 
   const titleSummary = titleResult?.summary || {};
   const dueSummary = dueDateResult?.summary || {};
-  return [
+  const statusSummary = statusResult?.summary || {};
+  const prioritySummary = priorityResult?.summary || {};
+  const loopSummary = loopResult?.summary || {};
+  const lines = [
     'Task Updated',
-    `**Old Task Title:** ${valueOrNA(titleSummary.oldTitle || dueSummary.title)}`,
-    `**New Task Title:** ${valueOrNA(titleSummary.title || dueSummary.title)}`,
-    `**New Due Date:** ${valueOrNA(dueSummary.dueDate || titleSummary.dueDate)}`,
-    `**New Status:** ${valueOrNA(statusResult?.newStatus || titleSummary.status || dueSummary.status)}`,
-    `**Assigned To:** ${valueOrNA(titleSummary.assignedTo || dueSummary.assignedTo)}`,
-    `**Assigned By:** ${valueOrNA(titleSummary.assignedBy || dueSummary.assignedBy)}`,
-    `**Priority:** ${valueOrNA(titleSummary.priority || dueSummary.priority)}`,
-  ].join('\n');
+    `**Old Task Title:** ${valueOrNA(titleSummary.oldTitle || dueSummary.title || statusSummary.title || prioritySummary.title || loopSummary.title)}`,
+    `**New Task Title:** ${valueOrNA(titleSummary.title || dueSummary.title || statusSummary.title || prioritySummary.title || loopSummary.title)}`,
+    `**New Due Date:** ${valueOrNA(dueSummary.dueDate || titleSummary.dueDate || statusSummary.dueDate || prioritySummary.dueDate)}`,
+    `**New Status:** ${valueOrNA(statusResult?.newStatus || titleSummary.status || dueSummary.status || statusSummary.status || prioritySummary.status)}`,
+    `**Assigned To:** ${valueOrNA(titleSummary.assignedTo || dueSummary.assignedTo || statusSummary.assignedTo || prioritySummary.assignedTo || loopSummary.assignedTo)}`,
+    `**Assigned By:** ${valueOrNA(titleSummary.assignedBy || dueSummary.assignedBy || statusSummary.assignedBy || prioritySummary.assignedBy)}`,
+    `**Priority:** ${valueOrNA(prioritySummary.priority || titleSummary.priority || dueSummary.priority)}`,
+  ];
+  if (loopResult) {
+    lines.push(`**In Loop:** ${valueOrNA(loopSummary.inLoop || loopSummary.addedUsers)}`);
+  }
+  return lines.join('\n');
 }
 
 function formatTaskListText(tasks = [], filters = {}) {
   if (!tasks.length) return 'I could not find any matching tasks.';
 
   const status = filters?.status ? String(filters.status).toLowerCase() : '';
-  const header = status ? `Here are your ${status} tasks:` : 'Here are your tasks:';
+  const delegated = filters?.role === 'delegated';
+  const assignee = filters?.assignedTo ? ` to ${filters.assignedTo}` : '';
+  const scope = delegated ? `tasks you assigned${assignee}` : 'your tasks';
+  const header = status ? `Here are ${scope} with ${status} status:` : `Here are ${scope}:`;
   const blocks = tasks.map((task) => formatTaskBlock(task));
 
   return `${header}\n\n${blocks.join('\n\n')}`;
+}
+
+function formatDelegationSummaryText(tasks = [], filters = {}) {
+  const assignee = filters?.assignedTo || 'this employee';
+  const completed = tasks.filter((task) => isTaskStatus(task, 'Completed'));
+  const pending = tasks.filter((task) => isTaskStatus(task, 'Pending'));
+  const inProgress = tasks.filter((task) => isTaskStatus(task, 'In Progress'));
+  const overdue = tasks.filter((task) => task.overdue && !isTaskStatus(task, 'Completed'));
+  const upcoming = tasks.filter((task) => task.dueDate && !task.overdue && !isTaskStatus(task, 'Completed'));
+
+  return [
+    `Delegation Summary: ${assignee}`,
+    '',
+    `These are only the tasks assigned by you to ${firstName(assignee)}.`,
+    '',
+    'Summary:',
+    `Total Tasks: ${tasks.length}`,
+    `Completed: ${completed.length}`,
+    `Pending: ${pending.length}`,
+    `In Progress: ${inProgress.length}`,
+    `Overdue: ${overdue.length}`,
+    `Upcoming Due: ${upcoming.length}`,
+    '',
+    'Task Details:',
+    '',
+    formatDelegationTaskGroup('Completed Tasks', completed),
+    '',
+    formatDelegationTaskGroup('Pending Tasks', pending),
+    '',
+    formatDelegationTaskGroup('In Progress Tasks', inProgress),
+  ].join('\n');
+}
+
+function formatTeamCompletionAccuracyText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Could not calculate employee completion accuracy.';
+  const employees = Array.isArray(result.employees) ? result.employees : [];
+  if (!employees.length) return 'No employee task completion data found.';
+
+  const lines = [
+    'Employee Work Completion Accuracy',
+    '',
+    'Accuracy = on-time completed tasks / completed tasks.',
+    '',
+  ];
+
+  employees.forEach((employee, index) => {
+    lines.push(
+      `${index + 1}. ${valueOrNA(employee.name)}`,
+      `   Total Assigned: ${valueOrNA(employee.totalAssigned)}`,
+      `   Completed: ${valueOrNA(employee.completed)}`,
+      `   Completed On Time: ${valueOrNA(employee.onTimeCompleted)}`,
+      `   Completed Late: ${valueOrNA(employee.lateCompleted)}`,
+      `   Overdue Pending: ${valueOrNA(employee.overduePending)}`,
+      `   Completion Accuracy: ${valueOrNA(employee.completionAccuracy)}%`
+    );
+    if (index < employees.length - 1) lines.push('');
+  });
+
+  return lines.join('\n');
+}
+
+function formatDelegationTaskGroup(title, tasks = []) {
+  if (!tasks.length) return `${title}:\nNo tasks found.`;
+  return `${title}:\n${tasks.map((task, index) => formatDelegationTaskItem(task, index)).join('\n\n')}`;
+}
+
+function formatDelegationTaskItem(task = {}, index = 0) {
+  return [
+    `${index + 1}. ${valueOrNA(task.title)}`,
+    `   Due Date: ${valueOrNA(task.dueDateFormatted)}`,
+    `   Priority: ${valueOrNA(task.priority)}`,
+    `   Status: ${valueOrNA(task.status)}`,
+    `   Overdue: ${task.overdue ? 'Yes' : 'No'}`,
+  ].join('\n');
+}
+
+function firstName(name = '') {
+  return String(name || '').trim().split(/\s+/)[0] || 'this employee';
+}
+
+function isTaskStatus(task = {}, status = '') {
+  return String(task.status || '').trim().toLowerCase() === String(status || '').trim().toLowerCase();
 }
 
 function formatTaskBlock(task = {}) {

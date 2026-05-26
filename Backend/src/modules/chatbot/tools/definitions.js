@@ -10,16 +10,19 @@ const TOOL_DEFINITIONS = [
     role: 'any',
     function: {
       name: 'getMyTasks',
-      description: 'Get the current user\'s tasks (assigned to them). Use this for "show my tasks", "pending tasks", "what tasks do I have", "high priority only", "which one is high priority", "show today\'s tasks", "show tomorrow\'s tasks", etc. Supports filtering by status, priority, and period.',
+      description: 'Get tasks visible in the current user\'s task lists. Default is tasks assigned to the current user. Use role="delegated" for "tasks assigned by me", "tasks I assigned to Adarsh", or "assigned by me to X"; use role="subscribed" for tasks where the current user is only in loop/subscribed; use role="all" for the same set as the UI All Tasks page. "me" means the authenticated logged-in user. Supports filtering by status, priority, period, and assignee.',
       parameters: {
         type: 'object',
         properties: {
           status: { type: 'string', enum: ['Pending', 'In Progress', 'Completed', 'Hold'], description: 'Filter by task status. Priority phrases are not status.' },
           priority: { type: 'string', enum: ['High', 'Medium', 'Low'], description: 'Filter by priority' },
+          role: { type: 'string', enum: ['mine', 'delegated', 'subscribed', 'all'], description: 'Use "delegated" for tasks assigned by the current logged-in user to someone else. Use "subscribed" for in-loop/subscribed tasks. Use "all" for the same involved-task set as the UI All Tasks page.' },
+          assignedTo: { type: 'string', description: 'Employee name to filter assigned-to/doer, e.g. "Adarsh". Use with role="delegated" for "assigned by me to Adarsh".' },
           dueBefore: { type: 'string', description: 'ISO date — only tasks due before this date' },
           dueAfter: { type: 'string', description: 'ISO date — only tasks due after this date' },
           period: { type: 'string', enum: ['today', 'tomorrow'], description: 'Use for "today\'s tasks" or "tomorrow\'s tasks" date filtering.' },
           limit: { type: 'integer', minimum: 1, maximum: 25, description: 'Max results (default 10)' },
+          summary: { type: 'boolean', description: 'Set true when the user asks for a summary with task details grouped by status.' },
         },
       },
     },
@@ -44,12 +47,12 @@ const TOOL_DEFINITIONS = [
     role: 'any',
     function: {
       name: 'countTasks',
-      description: 'Count the current user\'s tasks. Use for "how many tasks…" questions. Optional status filter. Optional role: "mine" (default), "delegated", "subscribed".',
+      description: 'Count the current user\'s tasks. Use for "how many tasks" questions. Optional status filter. Optional role: "mine" (default), "delegated", "subscribed", or "all" for the same involved-task count as the UI All Tasks page.',
       parameters: {
         type: 'object',
         properties: {
           status: { type: 'string', description: 'Status filter — Pending, In Progress, Completed, Overdue' },
-          role: { type: 'string', enum: ['mine', 'delegated', 'subscribed'], description: 'Which set of tasks to count' },
+          role: { type: 'string', enum: ['mine', 'delegated', 'subscribed', 'all'], description: 'Which set of tasks to count' },
         },
       },
     },
@@ -194,6 +197,20 @@ const TOOL_DEFINITIONS = [
         type: 'object',
         properties: {
           department: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'admin',
+    function: {
+      name: 'getTeamCompletionAccuracy',
+      description: '[Admin/SuperAdmin only] Show which employees completed work on time and calculate completion accuracy. Use for "which employee completed work on time", "employee completion accuracy", "work completed on time", or "on-time work accuracy".',
+      parameters: {
+        type: 'object',
+        properties: {
+          department: { type: 'string', description: 'Optional department filter.' },
         },
       },
     },

@@ -50,7 +50,14 @@ module.exports = async function updateTaskTitle(args, user, ctx) {
         ORDER BY created_at DESC`,
       [userId]
     );
-    const match = bestMatch(taskTitle, allTasks, (t) => t.task_title || '', 0.45);
+    const targetKey = normalizeText(taskTitle);
+    const exact = allTasks.find((task) => normalizeText(task.task_title || '') === targetKey);
+    if (exact) targetTask = exact;
+
+    const wordCount = targetKey.split(/\s+/).filter(Boolean).length;
+    const match = !targetTask && wordCount > 1
+      ? bestMatch(taskTitle, allTasks, (t) => t.task_title || '', 0.55)
+      : null;
     if (match) targetTask = match.item;
   }
 
@@ -160,4 +167,8 @@ function userName(user) {
     user.first_name || user.firstName || user.First_Name || user.name || user.email,
     user.last_name || user.lastName || user.Last_Name,
   ].filter(Boolean).join(' ');
+}
+
+function normalizeText(value = '') {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }

@@ -93,4 +93,57 @@ async function getTeamWorkload({ department = null } = {}) {
   }));
 }
 
-module.exports = { getSummary, getTeamWorkload };
+async function getTeamCompletionAccuracy({ department = null } = {}) {
+  const values = [];
+  let depClause = '';
+  if (department) {
+    values.push(department);
+    depClause = ` AND e.department = $${values.length}`;
+  }
+
+  const { rows } = await db.query(
+    `SELECT e.user_id, e.first_name, e.last_name, e.department,
+            COUNT(t.id) AS total_assigned,
+            COUNT(t.id) FILTER (WHERE t.status = 'Completed') AS completed,
+            COUNT(t.id) FILTER (
+              WHERE t.status = 'Completed'
+                AND (t.due_date IS NULL OR (t.completed_at IS NOT NULL AND t.completed_at <= t.due_date))
+            ) AS on_time_completed,
+            COUNT(t.id) FILTER (
+              WHERE t.status = 'Completed'
+                AND t.due_date IS NOT NULL
+                AND t.completed_at IS NOT NULL
+                AND t.completed_at > t.due_date
+            ) AS late_completed,
+            COUNT(t.id) FILTER (
+              WHERE t.status <> 'Completed'
+                AND t.due_date IS NOT NULL
+                AND t.due_date < NOW()
+            ) AS overdue_pending
+       FROM employees e
+       LEFT JOIN tasks t ON t.doer_id = e.user_id AND t.deleted_at IS NULL
+      WHERE e.deleted_at IS NULL ${depClause}
+      GROUP BY e.user_id, e.first_name, e.last_name, e.department
+      ORDER BY on_time_completed DESC, completed DESC, total_assigned DESC
+      LIMIT 25`,
+    values
+  );
+
+  return rows.map((r) => {
+    const completed = Number(r.completed) || 0;
+    const onTimeCompleted = Number(r.on_time_completed) || 0;
+    return {
+      userId: r.user_id,
+      name: `${r.first_name || ''} ${r.last_name || ''}`.trim(),
+      department: r.department || null,
+      totalAssigned: Number(r.total_assigned) || 0,
+      completed,
+      onTimeCompleted,
+      lateCompleted: Number(r.late_completed) || 0,
+      overduePending: Number(r.overdue_pending) || 0,
+      completionAccuracy: completed > 0 ? Number(((onTimeCompleted / completed) * 100).toFixed(1)) : 0,
+    };
+  });
+}
+
+module.exports = { getSummary, getTeamWorkload, getTeamCompletionAccuracy };

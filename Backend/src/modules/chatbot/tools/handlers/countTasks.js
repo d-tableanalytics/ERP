@@ -4,7 +4,7 @@ const { resolveUserId } = require('../../validators/permissions');
 
 const schema = {
   status: { type: 'string', max: 32 },
-  role: { type: 'string', enum: ['mine', 'delegated', 'subscribed'] },
+  role: { type: 'string', enum: ['mine', 'delegated', 'subscribed', 'all'] },
 };
 
 module.exports = async function countTasks(args, user) {

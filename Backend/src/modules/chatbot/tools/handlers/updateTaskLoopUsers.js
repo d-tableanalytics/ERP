@@ -55,16 +55,15 @@ module.exports = async function updateTaskLoopUsers(args, user, ctx) {
       [userId]
     );
 
-    const match = bestMatch(
-      taskTitle,
-      allTasks,
-      (t) => t.task_title || '',
-      0.45   // slightly lower threshold so short/exact titles still match
-    );
+    const targetKey = normalizeText(taskTitle);
+    const exact = allTasks.find((task) => normalizeText(task.task_title || '') === targetKey);
+    if (exact) targetTask = exact;
 
-    if (match) {
-      targetTask = match.item;
-    }
+    const wordCount = targetKey.split(/\s+/).filter(Boolean).length;
+    const match = !targetTask && wordCount > 1
+      ? bestMatch(taskTitle, allTasks, (t) => t.task_title || '', 0.55)
+      : null;
+    if (match) targetTask = match.item;
   }
 
   // Fallback: last task created in this session
@@ -189,4 +188,8 @@ function formatFriendly(isoDate) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
+}
+
+function normalizeText(value = '') {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }

@@ -3,6 +3,7 @@ const { Task } = require('../../../../models/task.model');
 const { validate } = require('../../validators/toolArgs');
 const { resolveUserId } = require('../../validators/permissions');
 const { bestMatch } = require('../../utils/fuzzy');
+const { formatDDMMYYYYWithOptionalTime } = require('../../utils/time');
 
 const schema = {
   taskId: { type: 'integer' },
@@ -47,6 +48,9 @@ module.exports = async function updateTaskPriority(args, user, ctx) {
       title,
       previousPriority,
       priority,
+      dueDate: formatDDMMYYYYWithOptionalTime(confirmed?.dueDate || targetTask.due_date),
+      assignedTo: taskPersonName(confirmed, 'doer') || targetTask.doer_name || targetTask.doerName,
+      assignedBy: taskPersonName(confirmed, 'assigner') || targetTask.delegator_name || targetTask.assignerName,
       status: confirmed?.status || targetTask.status,
     },
     slot: {
@@ -60,7 +64,7 @@ module.exports = async function updateTaskPriority(args, user, ctx) {
 async function findTask({ userId, taskId, taskTitle, ctx }) {
   if (taskId) {
     const { rows } = await pool.query(
-      `SELECT id, task_title, priority, status
+      `SELECT id, task_title, doer_name, delegator_name, due_date, priority, status
          FROM tasks
         WHERE id = $1
           AND deleted_at IS NULL
@@ -72,7 +76,7 @@ async function findTask({ userId, taskId, taskTitle, ctx }) {
 
   if (taskTitle) {
     const { rows } = await pool.query(
-      `SELECT id, task_title, priority, status
+      `SELECT id, task_title, doer_name, delegator_name, due_date, priority, status
          FROM tasks
         WHERE deleted_at IS NULL
           AND (delegator_id = $1 OR doer_id = $1 OR $1 = ANY(in_loop_ids))
@@ -96,6 +100,9 @@ async function findTask({ userId, taskId, taskTitle, ctx }) {
       return {
         id: found.id,
         task_title: found.taskTitle,
+        doer_name: found.doerName,
+        delegator_name: found.assignerName,
+        due_date: found.dueDate,
         priority: found.priority,
         status: found.status,
       };
@@ -115,4 +122,12 @@ function normalizePriority(value = '') {
 
 function normalizeText(value = '') {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function taskPersonName(task, role) {
+  if (!task) return null;
+  const direct = role === 'assigner' ? task.assignerName : task.doerName;
+  const first = role === 'assigner' ? task.assignerFirstName : task.doerFirstName;
+  const last = role === 'assigner' ? task.assignerLastName : task.doerLastName;
+  return [first, last].filter(Boolean).join(' ').trim() || direct || null;
 }
