@@ -120,9 +120,8 @@ export const calculateTaskStatus = (task) => {
  */
 export const taskMatchesStatus = (task, filter) => {
     if (filter === 'All') return true;
-    if (filter === 'Overdue') return isOverdue(task);
-    
-    const s = (task.status || '').toLowerCase().replace(/[\s-]/g, '');
+
+    const s = (calculateTaskStatus(task) || '').toLowerCase().replace(/[\s-]/g, '');
     const f = (filter || '').toLowerCase().replace(/[\s-]/g, '');
     return s === f;
 };

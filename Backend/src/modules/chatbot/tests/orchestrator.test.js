@@ -243,6 +243,13 @@ test('orchestrator: casual English and Hindi greetings are answered warmly witho
     assert.match(hindi.text, /Main theek hoon/);
     assert.match(hindi.text, /Shashi Lal ke related task/i);
     assert.doesNotMatch(hindi.text, /can only assist/i);
+
+    const evening = await orchestrator.run({
+      message: 'good evening',
+      user: { user_id: 5, role: 'Employee', name: 'Test User' },
+      sessionId: null,
+    });
+    assert.match(evening.text, /^Good evening 👋 I'm good 😊/);
   } finally {
     session.restore();
     restoreProvider();
@@ -916,6 +923,63 @@ test('orchestrator: delegation summary for employee is scoped to tasks assigned 
     assert.match(envelope.text, /^2\. Late task/m);
     assert.match(envelope.text, /   Overdue: Yes/);
     assert.match(envelope.text, /^In Progress Tasks:/m);
+  } finally {
+    restoreGetMyTasks();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
+test('orchestrator: summary of employee tasks assigned by me filters by that employee', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'list_1', name: 'getMyTasks', args: {} }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  let listArgs;
+  const restoreGetMyTasks = patchRegistry('getMyTasks', async (args) => {
+    listArgs = args;
+    return {
+      ok: true,
+      count: 1,
+      tasks: [
+        {
+          id: 12,
+          title: 'Test the ERP dashboard',
+          status: 'Pending',
+          priority: 'High',
+          dueDate: '2026-05-28T18:00:00.000Z',
+          dueDateFormatted: '28/05/2026 6:00 PM',
+          assignedTo: 'Adarsh Shrivastava',
+          assignedBy: 'Bhumika Girhare',
+        },
+      ],
+      slot: { lastFilters: args, lastResultIds: [12] },
+    };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'summary of adarsh task that are assign by mee',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(listArgs, { role: 'delegated', assignedTo: 'adarsh', summary: true });
+    assert.match(envelope.text, /^Delegation Summary: adarsh/m);
+    assert.match(envelope.text, /These are only the tasks assigned by you to adarsh\./);
+    assert.match(envelope.text, /^Total Tasks: 1/m);
+    assert.match(envelope.text, /Test the ERP dashboard/);
   } finally {
     restoreGetMyTasks();
     restoreMirror();

@@ -381,14 +381,18 @@ function buildCasualGreetingResponse(message = '') {
 
   const relatedName = extractGreetingRelatedName(text);
   if (relatedName) {
-    return `Main theek hoon 😊 ${relatedName} ke related task, attendance, checklist ya dashboard dekhna ho to batao.`;
+    return `Main theek hoon 😊✨ ${relatedName} ke related task, attendance, checklist ya dashboard dekhna ho to batao.`;
   }
 
   if (/\b(kya\s+hal|kya\s+haal|kaise\s+ho)\b/i.test(text)) {
-    return 'Main theek hoon 😊 Aap task, checklist, attendance ya dashboard ke liye bol sakte ho.';
+    return 'Main theek hoon 😊✨ Aap task, checklist, attendance ya dashboard ke liye bol sakte ho.';
   }
 
-  return "Hello, I'm good 😊 How can I help you with tasks, checklists, attendance, or dashboard today?";
+  const timeGreeting = text.match(/\bgood\s+(morning|afternoon|evening)\b/i)?.[0];
+  const greeting = timeGreeting
+    ? `${timeGreeting[0].toUpperCase()}${timeGreeting.slice(1).toLowerCase()}`
+    : 'Hello';
+  return `${greeting} 👋 I'm good 😊 How can I help you with tasks, checklists, attendance, or dashboard today?`;
 }
 
 function hasActionableErpIntent(message = '') {
@@ -1323,6 +1327,7 @@ function extractDelegatedTaskListArgs(message = '') {
 
   const assignedTo = cleanDelegatedAssignee(
     text.match(/\b(?:delegation|delegated\s+tasks?)\s+summary\s+(?:for|to|too)\s+([A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*){0,2})\b/i)?.[1]
+      || text.match(/\bsummary\s+of\s+([A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*){0,2})\s+tasks?\b/i)?.[1]
       || text.match(/\bassign(?:ed)?\s+by\s+(?:me|mee|myself|login(?:g|ged)?\s+user|current\s+user)\s+(?:to|too|for)\s+(.+?)(?=\s+\b(?:me|mee|ites|it\s+means|means|login(?:g|ged)?|user|show|list|see|view|all|tasks?)\b|$)/i)?.[1]
       || text.match(/\btasks?\s+i\s+assign(?:ed)?\s+(?:to|too|for)\s+(.+?)(?=\s+\b(?:me|mee|ites|it\s+means|means|login(?:g|ged)?|user|show|list|see|view|all|tasks?)\b|$)/i)?.[1]
       || text.match(/\b(?:to|too|for)\s+([A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*){0,2})(?=\s+\b(?:me|mee|ites|it\s+means|means|login(?:g|ged)?|user|show|list|see|view|all|tasks?)\b|$)/i)?.[1]
@@ -1342,7 +1347,7 @@ function extractDelegatedTaskListArgs(message = '') {
 function cleanDelegatedAssignee(value = '') {
   const cleaned = String(value || '')
     .replace(/[.!?]+$/g, '')
-    .replace(/\b(?:please|task|tasks|all|show|list|see|view|assigned|assign|by|me|mee|to|too|for)\b/ig, ' ')
+    .replace(/\b(?:please|task|tasks|all|show|list|see|view|summary|summarize|assigned|assign|by|me|mee|to|too|for|that|are)\b/ig, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return cleaned || null;

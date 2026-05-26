@@ -32,6 +32,8 @@ module.exports = async function createTask(args, user) {
   const userId = resolveUserId(user);
   if (!userId) return { ok: false, error: 'Authentication required.' };
 
+  const currentEmployee = await resolveCurrentEmployee(userId, user);
+  const currentUserName = userName(user, currentEmployee);
   const title = v.value.title;
   const description = v.value.description || title;
   const priority = v.value.priority || 'Medium';
@@ -40,7 +42,7 @@ module.exports = async function createTask(args, user) {
 
   // --- Resolve assignee ---
   let doerId = userId;    // default: self
-  let doerName = userName(user);
+  let doerName = currentUserName;
 
   if (rawAssignee) {
     try {
@@ -97,7 +99,7 @@ module.exports = async function createTask(args, user) {
 
   // --- Assigner info ---
   const delegatorId = userId;
-  const delegatorName = userName(user);
+  const delegatorName = currentUserName;
 
   // --- Create via existing model ---
   const taskData = {
@@ -107,7 +109,7 @@ module.exports = async function createTask(args, user) {
     delegator_name: delegatorName,
     doer_id: doerId,
     doer_name: doerName,
-    department: user.department || null,
+    department: user.department || currentEmployee?.department || null,
     priority: priority,
     due_date: dueDate,
     status: 'Pending',
@@ -144,10 +146,27 @@ module.exports = async function createTask(args, user) {
 
 // ── Helpers ──────────────────────────────────────────────
 
-function userName(user) {
-  if (!user) return 'Unknown';
-  const parts = [user.first_name || user.name, user.last_name].filter(Boolean);
-  return parts.join(' ') || 'Unknown';
+async function resolveCurrentEmployee(userId, user) {
+  if (hasUserName(user)) return null;
+  try {
+    return await employeeAdapter.findById(userId);
+  } catch {
+    return null;
+  }
+}
+
+function hasUserName(user) {
+  return !!(user && (user.name || user.first_name || user.firstName || user.full_name || user.fullName));
+}
+
+function userName(user, employee = null) {
+  const source = hasUserName(user) ? user : employee;
+  if (!source) return 'Unknown';
+  const explicit = source.name || source.full_name || source.fullName;
+  const parts = explicit
+    ? [explicit]
+    : [source.first_name || source.firstName, source.last_name || source.lastName];
+  return parts.filter(Boolean).join(' ').trim() || 'Unknown';
 }
 
 /**

@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 
 const db = require('../../../config/db.config');
 const { Task } = require('../../../models/task.model');
+const employeeAdapter = require('../adapters/employeeAdapter');
+const createTask = require('../tools/handlers/createTask');
 const updateTaskDueDate = require('../tools/handlers/updateTaskDueDate');
 const updateTaskStatus = require('../tools/handlers/updateTaskStatus');
 
@@ -45,6 +47,50 @@ test('updateTaskDueDate: exact one-word title wins over fuzzy substring match', 
     db.pool.query = originalPoolQuery;
     Task.update = originalUpdate;
     Task.findById = originalFindById;
+  }
+});
+
+test('createTask: resolves assignedBy from employee when JWT user has no name', async () => {
+  const originalFindById = employeeAdapter.findById;
+  const originalSearch = employeeAdapter.search;
+  const originalFindMyTasks = Task.findMyTasks;
+  const originalCreate = Task.create;
+  let createdData;
+
+  employeeAdapter.findById = async (userId) => ({
+    id: userId,
+    name: 'Bhumika Girhare',
+    department: 'Operations',
+  });
+  employeeAdapter.search = async (query) => {
+    if (String(query).toLowerCase() === 'adarsh') {
+      return [{ id: 8, name: 'Adarsh Shrivastava' }];
+    }
+    return [];
+  };
+  Task.findMyTasks = async () => [];
+  Task.create = async (data) => {
+    createdData = data;
+    return { id: 42, ...data };
+  };
+
+  try {
+    const result = await createTask(
+      { title: 'Test the ERP dashboard', assignedTo: 'Adarsh', dueDate: 'tomorrow evening', priority: 'High' },
+      { id: 5, email: 'bhumika@example.com', role: 'Employee' }
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(createdData.delegator_id, 5);
+    assert.equal(createdData.delegator_name, 'Bhumika Girhare');
+    assert.equal(createdData.department, 'Operations');
+    assert.equal(result.summary.assignedBy, 'Bhumika Girhare');
+    assert.equal(result.summary.assignedTo, 'Adarsh Shrivastava');
+  } finally {
+    employeeAdapter.findById = originalFindById;
+    employeeAdapter.search = originalSearch;
+    Task.findMyTasks = originalFindMyTasks;
+    Task.create = originalCreate;
   }
 });
 

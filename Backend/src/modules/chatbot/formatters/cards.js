@@ -94,6 +94,7 @@ function taskCreatedCard(r) {
     id: r.taskId,
     title: r.summary.title,
     assignedTo: r.summary.assignedTo,
+    assignedBy: r.summary.assignedBy,
     inLoop: r.summary.inLoop,
     dueDate: r.summary.dueDate,
     priority: r.summary.priority,
