@@ -1,17 +1,9 @@
 const { pool } = require("../config/db.config");
+const o2dService = require("../services/o2d.service");
 
 /* ================= DEFAULT WORKFLOW ================= */
 
-const defaultSteps = [
-  "Destination",
-  "Check Stock Availability",
-  "Promotion & Communication",
-  "Warehouse Dispatch",
-  "Transport Coordination",
-  "Accounts Processing",
-  "Costing",
-  "Billing"
-];
+const defaultSteps = o2dService.O2D_STEPS;
 
 /* =====================================================
    CREATE ORDER
@@ -23,6 +15,11 @@ exports.createO2DOrder = async (req, res) => {
 
   const {
     party_name,
+    po_number,
+    firm_name,
+    buyer_name,
+    uid,
+    delivery_date,
     customer_type,
     contact_no,
     alternate_no,
@@ -38,11 +35,17 @@ exports.createO2DOrder = async (req, res) => {
 
     const orderResult = await client.query(
       `INSERT INTO o2d_orders
-       (party_name, customer_type, contact_no, alternate_no,
+       (po_number, firm_name, buyer_name, uid, delivery_date,
+        party_name, customer_type, contact_no, alternate_no,
         email, location, state, representative, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        RETURNING *`,
       [
+        po_number || null,
+        firm_name || null,
+        buyer_name || null,
+        uid || null,
+        delivery_date || null,
         party_name,
         customer_type,
         contact_no,
@@ -107,32 +110,9 @@ exports.createO2DOrder = async (req, res) => {
 
 exports.getAllO2DOrders = async (req, res) => {
   try {
-    const orders = await pool.query(`
-      SELECT * FROM o2d_orders
-      ORDER BY created_at DESC
-    `);
-
-    const result = [];
-
-    for (let order of orders.rows) {
-      const items = await pool.query(
-        `SELECT * FROM o2d_order_items WHERE order_id=$1`,
-        [order.id]
-      );
-
-      const steps = await pool.query(
-        `SELECT * FROM o2d_order_steps
-         WHERE order_id=$1
-         ORDER BY step_number ASC`,
-        [order.id]
-      );
-
-      result.push({
-        ...order,
-        items: items.rows,
-        steps: steps.rows
-      });
-    }
+    const result = await o2dService.getOrders(req.query || {}, req.user, {
+      limit: req.query.limit || 50
+    });
 
     res.json({ success: true, data: result });
 
@@ -268,5 +248,109 @@ exports.completeO2DStep = async (req, res) => {
     res.status(500).json({ success: false, message: "Error completing step" });
   } finally {
     client.release();
+  }
+};
+
+exports.getO2DOrderByPO = async (req, res) => {
+  try {
+    const order = await o2dService.getOrderByPO(req.params.poNumber, req.user);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "O2D order not found" });
+    }
+    res.json({ success: true, data: order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching O2D order" });
+  }
+};
+
+exports.getO2DOrdersByStep = async (req, res) => {
+  try {
+    const result = await o2dService.getOrdersByStep(req.params.stepName, req.user, {
+      limit: req.query.limit || 50
+    });
+    if (!result.ok) return res.status(400).json({ success: false, message: result.error });
+    res.json({ success: true, data: result.orders, count: result.count, step: result.step });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching O2D step orders" });
+  }
+};
+
+exports.getO2DOverdueOrders = async (req, res) => {
+  try {
+    const result = await o2dService.getOverdueOrders(req.user, { limit: req.query.limit || 50 });
+    res.json({ success: true, data: result.orders, count: result.count });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching overdue O2D orders" });
+  }
+};
+
+exports.getO2DSummary = async (req, res) => {
+  try {
+    const summary = await o2dService.getSummary(req.user);
+    res.json({ success: true, data: summary });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching O2D summary" });
+  }
+};
+
+exports.updateO2DStep = async (req, res) => {
+  try {
+    const result = await o2dService.updateStep({
+      orderId: req.params.orderId,
+      ...req.body,
+    }, req.user);
+    if (!result.ok) return res.status(400).json({ success: false, message: result.error, data: result });
+    res.json({ success: true, message: result.message, data: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Error updating O2D step" });
+  }
+};
+
+exports.correctO2DStep = async (req, res) => {
+  try {
+    const result = await o2dService.correctCurrentStep({
+      orderId: req.params.orderId,
+      poNumber: req.body.poNumber,
+      toStep: req.body.toStep || req.body.currentStep,
+      remarks: req.body.remarks,
+    }, req.user);
+    if (!result.ok) return res.status(400).json({ success: false, message: result.error, data: result });
+    res.json({ success: true, message: result.message, data: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Error correcting O2D step" });
+  }
+};
+
+exports.addO2DRemark = async (req, res) => {
+  try {
+    const result = await o2dService.addRemark({
+      orderId: req.params.orderId,
+      remark: req.body.remark || req.body.remarks,
+    }, req.user);
+    if (!result.ok) return res.status(400).json({ success: false, message: result.error });
+    res.json({ success: true, message: "Remark added successfully", data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error adding O2D remark" });
+  }
+};
+
+exports.getO2DStepHistory = async (req, res) => {
+  try {
+    const result = await o2dService.getStepHistory({ orderId: req.params.orderId }, req.user);
+    if (!result.ok) return res.status(400).json({ success: false, message: result.error });
+    res.json({ success: true, data: result.history, count: result.count, order: result.order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching O2D step history" });
+  }
+};
+
+exports.getO2DAlerts = async (req, res) => {
+  try {
+    const alerts = await o2dService.getAlerts(req.user, req.query || {});
+    res.json({ success: true, data: alerts });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching O2D alerts" });
   }
 };

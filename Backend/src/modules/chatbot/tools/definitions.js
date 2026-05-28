@@ -159,6 +159,167 @@ const TOOL_DEFINITIONS = [
   },
   {
     type: 'function',
+    role: 'any',
+    function: {
+      name: 'getO2DOrders',
+      description: 'Search O2D orders by PO number, firm, buyer, item, UID, delivery date, overall status, or current workflow step. Use for natural language O2D/order-to-delivery lookup questions. Employees only see allowed/assigned O2D orders; admins see all.',
+      parameters: {
+        type: 'object',
+        properties: {
+          poNumber: { type: 'string', description: 'PO number or fragment.' },
+          firm: { type: 'string', description: 'Firm/company name.' },
+          buyer: { type: 'string', description: 'Buyer/customer name.' },
+          item: { type: 'string', description: 'Item name or fragment.' },
+          uid: { type: 'string', description: 'Order UID.' },
+          deliveryDate: { type: 'string', description: 'Delivery date, YYYY-MM-DD.' },
+          status: { type: 'string', description: 'Overall order status such as IN_PROGRESS or COMPLETED.' },
+          currentStep: { type: 'string', description: 'Current O2D step name.' },
+          limit: { type: 'integer', minimum: 1, maximum: 50 },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getO2DOrderByPO',
+      description: 'Get full O2D order details, current step, next step, and step list for one PO number. Use when the user asks current status/current step/next step of a PO.',
+      parameters: {
+        type: 'object',
+        properties: {
+          poNumber: { type: 'string', description: 'Exact PO number.' },
+        },
+        required: ['poNumber'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getO2DOrdersByStep',
+      description: 'Show step-wise pending/current O2D orders for a specific workflow step, such as PO Check, Payment Release, Delivery, or Doc Checker.',
+      parameters: {
+        type: 'object',
+        properties: {
+          step: { type: 'string', description: 'O2D step name.' },
+          limit: { type: 'integer', minimum: 1, maximum: 50 },
+        },
+        required: ['step'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getO2DOverdueOrders',
+      description: 'Show O2D orders whose delivery date has passed and are not completed.',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', minimum: 1, maximum: 50 },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getO2DSummary',
+      description: 'Get an O2D business summary: total orders, counts by step/status, overdue count, approaching delivery count, and stuck-order alert count.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getO2DAlerts',
+      description: 'Get smart O2D alerts: overdue orders, orders stuck at one step, and orders with delivery date approaching.',
+      parameters: {
+        type: 'object',
+        properties: {
+          stuckDays: { type: 'integer', minimum: 1, maximum: 30, description: 'Days at one step before an order is considered stuck. Default 3.' },
+          approachingDays: { type: 'integer', minimum: 1, maximum: 30, description: 'Days before delivery to alert. Default 3.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateO2DStep',
+      description: 'Move an O2D order from its current step to the next workflow step. Only call with confirmed=true after the user explicitly confirms the move. Validate current step and only allow the correct next step unless Admin/SuperAdmin passes adminOverride=true. Employees can update only assigned/allowed step orders.',
+      parameters: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'integer', description: 'O2D order ID if known.' },
+          poNumber: { type: 'string', description: 'PO number to update.' },
+          fromStep: { type: 'string', description: 'Expected current step named by the user.' },
+          toStep: { type: 'string', description: 'Target next step. If omitted, the correct next step is used.' },
+          remarks: { type: 'string', description: 'Business remark/history note.' },
+          confirmed: { type: 'boolean', description: 'Must be true only when the user has explicitly confirmed this update.' },
+          adminOverride: { type: 'boolean', description: 'Admin/SuperAdmin override for non-sequential moves.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'correctO2DStep',
+      description: 'Correct or set the current O2D step for an order when the step is missing or invalid, e.g. "Update PO PO-99999 current O2D step to Order Entry". Validate the target against the valid O2D workflow. Do not use this for normal next-step movement; use updateO2DStep for sequential moves. Admins can correct any O2D order; employees can correct only orders assigned to them. Reject invalid target steps such as Check Stock Availability.',
+      parameters: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'integer', description: 'O2D order ID if known.' },
+          poNumber: { type: 'string', description: 'PO number to correct.' },
+          toStep: { type: 'string', description: 'Valid target O2D step, such as Order Entry, PO Check, Doc Checker, or Delivery.' },
+          remarks: { type: 'string', description: 'Correction reason or audit note.' },
+        },
+        required: ['toStep'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'addO2DRemark',
+      description: 'Add a remark/note to an O2D order by PO number or selected order.',
+      parameters: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'integer' },
+          poNumber: { type: 'string' },
+          remark: { type: 'string' },
+        },
+        required: ['remark'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getO2DStepHistory',
+      description: 'Get O2D step movement history with fromStep, toStep, changedBy, remarks, and changedAt for a PO/order.',
+      parameters: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'integer' },
+          poNumber: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
     role: 'admin',
     function: {
       name: 'listEmployees',

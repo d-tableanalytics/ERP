@@ -396,7 +396,7 @@ function buildCasualGreetingResponse(message = '') {
 }
 
 function hasActionableErpIntent(message = '') {
-  return /\b(show|list|get|view|create|add|make|delete|remove|update|change|mark|assign|delegate|dashboard|tasks?|checklists?|attendance|tickets?|overdue|pending|completed)\b/i.test(message);
+  return /\b(show|list|get|view|create|add|make|delete|remove|update|change|mark|assign|delegate|dashboard|tasks?|checklists?|attendance|tickets?|overdue|pending|completed|o2d|po|order|delivery|despatch|dispatch)\b/i.test(message);
 }
 
 function extractGreetingRelatedName(message = '') {
@@ -1914,6 +1914,38 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
     const chatResult = (toolResults || []).find((tr) => tr.name === 'getChatSummary')?.result;
     if (chatResult) return formatChatSummaryText(chatResult);
   }
+  if (tools.includes('correctO2DStep')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'correctO2DStep')?.result;
+    if (result) return formatO2DStepCorrectionText(result);
+  }
+  if (tools.includes('getO2DOrderByPO')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'getO2DOrderByPO')?.result;
+    if (result) return formatO2DDetailText(result);
+  }
+  if (tools.includes('getO2DOrders') || tools.includes('getO2DOrdersByStep') || tools.includes('getO2DOverdueOrders')) {
+    const result = (toolResults || []).find((tr) => ['getO2DOrders', 'getO2DOrdersByStep', 'getO2DOverdueOrders'].includes(tr.name))?.result;
+    if (result) return formatO2DListText(result);
+  }
+  if (tools.includes('getO2DSummary')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'getO2DSummary')?.result;
+    if (result) return formatO2DSummaryText(result);
+  }
+  if (tools.includes('getO2DAlerts')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'getO2DAlerts')?.result;
+    if (result) return formatO2DAlertsText(result);
+  }
+  if (tools.includes('updateO2DStep')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'updateO2DStep')?.result;
+    if (result) return formatO2DStepUpdateText(result);
+  }
+  if (tools.includes('addO2DRemark')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'addO2DRemark')?.result;
+    if (result) return result.ok ? `O2D remark added for PO ${valueOrNA(result.order?.po_number || result.order?.id)}.` : (result.message || result.error || 'O2D remark could not be added.');
+  }
+  if (tools.includes('getO2DStepHistory')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'getO2DStepHistory')?.result;
+    if (result) return formatO2DHistoryText(result);
+  }
   if (tools.includes('listEmployees')) {
     const employeeResult = (toolResults || []).find((tr) => tr.name === 'listEmployees')?.result;
     if (employeeResult?.ok && Array.isArray(employeeResult.employees)) {
@@ -1964,6 +1996,228 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
     if (checklistResult) return formatCreateChecklistText(checklistResult);
   }
   return fallback || '';
+}
+
+function formatO2DListText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Could not fetch O2D orders.';
+  const orders = Array.isArray(result.orders) ? result.orders : [];
+  if (!orders.length) return formatO2DNoMatchText(result);
+
+  const header = result.step
+    ? `O2D Pending at ${result.step} (${orders.length})`
+    : `O2D Orders (${orders.length})`;
+  const lines = [header];
+  orders.slice(0, 10).forEach((order, index) => {
+    lines.push('', formatO2DOrderBlock(order, index + 1));
+  });
+  return lines.join('\n');
+}
+
+function formatO2DNoMatchText(result = {}) {
+  if (result.step) return `No pending O2D orders found at ${result.step}.`;
+  const filters = result.filters || {};
+  const filterLines = Object.entries(filters)
+    .filter(([, value]) => value != null && value !== '')
+    .map(([key, value]) => `**${key}:** ${value}`);
+
+  const lines = [
+    'No matching O2D orders found in backend O2D records.',
+  ];
+  if (filterLines.length) {
+    lines.push('', '**Searched Filters:**', ...filterLines);
+  }
+  lines.push(
+    '',
+    `**Data Source:** ${valueOrNA(result.dataSource)}`,
+    `**Scope:** ${result.scope === 'admin_all_o2d_orders' ? 'Admin - all O2D orders' : 'Employee - assigned O2D orders only'}`,
+    '',
+    'The O2D FMS grid can show rows from the frontend FMS dataset. ADA can summarize only records available in the backend O2D API, so that FMS row must be synced into backend O2D orders/items first.'
+  );
+  return lines.join('\n');
+}
+
+function formatO2DDetailText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Could not fetch O2D order.';
+  if (!result.found || !result.order) return result.message || 'No O2D order found for this PO number.';
+  const order = result.order;
+  const lines = [
+    'O2D Order Status',
+    `**PO:** ${valueOrNA(order.po_number || order.id)}`,
+    `**Firm:** ${valueOrNA(order.firm_name || order.party_name)}`,
+    `**Buyer:** ${valueOrNA(order.buyer_name)}`,
+    `**UID:** ${valueOrNA(order.uid)}`,
+    `**Items:** ${formatListValue(order.item_names)}`,
+    `**Delivery Date:** ${formatDateOnly(order.delivery_date)}`,
+    `**Status:** ${valueOrNA(order.overall_status)}`,
+    `**Current Step:** ${formatO2DCurrentStep(order)}`,
+  ];
+  if (order.invalidStepValue || order.invalid_current_step) {
+    lines.push(`**Invalid Step Value:** ${valueOrNA(order.invalidStepValue || order.invalid_current_step)}`);
+  }
+  lines.push(
+    `**Next Step:** ${formatO2DNextStep(order)}`,
+    `**Assigned To:** ${valueOrNA(order.assigned_to)}`
+  );
+  return lines.join('\n');
+}
+
+function formatO2DSummaryText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Could not fetch O2D summary.';
+  const stepLines = Object.entries(result.byStep || {})
+    .filter(([, count]) => Number(count) > 0)
+    .slice(0, 10)
+    .map(([step, count]) => `• ${step}: ${count}`);
+  const invalidLines = Array.isArray(result.invalidSteps)
+    ? result.invalidSteps
+      .filter((entry) => Number(entry.count) > 0)
+      .map((entry) => `• ${entry.step}: ${entry.count}`)
+    : [];
+  const lines = [
+    'O2D Summary',
+    `**Total Orders:** ${valueOrNA(result.total)}`,
+    `**Overdue:** ${valueOrNA(result.overdueCount)}`,
+    `**Delivery Approaching:** ${valueOrNA(result.approachingDeliveryCount)}`,
+    `**Stuck Alerts:** ${valueOrNA(result.alerts?.stuck)}`,
+    '',
+    '**Pending by Step:**',
+    ...(stepLines.length ? stepLines : ['• No active step pending orders found.']),
+  ];
+  if (invalidLines.length) {
+    lines.push('', '**Invalid/Unmapped Steps:**', ...invalidLines);
+  }
+  return lines.join('\n');
+}
+
+function formatO2DAlertsText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Could not fetch O2D alerts.';
+  const overdue = Array.isArray(result.overdue) ? result.overdue : [];
+  const stuck = Array.isArray(result.stuck) ? result.stuck : [];
+  const approaching = Array.isArray(result.approachingDelivery) ? result.approachingDelivery : [];
+  const lines = [
+    'O2D Smart Alerts',
+    `**Overdue:** ${overdue.length}`,
+    `**Stuck at Step:** ${stuck.length}`,
+    `**Delivery Approaching:** ${approaching.length}`,
+  ];
+  appendAlertGroup(lines, 'Overdue Orders', overdue, 'overdueDays', 'days overdue');
+  appendAlertGroup(lines, 'Stuck Orders', stuck, 'daysAtStep', 'days at current step');
+  appendAlertGroup(lines, 'Delivery Approaching', approaching, 'daysUntilDelivery', 'days left');
+  return lines.join('\n');
+}
+
+function formatO2DStepUpdateText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'O2D step could not be updated.';
+  if (result.requiresConfirmation) {
+    return [
+      'O2D Step Update Confirmation',
+      `**PO:** ${valueOrNA(result.order?.po_number || result.order?.id)}`,
+      `**From:** ${valueOrNA(result.fromStep)}`,
+      `**To:** ${valueOrNA(result.toStep)}`,
+      '',
+      'Please confirm if I should update this order step.',
+    ].join('\n');
+  }
+  return [
+    'O2D Step Updated',
+    `**PO:** ${valueOrNA(result.order?.po_number || result.order?.id)}`,
+    `**From:** ${valueOrNA(result.fromStep)}`,
+    `**To:** ${valueOrNA(result.toStep)}`,
+    `**Current Step:** ${valueOrNA(result.order?.current_step)}`,
+    `**Next Step:** ${valueOrNA(result.order?.next_step)}`,
+  ].join('\n');
+}
+
+function formatO2DStepCorrectionText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'O2D current step could not be corrected.';
+  const order = result.order || {};
+  return [
+    'O2D Current Step Updated',
+    `**PO Number:** ${valueOrNA(order.po_number || result.poNumber || order.id)}`,
+    `**Current Step:** ${valueOrNA(order.current_step || result.currentStep)}`,
+    `**Next Step:** ${valueOrNA(order.next_step || result.nextStep)}`,
+    `**Status:** ${valueOrNA(order.overall_status)}`,
+    `**Delivery Date:** ${formatDateOnly(order.delivery_date)}`,
+  ].join('\n');
+}
+
+function formatO2DHistoryText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'Could not fetch O2D step history.';
+  const history = Array.isArray(result.history) ? result.history : [];
+  if (!history.length) return `No step history found for PO ${valueOrNA(result.order?.po_number || result.order?.id)}.`;
+  const lines = [`O2D Step History - PO ${valueOrNA(result.order?.po_number || result.order?.id)}`];
+  history.slice(0, 10).forEach((entry, index) => {
+    lines.push(`${index + 1}. ${valueOrNA(entry.from_step)} → ${valueOrNA(entry.to_step)} | ${valueOrNA(entry.changed_by_name || entry.changed_by)} | ${formatDateTime(entry.changed_at)} | ${valueOrNA(entry.remarks)}`);
+  });
+  return lines.join('\n');
+}
+
+function formatO2DOrderLine(order = {}) {
+  const po = valueOrNA(order.po_number || order.id);
+  const firm = valueOrNA(order.firm_name || order.party_name);
+  const step = formatO2DCurrentStep(order);
+  const next = formatO2DNextStep(order);
+  const delivery = formatDateOnly(order.delivery_date);
+  return `• **PO ${po}** - ${firm} - Step: ${step} - Next: ${next} - Delivery: ${delivery}`;
+}
+
+function formatO2DOrderBlock(order = {}, index = 1) {
+  return [
+    `${index}. **PO:** ${valueOrNA(order.po_number || order.id)}`,
+    `   **Buyer:** ${valueOrNA(order.buyer_name || order.firm_name || order.party_name)}`,
+    `   **Item:** ${formatListValue(order.item_names)}`,
+    `   **Current Step:** ${formatO2DCurrentStep(order)}`,
+    ...(order.invalidStepValue || order.invalid_current_step ? [`   **Invalid Step Value:** ${valueOrNA(order.invalidStepValue || order.invalid_current_step)}`] : []),
+    `   **Next Step:** ${formatO2DNextStep(order)}`,
+    `   **Delivery Date:** ${formatDateOnly(order.delivery_date)}`,
+    `   **Overdue:** ${formatO2DOverdue(order)}`,
+  ].join('\n');
+}
+
+function formatO2DCurrentStep(order = {}) {
+  if (order.current_step) return order.current_step;
+  return 'Missing O2D step data';
+}
+
+function formatO2DNextStep(order = {}) {
+  if (order.next_step) return order.next_step;
+  if (order.current_step) return 'Workflow complete';
+  if (order.invalidStepValue || order.invalid_current_step) return 'Cannot calculate until O2D step is fixed';
+  return 'Cannot calculate until O2D step is set';
+}
+
+function formatO2DOverdue(order = {}) {
+  if (typeof order.days_until_delivery === 'number') return order.days_until_delivery < 0 ? 'Yes' : 'No';
+  if (!order.delivery_date) return 'No';
+  const delivery = new Date(order.delivery_date);
+  if (Number.isNaN(delivery.getTime())) return 'No';
+  const today = new Date(new Date().toDateString());
+  return delivery < today ? 'Yes' : 'No';
+}
+
+function appendAlertGroup(lines, title, orders, metricKey, metricLabel) {
+  if (!orders.length) return;
+  lines.push('', `**${title}:**`);
+  orders.slice(0, 5).forEach((order) => {
+    lines.push(`${formatO2DOrderLine(order)} - ${valueOrNA(order[metricKey])} ${metricLabel}`);
+  });
+}
+
+function formatListValue(values) {
+  return Array.isArray(values) && values.length ? values.join(', ') : 'Not Available';
+}
+
+function formatDateOnly(value) {
+  if (!value) return 'Not Available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-IN');
+}
+
+function formatDateTime(value) {
+  if (!value) return 'Not Available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('en-IN');
 }
 
 function formatCombinedCreateText(toolResults = []) {
