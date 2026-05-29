@@ -19,9 +19,25 @@ const { resolveUserId } = require('../validators/permissions');
 const { ChatbotError, ErrorCode, FALLBACK_MESSAGES } = require('../constants/errors');
 const { Role, ResponseType } = require('../constants/responseTypes');
 const { inferIntent } = require('../constants/intents');
+const {
+  normalizeTodoText,
+  isTodoRequiredFieldsQuestion,
+  isUnclearTodoCreateTitle,
+  TODO_REQUIRED_FIELDS_MESSAGE,
+  TODO_TITLE_CLARIFICATION_MESSAGE,
+} = require('../tools/handlers/_todoUtils');
 
 const MAX_TOOL_HOPS = parseInt(process.env.CHATBOT_MAX_HOPS, 10) || 4;
 const HISTORY_WINDOW = parseInt(process.env.CHATBOT_MAX_HISTORY, 10) || 12;
+const TASK_NOT_TODO_MESSAGE = 'Okay, I will create a Task, not a Todo. Please provide the task title and assigned person.';
+const TASK_CREATE_DETAILS_MESSAGE = [
+  'Sure, I can create a Task. Please provide:',
+  '- Task title',
+  '- Assigned person',
+  '- Due date',
+  '- Priority',
+].join('\n');
+const TASK_TITLE_CONFIRM_MESSAGE = "Please confirm the task title. Did you mean 'What we need'?";
 
 /**
  * Main pipeline.
@@ -325,6 +341,19 @@ async function runToolLoop({ provider, messages, tools, user, slots, userMessage
 
     // No tool calls — model produced final text. Done.
     finalContent = formatDeterministicToolText(toolCallsAll, toolResults, resp.content || '');
+    if (toolCallsAll.length === 0) {
+      const fallbackResult = await runTaskToolFallback({
+        message: userMessage,
+        user,
+        requestId,
+        sessionId,
+      });
+      if (fallbackResult) {
+        toolCallsAll.push(fallbackResult.toolCall);
+        toolResults.push(fallbackResult.toolResult);
+        finalContent = formatDeterministicToolText(toolCallsAll, toolResults, finalContent);
+      }
+    }
     break;
   }
 
@@ -367,6 +396,69 @@ async function handleDeterministicPreToolTurn({ pre, userId, sid, callbacks = {}
     });
   }
 
+  const taskText = pre.original || pre.normalized;
+  if (isTaskNotTodoCorrection(taskText)) {
+    return persistDeterministicTurn({
+      pre,
+      userId,
+      sid,
+      text: TASK_NOT_TODO_MESSAGE,
+      toolCalls: [],
+      toolResults: [],
+      slotPatch: { lastEntity: 'task' },
+      quickActions: [],
+      responseType: ResponseType.CLARIFY,
+      callbacks,
+    });
+  }
+
+  const incompleteTask = getIncompleteTaskCreationReason(taskText);
+  if (incompleteTask) {
+    return persistDeterministicTurn({
+      pre,
+      userId,
+      sid,
+      text: incompleteTask === 'confirm-title' ? TASK_TITLE_CONFIRM_MESSAGE : TASK_CREATE_DETAILS_MESSAGE,
+      toolCalls: [],
+      toolResults: [],
+      slotPatch: { lastEntity: 'task' },
+      quickActions: [],
+      responseType: ResponseType.CLARIFY,
+      callbacks,
+    });
+  }
+
+  const todoText = normalizeTodoText(pre.original || pre.normalized);
+  if (isTodoRequiredFieldsQuestion(todoText)) {
+    return persistDeterministicTurn({
+      pre,
+      userId,
+      sid,
+      text: TODO_REQUIRED_FIELDS_MESSAGE,
+      toolCalls: [],
+      toolResults: [],
+      slotPatch: { lastEntity: 'todo' },
+      quickActions: [],
+      responseType: ResponseType.CLARIFY,
+      callbacks,
+    });
+  }
+
+  if (isIncompleteTodoCreationRequest(todoText)) {
+    return persistDeterministicTurn({
+      pre,
+      userId,
+      sid,
+      text: TODO_TITLE_CLARIFICATION_MESSAGE,
+      toolCalls: [],
+      toolResults: [],
+      slotPatch: { lastEntity: 'todo' },
+      quickActions: [],
+      responseType: ResponseType.CLARIFY,
+      callbacks,
+    });
+  }
+
   return null;
 }
 
@@ -381,18 +473,18 @@ function buildCasualGreetingResponse(message = '') {
 
   const relatedName = extractGreetingRelatedName(text);
   if (relatedName) {
-    return `Main theek hoon 😊✨ ${relatedName} ke related task, attendance, checklist ya dashboard dekhna ho to batao.`;
+    return `Main theek hoon  ${relatedName} ke related task, attendance, checklist ya dashboard dekhna ho to batao.`;
   }
 
   if (/\b(kya\s+hal|kya\s+haal|kaise\s+ho)\b/i.test(text)) {
-    return 'Main theek hoon 😊✨ Aap task, checklist, attendance ya dashboard ke liye bol sakte ho.';
+    return 'Main theek hoon  Aap task, checklist, attendance ya dashboard ke liye bol sakte ho.';
   }
 
   const timeGreeting = text.match(/\bgood\s+(morning|afternoon|evening)\b/i)?.[0];
   const greeting = timeGreeting
     ? `${timeGreeting[0].toUpperCase()}${timeGreeting.slice(1).toLowerCase()}`
     : 'Hello';
-  return `${greeting} 👋 I'm good 😊 How can I help you with tasks, checklists, attendance, or dashboard today?`;
+  return `${greeting}  I'm good How can I help you with tasks, checklists, attendance, or dashboard today?`;
 }
 
 function hasActionableErpIntent(message = '') {
@@ -412,6 +504,74 @@ function isIncompleteChecklistCreationRequest(message = '') {
   if (!isChecklistOnlyCreate(message)) return false;
   const args = buildCreateChecklistArgsFromMessage(message);
   return !hasEnoughChecklistCreateInfo(args);
+}
+
+function isIncompleteTodoCreationRequest(message = '') {
+  if (!isTodoCreateMessage(message)) return false;
+  const args = buildCreateTodoArgsFromMessage(message);
+  return isUnclearTodoCreateTitle(args.title);
+}
+
+function isTaskNotTodoCorrection(message = '') {
+  const msg = normalizeTaskCreateText(message);
+  if (!msg) return false;
+  return /\btasks?\b.*\bnot\s+(?:a\s+)?(?:todo|to do|to-do)\b/.test(msg)
+    || /\bnot\s+(?:a\s+)?(?:todo|to do|to-do)\b.*\btasks?\b/.test(msg);
+}
+
+function getIncompleteTaskCreationReason(message = '') {
+  if (!isPlainTaskCreateMessage(message)) return null;
+  if (isNeedsClarificationTaskTitle(message)) return 'confirm-title';
+  const args = buildCreateTaskArgsFromMessage(message);
+  if (isNeedsClarificationTaskTitle(args.title)) return 'confirm-title';
+  if (!isValidCreateTaskTitle(args.title) || !String(args.assignedTo || '').trim()) return 'missing-fields';
+  return null;
+}
+
+function isPlainTaskCreateMessage(message = '') {
+  const msg = normalizeTaskCreateText(message);
+  if (!msg) return false;
+  if (/\b(todo|to do|to-do|checklists?|delegation)\b/.test(msg)) return false;
+  if (/\b(show|list|see|view|get|all|what are|which)\b/.test(msg)) return false;
+  if (/\b(update|change|edit|modify|mark|complete|completed|delete|remove|cancel|same task|this task|that task|existing task)\b/.test(msg)) return false;
+  return /\b(create|add|make|new|assign|delegate|give)\b.*\btasks?\b/.test(msg)
+    || /\bassign\s+[a-z][a-z\s]*\s+to\s+[a-z0-9]/.test(msg);
+}
+
+function normalizeTaskCreateText(message = '') {
+  return String(message || '')
+    .toLowerCase()
+    .replace(/[^\w\s:-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanCreateTaskTitle(value = '') {
+  return String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/^(?:please\s+)?(?:i\s+want\s+(?:to\s+|a\s+)?)?(?:create|add|make|new)\s+(?:an?\s+)?(?:high|medium|low|normal|urgent)?\s*tasks?\s*/i, '')
+    .replace(/^(?:tasks?\s*(?:title|name)?\s*(?:is|:|-)?\s*)/i, '')
+    .replace(/\bnot\s+(?:a\s+)?(?:todo|to-do|to do)\b/ig, ' ')
+    .replace(/\b(?:todo|to-do|to do)\b/ig, ' ')
+    .replace(/\b(?:due|by|before)\s+.+$/i, '')
+    .replace(/\b(?:high|medium|low|normal|urgent)\s+priority\b/ig, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isNeedsClarificationTaskTitle(title = '') {
+  return /\bwhat\s+we\s+ne{2,}d\b/i.test(String(title || ''));
+}
+
+function isValidCreateTaskTitle(title = '') {
+  const cleaned = cleanCreateTaskTitle(title);
+  const normalized = cleaned.toLowerCase();
+  if (!cleaned || cleaned.length < 4) return false;
+  if (isNeedsClarificationTaskTitle(cleaned)) return false;
+  if (/^(?:not\s+todo|task|tasks|todo|to-do|to do|create task|create a task|i want to create task|i want a create a task|need|work|check|test)$/i.test(normalized)) return false;
+  const meaningfulTokens = normalized.split(/\s+/).filter((token) => token.length > 2 && !['task', 'todo', 'create', 'want', 'need'].includes(token));
+  return meaningfulTokens.length >= 2;
 }
 
 function hasEnoughChecklistCreateInfo(args = {}) {
@@ -710,6 +870,23 @@ function safeForLLM(result) {
 
 function normalizeCreateToolCallsForMessage(toolCalls = [], message = '') {
   if (!Array.isArray(toolCalls) || !toolCalls.length) return [];
+  const todoDetailArgs = extractTodoDetailArgs(message);
+  if (todoDetailArgs) {
+    const keptCalls = toolCalls.filter((call) => ![
+      'getHelpGuidance',
+      'getTodoSummary',
+      'getTodoTasks',
+      'getTaskDetail',
+      'getMyTasks',
+    ].includes(call.name));
+    return keptCalls.concat({
+      id: `todo_detail_${randomUUID()}`,
+      name: 'getTodoTaskByTitle',
+      args: todoDetailArgs,
+    });
+  }
+  const todoFieldUpdateCalls = normalizeTodoFieldUpdateCalls(toolCalls, message);
+  if (todoFieldUpdateCalls) return todoFieldUpdateCalls;
   const delegatedTaskListArgs = extractDelegatedTaskListArgs(message);
   if (delegatedTaskListArgs) {
     return normalizeDelegatedTaskListCalls(toolCalls, delegatedTaskListArgs);
@@ -741,6 +918,62 @@ function normalizeCreateToolCallsForMessage(toolCalls = [], message = '') {
 
   const taskNormalizedCalls = normalizeFreshTaskCreateCalls(toolCalls, message);
   return taskNormalizedCalls;
+}
+
+function normalizeTodoFieldUpdateCalls(toolCalls = [], message = '') {
+  const update = extractTodoFieldUpdateArgs(message);
+  if (!update) return null;
+
+  const todoToolNames = new Set([
+    'updateTodoStatus',
+    'updateTodoPriority',
+    'updateTodoTitle',
+    'updateTodoDueDate',
+    'updateTodoAssignee',
+    'updateTaskStatus',
+    'updateTaskPriority',
+    'updateTaskDueDate',
+    'updateTaskAssignment',
+  ]);
+  const keptCalls = toolCalls.filter((call) => !todoToolNames.has(call.name));
+  const calls = [];
+  const target = update.todoId ? { todoId: update.todoId } : { title: update.title };
+  if (update.newTitle) {
+    calls.push({
+      id: `todo_title_${randomUUID()}`,
+      name: 'updateTodoTitle',
+      args: { ...target, oldTitle: update.oldTitle || update.title, newTitle: update.newTitle },
+    });
+  }
+  if (update.priority) {
+    calls.push({
+      id: `todo_priority_${randomUUID()}`,
+      name: 'updateTodoPriority',
+      args: { ...target, priority: update.priority },
+    });
+  }
+  if (update.status) {
+    calls.push({
+      id: `todo_status_${randomUUID()}`,
+      name: 'updateTodoStatus',
+      args: { ...target, status: update.status },
+    });
+  }
+  if (update.dueDate) {
+    calls.push({
+      id: `todo_due_${randomUUID()}`,
+      name: 'updateTodoDueDate',
+      args: { ...target, dueDate: update.dueDate },
+    });
+  }
+  if (update.assignedTo) {
+    calls.push({
+      id: `todo_assignee_${randomUUID()}`,
+      name: 'updateTodoAssignee',
+      args: { ...target, assignedTo: update.assignedTo },
+    });
+  }
+  return calls.length ? keptCalls.concat(calls) : null;
 }
 
 function normalizeChecklistStatusUpdateCalls(toolCalls = [], statusArgs = {}) {
@@ -1044,7 +1277,7 @@ function isFreshTaskCreationMessage(message = '') {
 function buildCreateTaskArgsFromMessage(message = '', fallbackArgs = {}) {
   const text = String(message || '').trim();
   const args = {
-    title: extractFreshTaskTitle(text) || fallbackArgs.title || fallbackArgs.taskTitle,
+    title: cleanCreateTaskTitle(extractFreshTaskTitle(text) || fallbackArgs.title || fallbackArgs.taskTitle),
     assignedTo: extractFreshTaskAssignee(text) || fallbackArgs.assignedTo,
     dueDate: extractFreshTaskDueDate(text) || fallbackArgs.dueDate,
     priority: extractFreshTaskPriority(text) || fallbackArgs.priority,
@@ -1060,7 +1293,8 @@ function buildCreateTaskArgsFromMessage(message = '', fallbackArgs = {}) {
 function extractFreshTaskAssignee(message = '') {
   const match = message.match(/\b(?:i\s+)?(?:told|asked|ask|reminded|remind|informed|inform)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)(?:\s+to\b|\s+that\b|\s+about\b|\s+for\b|\b)/)
     || message.match(/\b(?:i\s+)?assign(?:ed)?(?:\s+task)?\s+(?:to\s+)?([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)/)
-    || message.match(/\b(?:delegate(?:d)?(?:\s+task)?\s+to|give(?:\s+task)?\s+to)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)/);
+    || message.match(/\b(?:delegate(?:d)?(?:\s+task)?\s+to|give(?:\s+task)?\s+to)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)/)
+    || message.match(/\b(?:create|add|make|new)\s+(?:an?\s+)?task\s+(?:for|to|assigned\s+to)\s+([A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*)?)(?=\s+to\b|\s+for\b|\s+by\b|\s+due\b|\s+today\b|\s+tomorrow\b|$)/i);
   return match?.[1]?.trim() || null;
 }
 
@@ -1085,10 +1319,15 @@ function extractFreshTaskLoopUsers(message = '') {
 function extractFreshTaskDueDate(message = '') {
   const beforeTimeToday = message.match(/\bbefore\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s+today\b/i);
   if (beforeTimeToday?.[1]) return `today ${beforeTimeToday[1]}`;
+  const dayWithTime = message.match(/\b(today|tomorrow)\s+by\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b/i)
+    || message.match(/\b(today|tomorrow)\s+at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b/i);
+  if (dayWithTime?.[1] && dayWithTime?.[2]) return `${dayWithTime[1]} ${dayWithTime[2]}`;
   const match = message.match(/\b(?:before|by|due(?:\s+by)?)\s+(.+?)(?:[.!?]|$)/i);
   if (match?.[1]) return match[1].replace(/\bkeep\b.+$/i, '').trim();
   if (/\btoday\s+evening\b/i.test(message)) return 'today evening';
   if (/\btomorrow\s+morning\b/i.test(message)) return 'tomorrow morning';
+  if (/\btomorrow\b/i.test(message)) return 'tomorrow';
+  if (/\btoday\b/i.test(message)) return 'today';
   return null;
 }
 
@@ -1104,11 +1343,15 @@ function extractFreshTaskTitle(message = '') {
   const remindedPendingMatch = message.match(/\b(?:i\s+)?(?:reminded|remind|informed|inform)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+that\s+(.+?)\s+is\s+pending(?:\s+(?:before|by|due)\b|[.!?]|$)/i);
   const remindedNeedMatch = message.match(/\b(?:i\s+)?(?:reminded|remind|informed|inform)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+that\s+.+?\bwe\s+need\s+to\s+(.+?)(?:\s+(?:before|by|due)\b|[.!?]|$)/i);
   const assignMatch = message.match(/\b(?:assign(?:ed)?(?:\s+task)?\s+to|delegate(?:d)?(?:\s+task)?\s+to|give(?:\s+task)?\s+to)\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+(.+?)(?:\s+(?:before|by|due)\b|[.!?]|$)/i);
-  const rawTitle = (toldMatch?.[1] || remindedPendingMatch?.[1] || remindedNeedMatch?.[1] || assignMatch?.[1] || '').trim();
+  const createForMatch = message.match(/\b(?:create|add|make|new)\s+(?:an?\s+)?task\s+(?:for|to|assigned\s+to)\s+[A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*)?\s+to\s+(.+?)(?:\s+(?:today|tomorrow|before|by|due)\b|[.!?]|$)/i);
+  const assignToActionMatch = message.match(/\bassign\s+[A-Za-z][A-Za-z]*(?:\s+[A-Za-z][A-Za-z]*)?\s+to\s+(.+?)(?:\s+(?:today|tomorrow|before|by|due)\b|[.!?]|$)/i);
+  const colonMatch = message.match(/\b(?:create|add|make|new)\s+(?:an?\s+)?task\s*[:\-]\s*(.+?)(?:\s+(?:today|tomorrow|before|by|due)\b|[.!?]|$)/i);
+  const rawTitle = (toldMatch?.[1] || remindedPendingMatch?.[1] || remindedNeedMatch?.[1] || createForMatch?.[1] || assignToActionMatch?.[1] || colonMatch?.[1] || assignMatch?.[1] || '').trim();
   if (!rawTitle) return null;
 
   return rawTitle
     .replace(/^\s*(?:we\s+need\s+to|need\s+to)\s+/i, '')
+    .replace(/\bfor\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\b$/i, '')
     .replace(/\band\s+make\s+it\s+(?:high|medium|low)(?:\s+priority)?\b/ig, '')
     .replace(/\bkeep\s+[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?\s+in\s+(?:the\s+)?loop\b/ig, '')
     .replace(/\s+/g, ' ')
@@ -1204,6 +1447,8 @@ function buildTaskFallbackCall(message) {
   if (!msg) return null;
   const chatSummaryFallback = buildChatSummaryFallbackCall(message);
   if (chatSummaryFallback) return chatSummaryFallback;
+  const todoFallback = buildTodoFallbackCall(message);
+  if (todoFallback) return todoFallback;
   if (isTeamCompletionAccuracyRequest(message)) {
     return { name: 'getTeamCompletionAccuracy', args: {} };
   }
@@ -1283,6 +1528,217 @@ function buildTaskFallbackCall(message) {
   }
 
   return null;
+}
+
+function buildTodoFallbackCall(message = '') {
+  const text = normalizeTodoText(message);
+  const msg = text.toLowerCase();
+  const isTodoContext = /\b(todo|to-do|to do|task board|board task)\b/.test(msg);
+
+  const detailArgs = extractTodoDetailArgs(text);
+  if (detailArgs) return { name: 'getTodoTaskByTitle', args: detailArgs };
+
+  if (/\boverdue\b/.test(msg) && isTodoContext) return { name: 'getOverdueTodos', args: {} };
+  if (/\b(summary|summarize|count|dashboard)\b/.test(msg) && isTodoContext) return { name: 'getTodoSummary', args: {} };
+
+  const statusArgs = extractTodoStatusUpdateArgs(text);
+  if (statusArgs && (isTodoContext || isDirectTodoStatusCommand(msg))) {
+    return { name: 'updateTodoStatus', args: statusArgs };
+  }
+
+  const priorityArgs = extractTodoPriorityUpdateArgs(text);
+  if (priorityArgs && isTodoContext) return { name: 'updateTodoPriority', args: priorityArgs };
+
+  const fieldUpdateArgs = extractTodoFieldUpdateArgs(text);
+  if (fieldUpdateArgs?.newTitle) {
+    return { name: 'updateTodoTitle', args: { todoId: fieldUpdateArgs.todoId, title: fieldUpdateArgs.title, oldTitle: fieldUpdateArgs.oldTitle, newTitle: fieldUpdateArgs.newTitle } };
+  }
+  if (fieldUpdateArgs?.priority) {
+    return { name: 'updateTodoPriority', args: { todoId: fieldUpdateArgs.todoId, title: fieldUpdateArgs.title, priority: fieldUpdateArgs.priority } };
+  }
+
+  const dueDateArgs = extractTodoDueDateUpdateArgs(text);
+  if (dueDateArgs && isTodoContext) return { name: 'updateTodoDueDate', args: dueDateArgs };
+
+  const assigneeArgs = extractTodoAssigneeUpdateArgs(text);
+  if (assigneeArgs && isTodoContext) return { name: 'updateTodoAssignee', args: assigneeArgs };
+
+  if (/\b(delete|remove|cancel)\b/.test(msg) && isTodoContext) {
+    return { name: 'deleteTodoTask', args: { title: cleanTodoTitle(text.replace(/^.*?\b(?:delete|remove|cancel)\b/i, '')) } };
+  }
+
+  if (isTodoCreateMessage(text)) {
+    const args = buildCreateTodoArgsFromMessage(text);
+    if (args.title) return { name: 'createTodoTask', args };
+  }
+
+  if (/\b(show|list|get|view)\b/.test(msg) && isTodoContext) {
+    const args = {};
+    if (/\bto do|todo|pending|not started\b/.test(msg)) args.status = 'To Do';
+    if (/\bin progress|progress|working\b/.test(msg)) args.status = 'In Progress';
+    if (/\bdone|complete|completed|finished\b/.test(msg)) args.status = 'Done';
+    if (/\burgent\b/.test(msg)) args.priority = 'Urgent';
+    else if (/\bhigh\b/.test(msg)) args.priority = 'High';
+    else if (/\blow\b/.test(msg)) args.priority = 'Low';
+    else if (/\bnormal\b/.test(msg)) args.priority = 'Normal';
+    return { name: 'getTodoTasks', args };
+  }
+
+  return null;
+}
+
+function extractTodoFieldUpdateArgs(message = '') {
+  const text = String(message || '').trim();
+  const msg = text.toLowerCase();
+  if (!/\b(todo|to-do|to do|task board|board task)\b/.test(msg)) return null;
+  if (isTodoCreateMessage(text)) return null;
+
+  const todoId = text.match(/\b(?:todo|to-do|to do)?\s*(?:task\s*)?(?:id|#)\s*[:#]?\s*(\d+)\b/i)?.[1];
+  const titleChange = extractTodoTitleChange(text);
+  const title = text.match(/\b(?:todo|to-do|to do)\s+title\s+is\s+(.+?)(?:\s+so\b|\s+i\s+want\b|\s+and\b|\s+priority\b|\s+status\b|\s+due\b|$)/i)?.[1]
+    || text.match(/\btitle\s+is\s+(.+?)(?:\s+so\b|\s+i\s+want\b|\s+and\b|\s+priority\b|\s+status\b|\s+due\b|$)/i)?.[1]
+    || titleChange?.oldTitle;
+  const cleanedTitle = cleanTodoTitle(title);
+
+  const priority = text.match(/\bpriority\s*(?:is|to|as|=)\s*["'`]?(low|normal|high|urgent)["'`]?\b/i)?.[1]
+    || text.match(/\bpriority\s+from\s+["'`]?(?:low|normal|high|urgent)["'`]?\s+to\s+["'`]?(low|normal|high|urgent)["'`]?\b/i)?.[1];
+  const status = text.match(/\bstatus\s*(?:is|to|as|=)\s*(done|complete|completed|finished|in progress|progress|start|pending|todo|to do|not started)\b/i)?.[1];
+  const dueDate = extractExplicitTodoDueDateValue(text);
+  const assignedTo = text.match(/\bassign(?:ed)?\s*(?:to|=)\s*([A-Za-z][A-Za-z\s]*?)(?:\s+and\s+|\s+priority\b|\s+status\b|\s+due\b|$)/i)?.[1];
+
+  if (!todoId && !cleanedTitle) return null;
+  if (!titleChange?.newTitle && !priority && !status && !dueDate && !assignedTo) return null;
+  return {
+    todoId: todoId ? Number(todoId) : undefined,
+    title: cleanedTitle,
+    oldTitle: titleChange?.oldTitle,
+    newTitle: titleChange?.newTitle,
+    priority,
+    status,
+    dueDate: dueDate ? cleanTodoTitle(dueDate) : null,
+    assignedTo: assignedTo ? assignedTo.trim() : null,
+  };
+}
+
+function extractTodoTitleChange(text = '') {
+  const fromTo = text.match(/\b(?:change|update|rename)\s+(?:the\s+)?(?:todo\s+|to-do\s+|to do\s+|task\s+)?(?:title|name)\s+from\s+(.+?)\s+to\s+(.+?)(?=\s*(?:[.!?]|,\s*|\s+and\s+|\s+change\s+|\s+update\s+|\s+priority\b|\s+status\b|\s+due\b|$))/i);
+  if (fromTo) return { oldTitle: cleanTodoTitle(fromTo[1]), newTitle: cleanTodoTitle(fromTo[2]) };
+
+  const direct = text.match(/\b(?:change|update|rename)\s+(?:the\s+)?(?:todo\s+|to-do\s+|to do\s+|task\s+)?(?:title|name)\s+(?:to|as|into)\s+(.+?)(?=\s*(?:[.!?]|,\s*|\s+and\s+|\s+change\s+|\s+update\s+|\s+priority\b|\s+status\b|\s+due\b|$))/i);
+  if (direct) return { oldTitle: null, newTitle: cleanTodoTitle(direct[1]) };
+
+  return null;
+}
+
+function extractExplicitTodoDueDateValue(text = '') {
+  const patterns = [
+    /\b(?:change|update|set|move)\s+(?:the\s+)?(?:todo\s+|to-do\s+|to do\s+|task\s+)?(?:due date|duw date|deadline|due|duw)\s*(?:to|as|=)\s*(.+?)(?=\s*(?:[.!?]|,\s*|\s+and\s+|\s+change\s+|\s+update\s+|\s+priority\b|\s+status\b|\s+assign\b|$))/i,
+    /\b(?:due date|duw date|deadline|due|duw)\s*(?:is|to|as|=)\s*(.+?)(?=\s*(?:[.!?]|,\s*|\s+and\s+|\s+change\s+|\s+update\s+|\s+priority\b|\s+status\b|\s+assign\b|$))/i,
+  ];
+  for (const pattern of patterns) {
+    const value = text.match(pattern)?.[1];
+    if (value) return value;
+  }
+  return null;
+}
+
+function extractTodoDetailArgs(message = '') {
+  const text = String(message || '').trim();
+  const msg = text.toLowerCase();
+  if (!/\b(todo|to-do|to do|task board|board task)\b/.test(msg)) return null;
+  if (!/\b(full summary|summary|summarize|detail|details|show|track)\b/.test(msg)) return null;
+
+  const title = text.match(/\b(?:todo|to-do|to do)\s+title\s+is\s+(.+?)(?:[.!?]|\s+please\b|$)/i)?.[1]
+    || text.match(/\btitle\s+is\s+(.+?)(?:[.!?]|\s+please\b|$)/i)?.[1]
+    || text.match(/\b(?:of|for|about)\s+(?:todo|to-do|to do)?\s*(.+?)(?:[.!?]|$)/i)?.[1];
+  const cleaned = cleanTodoTitle(title);
+  return cleaned ? { title: cleaned } : null;
+}
+
+function isTodoCreateMessage(message = '') {
+  const msg = normalizeTodoText(message).toLowerCase();
+  return /\b(create|add|make|new)\b.*\b(task|todo|to-do|to do)\b/.test(msg) && !/\bchecklist|delegation\b/.test(msg);
+}
+
+function buildCreateTodoArgsFromMessage(message = '') {
+  const text = normalizeTodoText(message);
+  const args = {};
+  const assignee = text.match(/\b(?:for|assign(?:ed)?\s+to)\s+([A-Za-z][A-Za-z\s]*?)(?::|\s+due\b|\s+before\b|$)/i)?.[1];
+  if (assignee) args.assignedTo = assignee.trim();
+  const dueDate = text.match(/\b(?:due date|duw date|due|duw)\s*(?:is|to|as|=)?\s*(.+?)(?:\.|$)/i)?.[1]
+    || text.match(/\bbefore\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+today)\b/i)?.[1];
+  if (dueDate) args.dueDate = dueDate.trim();
+  if (/\burgent\b/i.test(text)) args.priority = 'Urgent';
+  else if (/\bhigh\b/i.test(text)) args.priority = 'High';
+  else if (/\blow\b/i.test(text)) args.priority = 'Low';
+  else if (/\bnormal\b/i.test(text)) args.priority = 'Normal';
+
+  let title = text.match(/\btitle\s*(?:is|:)\s*(.+?)(?=\s+\b(?:and\s+)?(?:priority|due date|duw date|due|duw|assign(?:ed)?\s+to|for)\b|$)/i)?.[1]
+    || text
+      .replace(/^.*?\b(?:create|add|make|new)\b\s+(?:an?\s+)?(?:urgent|high|normal)?\s*(?:todo|to-do|to do|task)?\s*/i, '')
+      .replace(/\bfor\s+[A-Za-z][A-Za-z\s]*?:\s*/i, '')
+      .replace(/\b(?:due date|duw date|due|duw)\s*(?:is|to|as|=)?\s+.+$/i, '')
+      .trim();
+  if (title.includes(':')) title = title.split(':').slice(1).join(':').trim();
+  args.title = cleanTodoTitle(title);
+  args.description = args.title;
+  return args;
+}
+
+function extractTodoStatusUpdateArgs(message = '') {
+  const text = String(message || '').trim();
+  const msg = text.toLowerCase();
+  let status = null;
+  if (/\b(start|working on|move to progress|progress)\b/.test(msg)) status = 'In Progress';
+  if (/\b(complete|completed|done|finished)\b/.test(msg)) status = 'Done';
+  if (/\b(pending|todo|to do|not started)\b/.test(msg)) status = 'To Do';
+  if (!status) return null;
+
+  const title = text.match(/\bmove\s+(.+?)\s+to\s+(?:done|complete|completed|in progress|progress|todo|to do)\b/i)?.[1]
+    || text.match(/\b(?:start|complete|finish|mark)\s+(?:task\s+)?(.+?)(?:\s+as\s+(?:completed|complete|done|finished)|$)/i)?.[1]
+    || text.match(/\bworking\s+on\s+(.+)$/i)?.[1];
+  const cleaned = cleanTodoTitle(title);
+  if (!cleaned) return null;
+  return { title: cleaned, status };
+}
+
+function isDirectTodoStatusCommand(msg = '') {
+  return /^\s*(move|start|mark|complete|finish)\b/.test(String(msg || ''))
+    || /\bmove\s+.+\s+to\s+(done|complete|completed|in progress|progress|todo|to do)\b/.test(String(msg || ''));
+}
+
+function extractTodoPriorityUpdateArgs(message = '') {
+  const text = String(message || '').trim();
+  const match = text.match(/\b(?:set|update|change|make)\s+(?:todo\s+|task\s+)?(.+?)\s+(?:priority\s+)?(?:to|as)\s+(low|normal|high|urgent)\b/i);
+  if (!match) return null;
+  return { title: cleanTodoTitle(match[1]), priority: match[2] };
+}
+
+function extractTodoDueDateUpdateArgs(message = '') {
+  const text = String(message || '').trim();
+  const match = text.match(/\b(?:set|update|change)\s+(?:todo\s+|task\s+)?(.+?)\s+(?:due date|duw date|deadline|due|duw)\s+(?:to|as|=)\s*(.+?)(?:[.!?]|$)/i);
+  if (!match) return null;
+  const dueDate = cleanTodoTitle(match[2]);
+  if (!dueDate || /\b(?:assigned person|assigned to|assignee|priority|status|title)\b/i.test(dueDate)) return null;
+  return { title: cleanTodoTitle(match[1]), dueDate };
+}
+
+function extractTodoAssigneeUpdateArgs(message = '') {
+  const text = String(message || '').trim();
+  const match = text.match(/\b(?:assign|reassign|give)\s+(?:todo\s+|task\s+)?(.+?)\s+(?:to|for)\s+([A-Za-z][A-Za-z\s]*)$/i);
+  if (!match) return null;
+  return { title: cleanTodoTitle(match[1]), assignedTo: match[2].trim() };
+}
+
+function cleanTodoTitle(value = '') {
+  return normalizeTodoText(value)
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/^(?:please\s+)?(?:create|add|make|new)\s+(?:an?\s+)?(?:urgent|high|normal|low)?\s*(?:todo|to-do|to do|task)\s*/i, '')
+    .replace(/^(?:todo|to-do|to do|task)\s+(?:title|name)\s+(?:is|:)\s*/i, '')
+    .replace(/^(?:todo|to-do|to do|task)\s*[:\-]\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function buildChatSummaryFallbackCall(message = '') {
@@ -1946,6 +2402,32 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
     const result = (toolResults || []).find((tr) => tr.name === 'getO2DStepHistory')?.result;
     if (result) return formatO2DHistoryText(result);
   }
+  if (tools.includes('createTodoTask')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'createTodoTask')?.result;
+    if (result) return formatCreateTodoTaskText(result);
+  }
+  if (tools.includes('getTodoSummary')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'getTodoSummary')?.result;
+    if (result) return formatTodoSummaryText(result);
+  }
+  if (tools.includes('getOverdueTodos')) {
+    const result = (toolResults || []).find((tr) => tr.name === 'getOverdueTodos')?.result;
+    if (result) return formatTodoListText(result.todos || [], 'Overdue To-Do Tasks');
+  }
+  if (tools.includes('getTodoTasks') || tools.includes('getTodoTaskByTitle')) {
+    const result = (toolResults || []).find((tr) => ['getTodoTasks', 'getTodoTaskByTitle'].includes(tr.name))?.result;
+    if (result?.needsSelection) return formatTodoSelectionText(result.options || result.todos || []);
+    if (Array.isArray(result?.todos)) return formatTodoListText(result.todos);
+    if (result?.todo) return formatTodoBlock(result.todo);
+  }
+  if (tools.filter((name) => ['updateTodoStatus', 'updateTodoPriority', 'updateTodoTitle', 'updateTodoDueDate', 'updateTodoAssignee', 'deleteTodoTask'].includes(name)).length > 1) {
+    return formatCombinedTodoMutationText(toolResults);
+  }
+  if (tools.some((name) => ['updateTodoStatus', 'updateTodoPriority', 'updateTodoTitle', 'updateTodoDueDate', 'updateTodoAssignee', 'deleteTodoTask'].includes(name))) {
+    const result = (toolResults || []).find((tr) => ['updateTodoStatus', 'updateTodoPriority', 'updateTodoTitle', 'updateTodoDueDate', 'updateTodoAssignee', 'deleteTodoTask'].includes(tr.name))?.result;
+    const name = (toolResults || []).find((tr) => ['updateTodoStatus', 'updateTodoPriority', 'updateTodoTitle', 'updateTodoDueDate', 'updateTodoAssignee', 'deleteTodoTask'].includes(tr.name))?.name;
+    if (result) return formatTodoMutationText(name, result);
+  }
   if (tools.includes('listEmployees')) {
     const employeeResult = (toolResults || []).find((tr) => tr.name === 'listEmployees')?.result;
     if (employeeResult?.ok && Array.isArray(employeeResult.employees)) {
@@ -1995,7 +2477,107 @@ function formatDeterministicToolText(toolCalls = [], toolResults = [], fallback 
     const checklistResult = (toolResults || []).find((tr) => tr.name === 'createChecklist')?.result;
     if (checklistResult) return formatCreateChecklistText(checklistResult);
   }
-  return fallback || '';
+  return formatSafeFallbackText(fallback, toolCalls, toolResults);
+}
+
+function formatCreateTodoTaskText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'To-Do task could not be created.';
+  const s = result.summary || result.todo || {};
+  return [
+    'Task Created Successfully',
+    `Title: ${valueOrNA(s.title)}`,
+    `Assigned To: ${valueOrNA(s.assignedTo)}`,
+    `Priority: ${valueOrNA(s.priority)}`,
+    `Due Date: ${valueOrNA(s.dueDate || s.dueDateFormatted)}`,
+    `Status: ${valueOrNA(s.status || 'To Do')}`,
+  ].join('\n');
+}
+
+function formatTodoSummaryText(result = {}) {
+  if (!result.ok) return result.message || result.error || 'To-Do summary could not be fetched.';
+  const s = result.summary || {};
+  const urgent = Array.isArray(s.urgentTasks) ? s.urgentTasks : [];
+  return [
+    'To-Do Board Summary',
+    `Total Tasks: ${s.total || 0}`,
+    `To Do: ${s.toDo || 0}`,
+    `In Progress: ${s.inProgress || 0}`,
+    `Done: ${s.done || 0}`,
+    `Overdue: ${s.overdue || 0}`,
+    `Urgent Tasks: ${urgent.length ? urgent.map((task) => task.title).join(', ') : 'None'}`,
+  ].join('\n');
+}
+
+function formatTodoListText(todos = [], title = 'To-Do Tasks') {
+  if (!todos.length) return 'No matching To-Do tasks found.';
+  return [title, ...todos.slice(0, 10).map((todo, index) => formatTodoBlock(todo, index + 1))].join('\n\n');
+}
+
+function formatTodoBlock(todo = {}, index = null) {
+  const prefix = index ? `${index}. ` : '';
+  return [
+    `${prefix}${valueOrNA(todo.title)}`,
+    `Task ID: ${valueOrNA(todo.id)}`,
+    `Status: ${valueOrNA(todo.status)}`,
+    `Priority: ${valueOrNA(todo.priority)}`,
+    `Due Date: ${valueOrNA(todo.dueDateFormatted)}`,
+    `Assigned To: ${valueOrNA(todo.assignedTo)}`,
+    `Created By: ${valueOrNA(todo.createdBy)}`,
+    `Description: ${valueOrNA(todo.description)}`,
+    `Overdue: ${todo.overdue ? 'Yes' : 'No'}`,
+  ].join('\n');
+}
+
+function formatTodoSelectionText(todos = []) {
+  if (!todos.length) return 'Multiple tasks match this title. Please share the task ID or exact title.';
+  return [
+    'Multiple tasks match this title. Please choose the correct task:',
+    ...todos.slice(0, 10).map((todo, index) => `${index + 1}. ${todo.title} (ID: ${todo.id}, Status: ${todo.status}, Assigned To: ${valueOrNA(todo.assignedTo)})`),
+  ].join('\n');
+}
+
+function formatTodoMutationText(toolName, result = {}) {
+  if (!result.ok) return result.message || result.error || 'To-Do task could not be updated.';
+  if (result.notFound) return result.message || 'Todo task not found. Please mention the exact task title.';
+  if (result.needsSelection) return formatTodoSelectionText(result.options || []);
+  if (toolName === 'deleteTodoTask') return `To-Do task deleted successfully.\nTitle: ${valueOrNA(result.todo?.title)}`;
+  const todo = result.todo || {};
+  const heading = {
+    updateTodoStatus: 'Task Status Updated',
+    updateTodoPriority: 'Task Priority Updated',
+    updateTodoTitle: 'Task Title Updated',
+    updateTodoDueDate: 'Task Due Date Updated',
+    updateTodoAssignee: 'Task Assignee Updated',
+  }[toolName] || 'Task Updated';
+  return [
+    heading,
+    `Title: ${valueOrNA(todo.title)}`,
+    `Assigned To: ${valueOrNA(todo.assignedTo || result.assignedTo)}`,
+    `Priority: ${valueOrNA(todo.priority)}`,
+    `Due Date: ${valueOrNA(todo.dueDateFormatted)}`,
+    `Status: ${valueOrNA(todo.status)}`,
+  ].join('\n');
+}
+
+function formatCombinedTodoMutationText(toolResults = []) {
+  const todoResults = (toolResults || []).filter((tr) => ['updateTodoStatus', 'updateTodoPriority', 'updateTodoTitle', 'updateTodoDueDate', 'updateTodoAssignee'].includes(tr.name));
+  const titleResult = todoResults.find((tr) => tr.name === 'updateTodoTitle')?.result;
+  const priorityResult = todoResults.find((tr) => tr.name === 'updateTodoPriority')?.result;
+  if (priorityResult?.ok && titleResult && !titleResult.ok) return 'Priority updated, but title update failed.';
+  const failed = todoResults.find((tr) => tr.result && (!tr.result.ok || tr.result.notFound || tr.result.needsSelection));
+  if (failed) return formatTodoMutationText(failed.name, failed.result);
+  const last = [...todoResults].reverse().find((tr) => tr.result?.todo)?.result;
+  const todo = last?.todo || {};
+  const titleUpdate = todoResults.find((tr) => tr.name === 'updateTodoTitle' && tr.result?.ok)?.result;
+  return [
+    'Task Updated Successfully',
+    `Task ID: ${valueOrNA(todo.id)}`,
+    ...(titleUpdate ? [`Old Title: ${valueOrNA(titleUpdate.oldTitle)}`, `New Title: ${valueOrNA(titleUpdate.newTitle || todo.title)}`] : [`Title: ${valueOrNA(todo.title)}`]),
+    `Priority: ${valueOrNA(todo.priority)}`,
+    `Status: ${valueOrNA(todo.status)}`,
+    `Due Date: ${valueOrNA(todo.dueDateFormatted)}`,
+    `Assigned To: ${valueOrNA(todo.assignedTo)}`,
+  ].join('\n');
 }
 
 function formatO2DListText(result = {}) {
@@ -2227,7 +2809,7 @@ function formatCombinedCreateText(toolResults = []) {
 
   for (const task of taskResults) {
     if (!task.ok) {
-      parts.push(task.error || 'Task could not be created.');
+      parts.push(task.message || task.error || 'Task could not be created.');
       continue;
     }
     if (task.duplicate) {
@@ -2515,7 +3097,7 @@ function formatCombinedTaskUpdateText(toolResults = []) {
 }
 
 function formatTaskListText(tasks = [], filters = {}) {
-  if (!tasks.length) return 'I could not find any matching tasks.';
+  if (!tasks.length) return formatNoMatchingTaskText(filters);
 
   const status = filters?.status ? String(filters.status).toLowerCase() : '';
   const delegated = filters?.role === 'delegated';
@@ -2525,6 +3107,62 @@ function formatTaskListText(tasks = [], filters = {}) {
   const blocks = tasks.map((task) => formatTaskBlock(task));
 
   return `${header}\n\n${blocks.join('\n\n')}`;
+}
+
+function formatSafeFallbackText(fallback = '', toolCalls = [], toolResults = []) {
+  const text = String(fallback || '').trim();
+  if (!looksLikeRawToolText(text)) return fallback || '';
+
+  const taskResult = (toolResults || []).find((tr) => tr.name === 'getMyTasks')?.result;
+  if (taskResult?.ok && Array.isArray(taskResult.tasks)) {
+    return formatTaskListText(taskResult.tasks, taskResult.slot?.lastFilters);
+  }
+
+  const hasTaskTool = (toolCalls || []).some((call) => call.name === 'getMyTasks');
+  if (hasTaskTool) return formatNoMatchingTaskText({});
+
+  return 'I could not find matching ERP data for that request. Please try another filter or date range.';
+}
+
+function looksLikeRawToolText(text = '') {
+  const value = String(text || '').trim();
+  return /^\[tool:[^\]]+\]/i.test(value) || /"\s*ok\s*"\s*:\s*(true|false)/i.test(value);
+}
+
+function formatNoMatchingTaskText(filters = {}) {
+  const status = filters?.status ? `${String(filters.status).toLowerCase()} ` : '';
+  const delegated = filters?.role === 'delegated';
+  const assignee = filters?.assignedTo ? ` assigned to ${filters.assignedTo}` : '';
+  const scope = delegated ? `tasks you assigned${assignee}` : `tasks${assignee}`;
+  const range = formatTaskDateRange(filters);
+
+  return [
+    `No matching ${status}${scope}${range} were found.`,
+    'The ERP has no task records matching all selected filters.',
+    'The task may be in another status such as In Progress, Completed, Hold, or Overdue.',
+    'It may also be outside this due-date range or available under a different task view.',
+    'Try a wider date range, remove one filter, or ask me to show all pending tasks.',
+  ].join('\n');
+}
+
+function formatTaskDateRange(filters = {}) {
+  const after = formatFilterDate(filters?.dueAfter);
+  const before = formatFilterDate(filters?.dueBefore);
+  if (after && before) return ` between ${after} and ${before}`;
+  if (after) return ` from ${after}`;
+  if (before) return ` up to ${before}`;
+  return '';
+}
+
+function formatFilterDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return [
+    String(date.getUTCDate()).padStart(2, '0'),
+    String(date.getUTCMonth() + 1).padStart(2, '0'),
+    date.getUTCFullYear(),
+  ].join('/');
 }
 
 function formatDelegationSummaryText(tasks = [], filters = {}) {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Copy, Pencil, Share2 } from 'lucide-react';
 import MarkdownLite from './MarkdownLite';
 import TaskCard from './TaskCard';
 import ChecklistCard from './ChecklistCard';
@@ -29,8 +30,9 @@ const renderCard = (card, i) => {
   }
 };
 
-const ChatMessage = ({ message, onSuggestionPick, onQuickAction }) => {
+const ChatMessage = ({ message, onSuggestionPick, onQuickAction, onCopy, onShare, onEdit }) => {
   const isBot = message.sender === 'bot';
+  const canShowActions = Boolean(message.text) && !message.streaming;
   const time = message.timestamp ? new Date(message.timestamp) : null;
   const timeText = time && !Number.isNaN(time.getTime())
     ? time.toLocaleTimeString('en-IN', {
@@ -41,30 +43,48 @@ const ChatMessage = ({ message, onSuggestionPick, onQuickAction }) => {
     : '';
   return (
     <div className={`flex w-full mb-4 animate-slide-up ${isBot ? 'justify-start' : 'justify-end'}`}>
-      <div className={`chatbot-message-bubble ${isBot ? 'chatbot-message-bot' : 'chatbot-message-user'} max-w-[88%]`}>
-        {isBot ? (
-          <>
-            <MarkdownLite text={message.text || ''} />
-            {message.streaming && (
-              <span className="inline-block w-1.5 h-3 bg-primary/60 ml-0.5 animate-pulse align-baseline" />
-            )}
-            {Array.isArray(message.cards) && message.cards.length > 0 && (
-              <div className="mt-1">{message.cards.map(renderCard)}</div>
-            )}
-            {!message.streaming && Array.isArray(message.quickActions) && message.quickActions.length > 0 && (
-              <QuickActionBar actions={message.quickActions} onAction={onQuickAction} />
-            )}
-            {!message.streaming && Array.isArray(message.suggestions) && message.suggestions.length > 0 && (
-              <SuggestionChips suggestions={message.suggestions} onPick={onSuggestionPick} />
-            )}
-          </>
-        ) : (
-          <div className="whitespace-pre-line leading-relaxed">{message.text}</div>
-        )}
+      <div className={`flex max-w-[88%] flex-col ${isBot ? 'items-start' : 'items-end'}`}>
+        <div className={`chatbot-message-bubble ${isBot ? 'chatbot-message-bot' : 'chatbot-message-user'} max-w-full`}>
+          {isBot ? (
+            <>
+              <MarkdownLite text={message.text || ''} />
+              {message.streaming && (
+                <span className="inline-block w-1.5 h-3 bg-primary/60 ml-0.5 animate-pulse align-baseline" />
+              )}
+              {Array.isArray(message.cards) && message.cards.length > 0 && (
+                <div className="mt-1">{message.cards.map(renderCard)}</div>
+              )}
+              {!message.streaming && Array.isArray(message.quickActions) && message.quickActions.length > 0 && (
+                <QuickActionBar actions={message.quickActions} onAction={onQuickAction} />
+              )}
+              {!message.streaming && Array.isArray(message.suggestions) && message.suggestions.length > 0 && (
+                <SuggestionChips suggestions={message.suggestions} onPick={onSuggestionPick} />
+              )}
+            </>
+          ) : (
+            <div className="whitespace-pre-line leading-relaxed">{message.text}</div>
+          )}
 
-        {timeText && (
-          <div className={`text-[10px] mt-1 opacity-70 flex ${isBot ? 'justify-start' : 'justify-end'}`}>
-            {timeText}
+          {timeText && (
+            <div className={`text-[10px] mt-1 opacity-70 flex ${isBot ? 'justify-start' : 'justify-end'}`}>
+              {timeText}
+            </div>
+          )}
+        </div>
+
+        {canShowActions && (
+          <div className={`chatbot-message-actions ${isBot ? 'justify-start' : 'justify-end'}`}>
+            <button type="button" onClick={() => onCopy?.(message)} title="Copy message" aria-label="Copy message">
+              <Copy size={14} strokeWidth={2} />
+            </button>
+            <button type="button" onClick={() => onShare?.(message)} title="Share message" aria-label="Share message">
+              <Share2 size={14} strokeWidth={2} />
+            </button>
+            {!isBot && onEdit && (
+              <button type="button" onClick={() => onEdit?.(message)} title="Edit and resend" aria-label="Edit and resend">
+                <Pencil size={14} strokeWidth={2} />
+              </button>
+            )}
           </div>
         )}
       </div>

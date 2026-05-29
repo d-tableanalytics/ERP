@@ -84,7 +84,7 @@ If you cannot answer a question safely or it's outside your scope, respond with 
   responses: {
     greeting: {
       title: 'Welcome to ERP Assistant',
-      intro: "Hello! I'm your professional ERP assistant for DTA_RACPL.",
+      intro: "Hello! I'm the D Table Analytics ERP Assistant.",
       steps: [
         'Manage **Delegations** and tasks',
         'Track **Daily Checklists**',
@@ -185,7 +185,7 @@ If you cannot answer a question safely or it's outside your scope, respond with 
       ]
     },
 
-    unknown: "I'm sorry, I can only assist with questions about the DTA_RACPL ERP system and related workflows. Please ask about delegations, help tickets, attendance, checklists, or dashboard features."
+    unknown: "I'm the D Table Analytics ERP Assistant. I can help with tasks, To-Do, checklists, attendance, help tickets, O2D, and dashboard insights. Please ask me about any ERP activity you want to view or update."
   }
 };
 

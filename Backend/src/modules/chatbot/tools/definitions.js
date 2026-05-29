@@ -320,6 +320,182 @@ const TOOL_DEFINITIONS = [
   },
   {
     type: 'function',
+    role: 'any',
+    function: {
+      name: 'createTodoTask',
+      description: 'Create a To-Do board task from natural language only when there is a clear task title. Extract title, description, priority (Low, Normal, High, Urgent), dueDate, assignedTo, and always create with status "To Do". Do not use for question-style messages like "what is needed to create a todo" or unclear messages like "create a todo"; answer or ask for the missing title instead. Use for Kanban/to-do board requests, not delegation tasks.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Task title, e.g. Fix O2D step issue for PO-99999.' },
+          description: { type: 'string', description: 'Task description. If omitted, use the title.' },
+          priority: { type: 'string', enum: ['Low', 'Normal', 'High', 'Urgent'] },
+          dueDate: { type: 'string', description: 'Natural due date/time such as today, tomorrow, next Monday, 22 May, before 6 PM today.' },
+          assignedTo: { type: 'string', description: 'Employee name to assign the task to.' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getTodoTasks',
+      description: 'Show To-Do board tasks visible to the current user. Admin sees all tasks; employees see tasks assigned to them or created by them. Supports status, priority, assignee, and limit.',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', enum: ['To Do', 'In Progress', 'Done'] },
+          priority: { type: 'string', enum: ['Low', 'Normal', 'High', 'Urgent'] },
+          assignedTo: { type: 'string' },
+          limit: { type: 'integer', minimum: 1, maximum: 100 },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getTodoTaskByTitle',
+      description: 'Find a To-Do board task by title. If multiple tasks have the same or similar title, return choices so the chatbot can ask the user to choose.',
+      parameters: {
+        type: 'object',
+        properties: { title: { type: 'string' } },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateTodoStatus',
+      description: 'Update a To-Do board task status. Map start/working on/move to progress to In Progress; complete/done/finished to Done; pending/todo/not started to To Do. If title matches multiple tasks, ask user to choose.',
+      parameters: {
+        type: 'object',
+        properties: {
+          todoId: { type: 'integer' },
+          title: { type: 'string' },
+          status: { type: 'string', enum: ['To Do', 'In Progress', 'Done', 'start', 'working on', 'move to progress', 'complete', 'done', 'finished', 'pending', 'todo', 'not started'] },
+        },
+        required: ['status'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateTodoPriority',
+      description: 'Update a To-Do board task priority. Valid priorities are Low, Normal, High, and Urgent.',
+      parameters: {
+        type: 'object',
+        properties: {
+          todoId: { type: 'integer' },
+          title: { type: 'string' },
+          priority: { type: 'string', enum: ['Low', 'Normal', 'High', 'Urgent', 'low', 'normal', 'high', 'urgent'] },
+        },
+        required: ['priority'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateTodoTitle',
+      description: 'Rename a To-Do board task. Use when the user says change/update/rename To-Do title/name. Provide todoId when available, oldTitle/current title if mentioned, and newTitle. Accepts title, taskTitle, task_title, or name as title aliases.',
+      parameters: {
+        type: 'object',
+        properties: {
+          todoId: { type: 'integer' },
+          oldTitle: { type: 'string', description: 'Current To-Do title, if known.' },
+          title: { type: 'string', description: 'Title alias. With todoId, this may be the new title.' },
+          taskTitle: { type: 'string' },
+          task_title: { type: 'string' },
+          name: { type: 'string' },
+          newTitle: { type: 'string', description: 'New To-Do title.' },
+          newTaskTitle: { type: 'string' },
+          new_task_title: { type: 'string' },
+          newName: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateTodoDueDate',
+      description: 'Update a To-Do board task due date from natural language: today, tomorrow, next Monday, 22 May, before 6 PM today, or an ISO date.',
+      parameters: {
+        type: 'object',
+        properties: {
+          todoId: { type: 'integer' },
+          title: { type: 'string' },
+          dueDate: { type: 'string' },
+        },
+        required: ['dueDate'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'updateTodoAssignee',
+      description: 'Reassign a To-Do board task to another employee by name.',
+      parameters: {
+        type: 'object',
+        properties: {
+          todoId: { type: 'integer' },
+          title: { type: 'string' },
+          assignedTo: { type: 'string' },
+        },
+        required: ['assignedTo'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'deleteTodoTask',
+      description: 'Delete a To-Do board task by id or title. If title matches multiple tasks, ask user to choose.',
+      parameters: {
+        type: 'object',
+        properties: {
+          todoId: { type: 'integer' },
+          title: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getTodoSummary',
+      description: 'Show To-Do board summary: total tasks, To Do count, In Progress count, Done count, overdue count, and urgent tasks.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    role: 'any',
+    function: {
+      name: 'getOverdueTodos',
+      description: 'Show To-Do board tasks where dueDate is before today and status is not Done.',
+      parameters: {
+        type: 'object',
+        properties: { limit: { type: 'integer', minimum: 1, maximum: 100 } },
+      },
+    },
+  },
+  {
+    type: 'function',
     role: 'admin',
     function: {
       name: 'listEmployees',

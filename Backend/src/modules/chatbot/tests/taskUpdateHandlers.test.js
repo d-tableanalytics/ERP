@@ -94,6 +94,50 @@ test('createTask: resolves assignedBy from employee when JWT user has no name', 
   }
 });
 
+test('createTask: rejects correction words as task title before insert', async () => {
+  const originalCreate = Task.create;
+  let created = false;
+  Task.create = async () => {
+    created = true;
+    return { id: 1 };
+  };
+
+  try {
+    const result = await createTask(
+      { title: 'not todo', assignedTo: 'Aashu' },
+      { user_id: 5, name: 'Bhumika Girhare' }
+    );
+
+    assert.equal(result.ok, false);
+    assert.equal(result.message, 'Please provide a clear task title.');
+    assert.equal(created, false);
+  } finally {
+    Task.create = originalCreate;
+  }
+});
+
+test('createTask: does not auto-assign when assignee is missing', async () => {
+  const originalCreate = Task.create;
+  let created = false;
+  Task.create = async () => {
+    created = true;
+    return { id: 1 };
+  };
+
+  try {
+    const result = await createTask(
+      { title: 'Check staff attendance' },
+      { user_id: 5, name: 'Bhumika Girhare' }
+    );
+
+    assert.equal(result.ok, false);
+    assert.equal(result.message, 'Who should I assign this task to?');
+    assert.equal(created, false);
+  } finally {
+    Task.create = originalCreate;
+  }
+});
+
 test('updateTaskStatus: exact one-word title wins over fuzzy substring match', async () => {
   const originalFindAll = Task.findAll;
   const originalFindById = Task.findById;

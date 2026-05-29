@@ -1273,7 +1273,7 @@ class ChatbotService {
    * @returns {string} Fallback message
    */
   getFallbackResponse() {
-    return "I'm sorry, I can only assist with questions about the DTA_RACPL ERP system and related workflows. Please ask about delegations, help tickets, attendance, checklists, or dashboard features.";
+    return "I'm the D Table Analytics ERP Assistant. I can help with tasks, To-Do, checklists, attendance, help tickets, O2D, and dashboard insights. Please ask me about any ERP activity you want to view or update.";
   }
 
   /**

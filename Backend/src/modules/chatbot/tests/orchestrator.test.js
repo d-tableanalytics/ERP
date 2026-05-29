@@ -785,6 +785,53 @@ test('orchestrator: delegated typo by me to employee lists delegated tasks', asy
   }
 });
 
+test('orchestrator: empty task result does not expose raw tool JSON', async () => {
+  const filters = {
+    status: 'Pending',
+    dueAfter: '2026-05-22T00:00:00.000Z',
+    dueBefore: '2026-05-25T23:59:59.999Z',
+  };
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'list_1', name: 'getMyTasks', args: filters }],
+        usage: {},
+      },
+      {
+        content: '[tool:getMyTasks] {"ok":true,"count":0,"tasks":[]}',
+        toolCalls: [],
+        usage: {},
+      },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreMirror = patchLegacyMirror();
+  const restoreGetMyTasks = patchRegistry('getMyTasks', async (args) => {
+    return { ok: true, count: 0, tasks: [], slot: { lastFilters: args, lastResultIds: [] } };
+  });
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'and what about 22 to 25 may pending tasks?',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.doesNotMatch(envelope.text, /\[tool:getMyTasks\]/);
+    assert.doesNotMatch(envelope.text, /"ok"\s*:\s*true/);
+    assert.match(envelope.text, /No matching pending tasks between 22\/05\/2026 and 25\/05\/2026 were found\./);
+    assert.match(envelope.text, /The ERP has no task records matching all selected filters\./);
+  } finally {
+    restoreGetMyTasks();
+    restoreMirror();
+    session.restore();
+    restoreProvider();
+  }
+});
+
 test('orchestrator: delegated task query with too typo filters by assignee', async () => {
   const provider = mockProvider({
     scriptedResponses: [
@@ -1230,6 +1277,490 @@ test('orchestrator: reminded task assigns named employee and keeps assignedBy as
     assert.doesNotMatch(envelope.text, /Assigned By:\*\* Aashu Yadav/);
   } finally {
     restoreTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: task-not-todo correction asks for task details without creating fake task', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [{ content: 'unused', toolCalls: [], usage: {} }],
+  });
+
+  let createTaskCalled = false;
+  let createTodoCalled = false;
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTask = patchRegistry('createTask', async () => {
+    createTaskCalled = true;
+    return { ok: true };
+  });
+  const restoreTodo = patchRegistry('createTodoTask', async () => {
+    createTodoCalled = true;
+    return { ok: true };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'i want a create a task not todo',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(createTaskCalled, false);
+    assert.equal(createTodoCalled, false);
+    assert.deepEqual(envelope.toolsInvoked, []);
+    assert.equal(envelope.text, 'Okay, I will create a Task, not a Todo. Please provide the task title and assigned person.');
+  } finally {
+    restoreTodo();
+    restoreTask();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: incomplete task creation asks for required task details', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [{ content: 'unused', toolCalls: [], usage: {} }],
+  });
+
+  let called = false;
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTool = patchRegistry('createTask', async () => {
+    called = true;
+    return { ok: true };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'i want a create task',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(called, false);
+    assert.deepEqual(envelope.toolsInvoked, []);
+    assert.match(envelope.text, /Sure, I can create a Task/);
+    assert.match(envelope.text, /Task title/);
+    assert.match(envelope.text, /Assigned person/);
+  } finally {
+    restoreTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: vague task title asks for confirmation instead of creating task', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [{ content: 'unused', toolCalls: [], usage: {} }],
+  });
+
+  let called = false;
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTool = patchRegistry('createTask', async () => {
+    called = true;
+    return { ok: true };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'i want a create a task what we neeeed',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(called, false);
+    assert.deepEqual(envelope.toolsInvoked, []);
+    assert.equal(envelope.text, "Please confirm the task title. Did you mean 'What we need'?");
+  } finally {
+    restoreTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: todo required-fields question does not create task', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [{ content: 'unused', toolCalls: [], usage: {} }],
+  });
+
+  let called = false;
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTool = patchRegistry('createTodoTask', async () => {
+    called = true;
+    return { ok: true };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'create a todo what we needed to c reate a todo',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(called, false);
+    assert.deepEqual(envelope.toolsInvoked, []);
+    assert.equal(envelope.text, 'To create a To-Do, please provide task title, description, priority, due date, and assigned person.');
+  } finally {
+    restoreTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: todo create guidance with show wording does not list tasks', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [{ content: 'unused', toolCalls: [], usage: {} }],
+  });
+
+  let listCalled = false;
+  let createCalled = false;
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreListTool = patchRegistry('getTodoTasks', async () => {
+    listCalled = true;
+    return { ok: true, todos: [{ id: 17, title: 'Testing task' }] };
+  });
+  const restoreCreateTool = patchRegistry('createTodoTask', async () => {
+    createCalled = true;
+    return { ok: true };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'i want a create a todo show what i need for creating a todo',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(listCalled, false);
+    assert.equal(createCalled, false);
+    assert.deepEqual(envelope.toolsInvoked, []);
+    assert.equal(envelope.text, 'To create a To-Do, please provide task title, description, priority, due date, and assigned person.');
+  } finally {
+    restoreListTool();
+    restoreCreateTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: incomplete todo creation asks for task title', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [{ content: 'unused', toolCalls: [], usage: {} }],
+  });
+
+  let called = false;
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTool = patchRegistry('createTodoTask', async () => {
+    called = true;
+    return { ok: true };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'create a todo',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(called, false);
+    assert.deepEqual(envelope.toolsInvoked, []);
+    assert.equal(envelope.text, "Please tell me the task title. Example: Create a todo 'Check PO entry' for Aashu due tomorrow.");
+  } finally {
+    restoreTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: todo creation keeps full clear title after colon', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  let capturedArgs;
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTool = patchRegistry('createTodoTask', async (args) => {
+    capturedArgs = args;
+    return {
+      ok: true,
+      summary: {
+        title: args.title,
+        assignedTo: 'Self',
+        priority: args.priority || 'Normal',
+        dueDate: 'Not set',
+        status: 'To Do',
+      },
+    };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'Create a todo: Check O2D step issue for PO-99999',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(capturedArgs.title, 'Check O2D step issue for PO-99999');
+    assert.match(envelope.text, /^Task Created Successfully/m);
+    assert.match(envelope.text, /Title: Check O2D step issue for PO-99999/);
+    assert.match(envelope.text, /Status: To Do/);
+  } finally {
+    restoreTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: todo creation extracts title and typo due date with time', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  let capturedArgs;
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTool = patchRegistry('createTodoTask', async (args) => {
+    capturedArgs = args;
+    return {
+      ok: true,
+      summary: {
+        title: args.title,
+        assignedTo: 'Self',
+        priority: args.priority,
+        dueDate: args.dueDate,
+        status: 'To Do',
+      },
+    };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    await orchestrator.run({
+      message: 'okay so create a todo title is check po and priority is high and duw date is 29/may 7 pm',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(capturedArgs.title, 'check po');
+    assert.equal(capturedArgs.priority, 'High');
+    assert.equal(capturedArgs.dueDate, '29/may 7 pm');
+  } finally {
+    restoreTool();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: todo title and priority update by id returns fresh title', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'todo_p1', name: 'updateTodoPriority', args: { todoId: 20, priority: 'High' } }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const calls = [];
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTitle = patchRegistry('updateTodoTitle', async (args) => {
+    calls.push({ name: 'updateTodoTitle', args });
+    return {
+      ok: true,
+      oldTitle: 'check',
+      newTitle: args.newTitle,
+      todo: {
+        id: args.todoId,
+        title: args.newTitle,
+        assignedTo: 'adarsh shrivastava',
+        priority: 'Normal',
+        status: 'To Do',
+        dueDateFormatted: '21/05/2026 8:41 PM',
+      },
+    };
+  });
+  const restorePriority = patchRegistry('updateTodoPriority', async (args) => {
+    calls.push({ name: 'updateTodoPriority', args });
+    return {
+      ok: true,
+      newPriority: 'High',
+      todo: {
+        id: args.todoId,
+        title: 'check o2d',
+        assignedTo: 'adarsh shrivastava',
+        priority: 'High',
+        status: 'To Do',
+        dueDateFormatted: '21/05/2026 8:41 PM',
+      },
+    };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'Update To-Do task ID 20. Change title from check to check o2d. Change priority from Normal to High.',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(calls.map((call) => call.name), ['updateTodoTitle', 'updateTodoPriority']);
+    assert.deepEqual(calls[0].args, { todoId: 20, oldTitle: 'check', newTitle: 'check o2d' });
+    assert.deepEqual(calls[1].args, { todoId: 20, priority: 'High' });
+    assert.match(envelope.text, /Task Updated Successfully/);
+    assert.match(envelope.text, /Task ID: 20/);
+    assert.match(envelope.text, /Old Title: check/);
+    assert.match(envelope.text, /New Title: check o2d/);
+    assert.match(envelope.text, /Priority: High/);
+    assert.doesNotMatch(envelope.text, /^Title: check$/m);
+  } finally {
+    restoreTitle();
+    restorePriority();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: todo update display fields do not trigger due date update', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'bad_due', name: 'updateTodoDueDate', args: { todoId: 20, dueDate: 'assigned person' } }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const calls = [];
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTitle = patchRegistry('updateTodoTitle', async (args) => {
+    calls.push({ name: 'updateTodoTitle', args });
+    return {
+      ok: true,
+      oldTitle: 'check',
+      newTitle: args.newTitle,
+      todo: {
+        id: args.todoId,
+        title: args.newTitle,
+        assignedTo: 'adarsh shrivastava',
+        priority: 'Normal',
+        status: 'To Do',
+        dueDateFormatted: '21/05/2026 8:41 PM',
+      },
+    };
+  });
+  const restorePriority = patchRegistry('updateTodoPriority', async (args) => {
+    calls.push({ name: 'updateTodoPriority', args });
+    return {
+      ok: true,
+      newPriority: 'Urgent',
+      todo: {
+        id: args.todoId,
+        title: 'check o2d',
+        assignedTo: 'adarsh shrivastava',
+        priority: 'Urgent',
+        status: 'To Do',
+        dueDateFormatted: '21/05/2026 8:41 PM',
+      },
+    };
+  });
+  const restoreDueDate = patchRegistry('updateTodoDueDate', async (args) => {
+    calls.push({ name: 'updateTodoDueDate', args });
+    return { ok: false, error: 'I could not understand the due date. Please share it like today, tomorrow, next Monday, or 22 May.' };
+  });
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'Update To-Do task ID 20. Change title from "check" to "check o2d". Change priority from "Normal" to "urgent". After updating, show updated title, priority, status, due date, and assigned person.',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.deepEqual(calls.map((call) => call.name), ['updateTodoTitle', 'updateTodoPriority']);
+    assert.deepEqual(calls[0].args, { todoId: 20, oldTitle: 'check', newTitle: 'check o2d' });
+    assert.deepEqual(calls[1].args, { todoId: 20, priority: 'urgent' });
+    assert.match(envelope.text, /Task Updated Successfully/);
+    assert.match(envelope.text, /New Title: check o2d/);
+    assert.match(envelope.text, /Priority: Urgent/);
+    assert.match(envelope.text, /Due Date: 21\/05\/2026 8:41 PM/);
+    assert.doesNotMatch(envelope.text, /could not understand the due date/i);
+  } finally {
+    restoreTitle();
+    restorePriority();
+    restoreDueDate();
+    session.restore();
+    restoreProvider();
+    restoreMirror();
+  }
+});
+
+test('orchestrator: todo title failure after priority success is clear', async () => {
+  const provider = mockProvider({
+    scriptedResponses: [
+      {
+        content: null,
+        toolCalls: [{ id: 'todo_p1', name: 'updateTodoPriority', args: { todoId: 20, priority: 'High' } }],
+        usage: {},
+      },
+      { content: 'unused', toolCalls: [], usage: {} },
+    ],
+  });
+
+  const restoreProvider = patchProvider(provider);
+  const session = patchSessionStore();
+  const restoreTitle = patchRegistry('updateTodoTitle', async () => ({ ok: false, error: 'Title update failed.' }));
+  const restorePriority = patchRegistry('updateTodoPriority', async (args) => ({
+    ok: true,
+    newPriority: 'High',
+    todo: { id: args.todoId, title: 'check', priority: 'High', status: 'To Do' },
+  }));
+  const restoreMirror = patchLegacyMirror();
+
+  try {
+    const envelope = await orchestrator.run({
+      message: 'Update To-Do task ID 20. Change title from check to check o2d. Change priority from Normal to High.',
+      user: { user_id: 5, role: 'Employee', name: 'Bhumika Girhare' },
+      sessionId: null,
+    });
+
+    assert.equal(envelope.text, 'Priority updated, but title update failed.');
+  } finally {
+    restoreTitle();
+    restorePriority();
     session.restore();
     restoreProvider();
     restoreMirror();

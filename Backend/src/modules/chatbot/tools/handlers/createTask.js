@@ -34,27 +34,41 @@ module.exports = async function createTask(args, user) {
 
   const currentEmployee = await resolveCurrentEmployee(userId, user);
   const currentUserName = userName(user, currentEmployee);
-  const title = v.value.title;
-  const description = v.value.description || title;
+  const title = cleanCreateTaskTitle(v.value.title);
+  if (!isValidCreateTaskTitle(title)) {
+    return { ok: false, message: 'Please provide a clear task title.' };
+  }
+
+  const rawAssignee = cleanAssignee(v.value.assignedTo);
+  if (!rawAssignee) {
+    return { ok: false, message: 'Who should I assign this task to?' };
+  }
+
+  const description = cleanCreateTaskTitle(v.value.description) || title;
   const priority = v.value.priority || 'Medium';
   const rawDueDate = v.value.dueDate || null;
-  const rawAssignee = v.value.assignedTo || null;
 
   // --- Resolve assignee ---
-  let doerId = userId;    // default: self
-  let doerName = currentUserName;
+  let doerId = null;
+  let doerName = null;
 
-  if (rawAssignee) {
+  if (/^(?:me|myself|self)$/i.test(rawAssignee)) {
+    doerId = userId;
+    doerName = currentUserName;
+  } else {
     try {
       const matches = await employeeAdapter.search(rawAssignee, { limit: 1 });
       if (matches.length > 0) {
         doerId = matches[0].id;
         doerName = matches[0].name;
       }
-      // If no match found, keep self as assignee (don't fail the task)
     } catch {
-      // employee search failed — assign to self silently
+      // Ask the user instead of guessing an assignee when lookup fails.
     }
+  }
+
+  if (!doerId) {
+    return { ok: false, message: `I could not find "${rawAssignee}". Please provide a valid assigned person.` };
   }
 
   // --- Resolve loop users ---
@@ -76,7 +90,7 @@ module.exports = async function createTask(args, user) {
   }
 
   // --- Resolve due date ---
-  const dueDate = resolveNaturalDate(rawDueDate);
+  const dueDate = rawDueDate ? resolveNaturalDate(rawDueDate) : null;
 
   const duplicate = await findSimilarExistingTask({
     title,
@@ -136,7 +150,7 @@ module.exports = async function createTask(args, user) {
       assignedTo: doerName,
       assignedBy: delegatorName,
       inLoop: inLoopNames.join(', '),
-      dueDate: dueDate ? formatFriendly(dueDate) : 'Tomorrow',
+      dueDate: dueDate ? formatFriendly(dueDate) : 'Not set',
       priority: priority,
       status: 'Pending',
     },
@@ -167,6 +181,38 @@ function userName(user, employee = null) {
     ? [explicit]
     : [source.first_name || source.firstName, source.last_name || source.lastName];
   return parts.filter(Boolean).join(' ').trim() || 'Unknown';
+}
+
+function cleanAssignee(value = '') {
+  return String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/\b(?:please|assigned\s+to|assign\s+to|for)\b/ig, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanCreateTaskTitle(value = '') {
+  return String(value || '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?]+$/g, '')
+    .replace(/^(?:please\s+)?(?:i\s+want\s+(?:to\s+|a\s+)?)?(?:create|add|make|new)\s+(?:an?\s+)?(?:high|medium|low|normal|urgent)?\s*tasks?\s*/i, '')
+    .replace(/^(?:tasks?\s*(?:title|name)?\s*(?:is|:|-)?\s*)/i, '')
+    .replace(/\bnot\s+(?:a\s+)?(?:todo|to-do|to do)\b/ig, ' ')
+    .replace(/\b(?:todo|to-do|to do)\b/ig, ' ')
+    .replace(/\b(?:due|by|before)\s+.+$/i, '')
+    .replace(/\b(?:high|medium|low|normal|urgent)\s+priority\b/ig, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isValidCreateTaskTitle(title = '') {
+  const cleaned = cleanCreateTaskTitle(title);
+  const normalized = cleaned.toLowerCase();
+  if (!cleaned || cleaned.length < 4) return false;
+  if (/\bwhat\s+we\s+ne{2,}d\b/i.test(cleaned)) return false;
+  if (/^(?:not\s+todo|task|tasks|todo|to-do|to do|create task|create a task|i want to create task|i want a create a task|need|work|check|test)$/i.test(normalized)) return false;
+  const meaningfulTokens = normalized.split(/\s+/).filter((token) => token.length > 2 && !['task', 'todo', 'create', 'want', 'need'].includes(token));
+  return meaningfulTokens.length >= 2;
 }
 
 /**

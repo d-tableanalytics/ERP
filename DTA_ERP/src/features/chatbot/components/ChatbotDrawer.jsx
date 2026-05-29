@@ -59,11 +59,17 @@ const ChatbotDrawer = () => {
     isSharedChat,
   } = useSelector((s) => s.chatbot);
   const { token } = useSelector((s) => s.auth);
+  const messagesScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const historyListRef = useRef(null);
   const loadedSessionRef = useRef(null);
   const loadedShareTokenRef = useRef(null);
   const justCreatedShareTokenRef = useRef(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [messageDraft, setMessageDraft] = useState(null);
+  const [historyMode, setHistoryMode] = useState('recents');
+  const [historySearch, setHistorySearch] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const isErpGptHome = location.pathname === '/erpgpt' || location.pathname === '/chatbot';
   const sessionMatch = location.pathname.match(/^\/erpgpt\/c\/([^/]+)$/);
   const routeSessionId = sessionMatch ? decodeURIComponent(sessionMatch[1]) : null;
@@ -72,6 +78,10 @@ const ChatbotDrawer = () => {
   const isErpGptRoute = isErpGptHome || !!routeSessionId || !!shareToken;
 
   useEffect(() => {
+    if (messages.length === 0) {
+      messagesScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      return;
+    }
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
@@ -114,6 +124,18 @@ const ChatbotDrawer = () => {
     if (isOpen && showHistory) dispatch(loadSessions());
   }, [isOpen, showHistory, dispatch]);
 
+  useEffect(() => {
+    const handleShortcut = (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+      if (!isOpen) return;
+      event.preventDefault();
+      handleOpenSearch();
+    };
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [isOpen]);
+
   const handleSendMessage = (message) => {
     if (!message) return;
     if (isSharedChat) return;
@@ -136,6 +158,7 @@ const ChatbotDrawer = () => {
 
   const handleClose = () => {
     dispatch(closeChatbot());
+    setIsFullscreen(false);
     if (isErpGptRoute) {
       navigate(location.state?.from || '/dashboard', { replace: true });
     }
@@ -144,12 +167,27 @@ const ChatbotDrawer = () => {
     dispatch(resetSession());
     loadedSessionRef.current = null;
     navigate('/erpgpt');
+    window.requestAnimationFrame(() => {
+      messagesScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      historyListRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    });
     if (showHistory) dispatch(loadSessions());
   };
   const handleToggleHistory = () => {
     const nextShowHistory = !showHistory;
     setShowHistory(nextShowHistory);
     if (nextShowHistory) dispatch(loadSessions());
+  };
+  const handleOpenSearch = () => {
+    setHistoryMode('search');
+    setShowHistory(true);
+    dispatch(loadSessions());
+  };
+  const handleOpenRecents = () => {
+    setHistoryMode('recents');
+    setShowHistory(true);
+    setHistorySearch('');
+    dispatch(loadSessions());
   };
   const handleOpenSession = (nextSessionId) => {
     if (!nextSessionId || nextSessionId === sessionId) return;
@@ -167,18 +205,32 @@ const ChatbotDrawer = () => {
   const lastMsg = messages[messages.length - 1];
   const noBotBubbleYet = !lastMsg || lastMsg.sender === 'user';
   const showTyping = isTyping && noBotBubbleYet;
+  const visibleSessions = sessions
+    .filter((session) => {
+      const query = historySearch.trim().toLowerCase();
+      if (historyMode === 'search' && query) {
+        return sessionLabel(session).toLowerCase().includes(query);
+      }
+      return true;
+    })
+    .sort((a, b) => new Date(b.last_activity || b.created_at || 0) - new Date(a.last_activity || a.created_at || 0));
 
   const handleShareChat = async () => {
     if (!sessionId) return;
+    await handleShareSession(sessionId, { navigateToShare: true });
+  };
+
+  const handleShareSession = async (nextSessionId, { navigateToShare = false } = {}) => {
+    if (!nextSessionId) return;
     try {
-      const data = await dispatch(createShareLink(sessionId)).unwrap();
+      const data = await dispatch(createShareLink(nextSessionId)).unwrap();
       const nextShareToken = data?.shareToken;
       if (!nextShareToken) throw new Error('Share token was not returned');
 
       const sharePath = `/erpgpt/share/${nextShareToken}`;
       const shareUrl = new URL(sharePath, window.location.origin).toString();
       justCreatedShareTokenRef.current = nextShareToken;
-      navigate(sharePath);
+      if (navigateToShare) navigate(sharePath);
 
       try {
         await navigator.clipboard.writeText(shareUrl);
@@ -189,6 +241,39 @@ const ChatbotDrawer = () => {
     } catch (err) {
       toast.error(err?.message || 'Could not create share link');
     }
+  };
+
+  const handleCopyMessage = async (message) => {
+    const text = message?.text?.trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Message copied');
+    } catch (_) {
+      toast.error('Could not copy message');
+    }
+  };
+
+  const handleShareMessage = async (message) => {
+    const text = message?.text?.trim();
+    if (!text) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({ text, title: 'ERP Assistant message' });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      toast.success('Message copied for sharing');
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        toast.error('Could not share message');
+      }
+    }
+  };
+
+  const handleEditMessage = (message) => {
+    if (isSharedChat || isTyping || !message?.text) return;
+    setMessageDraft({ id: message.id, text: message.text });
   };
 
   return (
@@ -204,12 +289,68 @@ const ChatbotDrawer = () => {
         </button>
       )}
 
-      <div className={`chatbot-drawer ${showHistory ? 'chatbot-drawer-history-open' : ''} ${isOpen ? 'chatbot-drawer-open' : 'chatbot-drawer-closed'}`}>
+      <div className={`chatbot-drawer ${showHistory ? 'chatbot-drawer-history-open' : ''} ${isFullscreen ? 'chatbot-drawer-fullscreen' : ''} ${isOpen ? 'chatbot-drawer-open' : 'chatbot-drawer-closed'}`}>
+        {!showHistory && (
+        <aside className="chatbot-rail" aria-label="Chatbot navigation">
+          <button
+            type="button"
+            onClick={handleToggleHistory}
+            className={`chatbot-rail-btn ${showHistory ? 'chatbot-rail-btn-active' : ''}`}
+            data-tooltip={showHistory ? 'Close sidebar' : 'Open sidebar'}
+            aria-label={showHistory ? 'Close sidebar' : 'Open sidebar'}
+          >
+            <span className="material-symbols-outlined">left_panel_open</span>
+          </button>
+          <div className="chatbot-rail-actions">
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="chatbot-rail-btn"
+              data-tooltip="New chat"
+              aria-label="New chat"
+            >
+              <span className="material-symbols-outlined">edit_square</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenSearch}
+              className={`chatbot-rail-btn ${showHistory && historyMode === 'search' ? 'chatbot-rail-btn-active' : ''}`}
+              data-tooltip="Search chats  Ctrl + K"
+              aria-label="Search chats"
+            >
+              <span className="material-symbols-outlined">search</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenRecents}
+              className={`chatbot-rail-btn ${showHistory && historyMode === 'recents' ? 'chatbot-rail-btn-active' : ''}`}
+              data-tooltip="Recents"
+              aria-label="Recent chats"
+            >
+              <span className="material-symbols-outlined">chat_bubble</span>
+            </button>
+          </div>
+        </aside>
+        )}
+
         {showHistory && (
-        <aside className="w-48 shrink-0 border-r border-border-main bg-bg-main/60 p-3 flex flex-col gap-3">
+        <aside className="chatbot-history-panel w-64 shrink-0 p-3 flex flex-col gap-3">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-base font-bold text-text-main">ERP Chats</h2>
+            <button
+              type="button"
+              onClick={handleToggleHistory}
+              className="chatbot-history-toggle"
+              title="Close sidebar"
+              aria-label="Close chat history sidebar"
+            >
+              <span className="material-symbols-outlined">left_panel_close</span>
+            </button>
+          </div>
+
           <button
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors"
+            className="chatbot-history-new-chat w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-all"
           >
             <span className="material-symbols-outlined text-base">edit_square</span>
             New Chat
@@ -217,22 +358,39 @@ const ChatbotDrawer = () => {
 
           <div className="min-h-0 flex-1">
             <div className="flex items-center justify-between px-1 pb-2">
-              <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wide">History</p>
+              <p className="chatbot-history-title text-[11px] font-semibold uppercase tracking-wide">
+                {historyMode === 'search' ? 'Search Chats' : 'Recents'}
+              </p>
               {isLoadingSessions && (
-                <span className="material-symbols-outlined text-sm text-text-muted animate-spin">progress_activity</span>
+                <span className="material-symbols-outlined text-sm chatbot-history-title animate-spin">progress_activity</span>
               )}
             </div>
-            <div className="space-y-1 overflow-y-auto custom-scrollbar pr-1 max-h-full">
-              {sessions.length === 0 && !isLoadingSessions ? (
-                <p className="px-1 py-2 text-[11px] text-text-muted">No chats yet</p>
+            {historyMode === 'search' && (
+              <div className="relative mb-2">
+                <span className="material-symbols-outlined pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-text-muted">search</span>
+                <input
+                  type="search"
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                  placeholder="Search chats"
+                  className="chatbot-history-search w-full rounded-lg border py-2 pl-8 pr-2 text-xs text-text-main placeholder:text-text-muted focus:outline-none focus:ring-2"
+                  autoFocus
+                />
+              </div>
+            )}
+            <div ref={historyListRef} className="chatbot-history-list space-y-1 overflow-y-auto custom-scrollbar pr-1 max-h-full">
+              {visibleSessions.length === 0 && !isLoadingSessions ? (
+                <p className="px-1 py-2 text-[11px] text-text-muted">
+                  {historyMode === 'search' && historySearch ? 'No matching chats' : 'No chats yet'}
+                </p>
               ) : (
-                sessions.map((session) => (
+                visibleSessions.map((session) => (
                   <div
                     key={session.session_id}
-                    className={`group flex w-full items-center gap-1 rounded-lg px-2 py-2 transition-colors ${
+                    className={`group flex w-full items-center gap-1 rounded-lg px-2 py-2 transition-all ${
                       session.session_id === sessionId
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-text-main hover:bg-bg-card'
+                        ? 'chatbot-history-item-active'
+                        : 'chatbot-history-item'
                     }`}
                   >
                     <button
@@ -290,13 +448,13 @@ const ChatbotDrawer = () => {
                 </button>
               )}
               <button
-                onClick={handleToggleHistory}
+                onClick={() => setIsFullscreen((value) => !value)}
                 className="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                title={showHistory ? 'Hide history' : 'Show history'}
-                aria-label={showHistory ? 'Hide chat history' : 'Show chat history'}
+                title={isFullscreen ? 'Exit full screen' : 'Full screen'}
+                aria-label={isFullscreen ? 'Exit full screen' : 'Open chatbot full screen'}
               >
                 <span className="material-symbols-outlined text-xl">
-                  {showHistory ? 'right_panel_close' : 'right_panel_open'}
+                  {isFullscreen ? 'close_fullscreen' : 'open_in_full'}
                 </span>
               </button>
               <button
@@ -316,7 +474,7 @@ const ChatbotDrawer = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar bg-bg-card/50">
+          <div ref={messagesScrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar chatbot-message-area">
             {isLoadingSharedChat ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
                 <span className="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
@@ -360,6 +518,9 @@ const ChatbotDrawer = () => {
                   message={message}
                   onSuggestionPick={handleSendMessage}
                   onQuickAction={(a) => handleSendMessage(a.prompt || a.label)}
+                  onCopy={handleCopyMessage}
+                  onShare={handleShareMessage}
+                  onEdit={!isSharedChat && !isTyping ? handleEditMessage : undefined}
                 />
               ))
             )}
@@ -383,7 +544,12 @@ const ChatbotDrawer = () => {
                 Shared chat is read-only.
               </div>
             ) : (
-              <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} />
+              <ChatInput
+                onSendMessage={handleSendMessage}
+                disabled={isTyping}
+                editDraft={messageDraft}
+                onEditDraftConsumed={() => setMessageDraft(null)}
+              />
             )}
           </div>
         </div>

@@ -4,10 +4,11 @@ import chatbotApi from '../services/chatbotApi';
 /**
  * ChatInput Component - Input field for sending messages
  */
-const ChatInput = ({ onSendMessage, disabled }) => {
+const ChatInput = ({ onSendMessage, disabled, editDraft, onEditDraftConsumed }) => {
   const [message, setMessage] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState('');
+  const inputRef = useRef(null);
   const recognitionRef = useRef(null);
   const transcriptRef = useRef('');
   const voiceSendTimerRef = useRef(null);
@@ -31,6 +32,16 @@ const ChatInput = ({ onSendMessage, disabled }) => {
       setIsListening(false);
     }
   }, [disabled]);
+
+  useEffect(() => {
+    if (!editDraft?.text || disabled) return;
+    setMessage(editDraft.text);
+    onEditDraftConsumed?.();
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(editDraft.text.length, editDraft.text.length);
+    }, 0);
+  }, [disabled, editDraft, onEditDraftConsumed]);
 
   const sendMessage = (text) => {
     const cleanText = text.trim();
@@ -127,55 +138,61 @@ const ChatInput = ({ onSendMessage, disabled }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-bg-card">
+    <form onSubmit={handleSubmit} style={{ background: 'var(--chatbot-shell-bg)' }}>
       <div className="relative flex items-center">
         <input
+          ref={inputRef}
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyPress}
           placeholder={isListening ? 'Listening...' : 'Ask me anything...'}
           disabled={disabled}
-          className={`w-full pl-4 ${inputRightPadding} py-3 text-sm border border-border-main rounded-xl bg-bg-main text-text-main placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all disabled:opacity-50`}
+          className={`w-full pl-3.5 ${inputRightPadding} py-2.5 text-sm border rounded-lg text-text-main placeholder:text-text-muted shadow-sm focus:outline-none focus:ring-4 transition-all disabled:opacity-50`}
+          style={{
+            background: 'var(--chatbot-input-bg)',
+            borderColor: 'var(--chatbot-input-border)',
+            '--tw-ring-color': 'var(--chatbot-input-ring)',
+          }}
           maxLength={500}
         />
         {supportsVoiceInput && !disabled && (
           <button
             type="button"
             onClick={startVoiceInput}
-            className={`absolute right-14 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all ${
+            className={`absolute right-14 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all ${
               isListening
                 ? 'bg-red-50 text-red-600 animate-pulse hover:bg-red-100'
-                : 'text-text-muted hover:text-primary hover:bg-primary/5'
+                : 'text-primary hover:text-blue-700 hover:bg-primary/5 dark:text-blue-300 dark:hover:bg-blue-500/10'
             }`}
             title={isListening ? 'Stop listening' : 'Use microphone'}
             aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
           >
-            <span className="material-symbols-outlined !text-[22px] leading-none">{isListening ? 'mic_off' : 'mic'}</span>
+            <span className="material-symbols-outlined !text-[21px] leading-none">{isListening ? 'mic_off' : 'mic'}</span>
           </button>
         )}
         {disabled ? (
           <button
             type="button"
             onClick={() => chatbotApi.abortStream()}
-            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 transition-all"
+            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-primary text-white shadow-md shadow-blue-500/20 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all"
             title="Stop"
           >
-            <span className="material-symbols-outlined !text-[20px] leading-none">stop</span>
+            <span className="material-symbols-outlined !text-[19px] leading-none">stop</span>
           </button>
         ) : (
           <button
             type="submit"
             disabled={!message.trim()}
-            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-30 disabled:grayscale transition-all"
+            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-primary text-white shadow-md shadow-blue-500/20 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-30 disabled:grayscale transition-all"
             title="Send"
             aria-label="Send message"
           >
-            <span className="material-symbols-outlined !text-[20px] leading-none">send</span>
+            <span className="material-symbols-outlined !text-[19px] leading-none">send</span>
           </button>
         )}
       </div>
-      <p className="text-[9px] text-text-muted mt-2 px-1 flex justify-between">
+      <p className="text-[9px] text-text-muted mt-1.5 px-1 flex justify-between">
         <span>{voiceError || (isListening ? 'Listening for your question' : 'Max 500 characters')}</span>
         <span>{supportsVoiceInput ? 'Speak or press Enter' : 'Press Enter to send'}</span>
       </p>

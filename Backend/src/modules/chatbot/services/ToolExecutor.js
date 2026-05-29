@@ -25,7 +25,7 @@ async function execute({ name, args, user, ctx, requestId, sessionId }) {
   }
 
   try {
-    const result = await handler(args || {}, user, ctx || {});
+    const result = await handler(args || {}, user, { ...(ctx || {}), requestId, sessionId });
     const latencyMs = Date.now() - start;
     log.info('Tool ok', { latencyMs, ok: !!result?.ok });
     return { ...result, latencyMs };
