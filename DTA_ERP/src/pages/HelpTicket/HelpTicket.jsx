@@ -5,7 +5,6 @@ import HelpTicketForm from "../../components/HelpTicket/HelpTicketForm";
 import HelpTicketTracker from "../../components/HelpTicket/HelpTicketTracker";
 import HelpTicketHistoryModal from "../../components/HelpTicket/HelpTicketHistoryModal";
 import TicketDetailModal from "../../components/HelpTicket/TicketDetailModal";
-import { toast } from "react-hot-toast";
 import Loader from "../../components/common/Loader";
 import { API_BASE_URL } from "../../config";
 import { RotateCcw } from "lucide-react";

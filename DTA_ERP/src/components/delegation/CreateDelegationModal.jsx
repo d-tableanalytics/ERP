@@ -20,7 +20,7 @@ const formatForDateTimeLocal = (date) => {
 
 
 const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit }) => {
-   const { token, user } = useSelector((state) => state.auth);
+   const { user } = useSelector((state) => state.auth);
    const dispatch = useDispatch();
 
    // Master Data from Redux
@@ -55,7 +55,7 @@ const CreateDelegationModal = ({ isOpen, onClose, onSuccess, delegationToEdit })
    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
    const [isSubmitting, setIsSubmitting] = useState(false);
    // const [isLoadingData, setIsLoadingData] = useState(false); // Removed in favor of Redux state
-   const [fetchError, setFetchError] = useState(null);
+   const [fetchError] = useState(null);
    const { isInvalidDate } = useHolidayCheck();
    // Audio State
    const [isRecording, setIsRecording] = useState(false);

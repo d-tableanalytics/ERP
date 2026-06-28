@@ -59,7 +59,7 @@ import usePermissions from "../../hooks/usePermissions";
 import DateTimePickerModal from "./DateTimePickerModal";
 
 const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuccess }) => {
-  const { can, userId: loggedInUserId } = usePermissions();
+  const { can } = usePermissions();
   const [task, setTask] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -405,11 +405,6 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
       } else if (statusChanged) {
         toast.success(`✅ Status changed to "${status}"`, { duration: 3000 });
       } else if (hasUploads) {
-        const uploadParts = [
-          hasEvidenceUploads && `${selectedEvidenceFiles.length || ""} evidence file(s)`,
-          hasReferenceUploads && `${selectedReferenceFiles.length || ""} reference file(s)`,
-          hasVoiceUpload && "voice note",
-        ].filter(Boolean).join(", ");
         toast.success(`📎 Attachments uploaded successfully`, { duration: 3000 });
       } else if (remark.trim() !== "") {
         toast.success("💬 Remark added successfully", { duration: 2500 });
@@ -483,23 +478,6 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
     return ids.filter(id => id !== task.assignerId && id !== task.doerId);
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "Completed":
-        return <CheckCircle2 size={16} className="text-[#137fec]" />;
-      case "In Progress":
-        return <PlayCircle size={16} className="text-orange-500" />;
-      case "Pending":
-        return <Clock size={16} className="text-slate-400" />;
-      case "Overdue":
-        return <AlertCircle size={16} className="text-red-500" />;
-      case "Need Revision":
-        return <MessageSquare size={16} className="text-blue-500" />;
-      default:
-        return <Clock size={16} className="text-slate-400" />;
-    }
-  };
-
   const handleDeleteTask = async () => {
     const loadingToastId = toast.loading("Deleting task...");
     try {
@@ -528,53 +506,10 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
     return storedUser?.user?.id || storedUser?.id;
   };
 
-  const isAssigner = () => task?.assignerId === getCurrentUserId();
   const isDoer = () => task?.doerId === getCurrentUserId();
   const isAssignerOrDoer = () =>
     task?.assignerId === getCurrentUserId() ||
     task?.doerId === getCurrentUserId();
-
-  const getLoopIds = () =>
-    typeof task?.inLoopIds === "string"
-      ? JSON.parse(task?.inLoopIds)
-      : task?.inLoopIds || [];
-  const isSubscribed = () => {
-    const loopIds = getLoopIds();
-    return Array.isArray(loopIds) && loopIds.includes(getCurrentUserId());
-  };
-
-  const handleSubscribeToggle = async () => {
-    if (!task) return;
-
-    const currentUserId = getCurrentUserId();
-    let loopIds = getLoopIds();
-
-    if (loopIds.includes(currentUserId)) {
-      toast("🔔 You are already subscribed to this task.", { duration: 2500 });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      if (!Array.isArray(loopIds)) loopIds = [];
-      loopIds = [...loopIds, currentUserId];
-      
-      if (taskSource === 'delegation') {
-        await delegationService.updateDelegation(taskId, { inLoopIds: loopIds });
-      } else {
-        await taskService.updateTask(taskId, { inLoopIds: loopIds });
-      }
-      
-      await fetchTaskDetails();
-      toast.success("🔔 You are now subscribed!", { duration: 3000 });
-      if (onSuccess) onSuccess();
-    } catch (err) {
-      console.error("Failed to toggle subscription:", err);
-      toast.error("❌ Failed to subscribe to task. Please try again.", { duration: 4000 });
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleUpdateSubtaskStatus = async (subtaskId, newStatus) => {
     const loadingToastId = toast.loading(`Updating subtask to "${newStatus}"...`);

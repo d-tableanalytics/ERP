@@ -19,7 +19,7 @@ const TaskTemplateForm = ({ isOpen, onClose, onSuccess, template }) => {
     });
 
     const [categories, setCategories] = useState([]);
-    const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+    const [, setIsLoadingCategories] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Checklist state

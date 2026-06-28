@@ -15,7 +15,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
     });
 
     const [users, setUsers] = useState([]);
-    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+    const [, setIsLoadingUsers] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
 

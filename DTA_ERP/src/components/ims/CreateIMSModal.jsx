@@ -104,7 +104,6 @@ const CreateTransactionModal = ({
 
   useEffect(() => {
     if (transactionToEdit && isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         transaction_type: transactionToEdit.transaction_type || "IN",
         vendor_name: transactionToEdit.vendor_name || "",

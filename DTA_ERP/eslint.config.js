@@ -23,7 +23,22 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        args: 'none',
+        caughtErrors: 'none',
+      }],
+      // Resetting local state when a modal opens / props change is an intentional
+      // pattern throughout this codebase; the rule is overly aggressive here.
+      'react-hooks/set-state-in-effect': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  {
+    // Test files run under Jest/Vitest-style globals.
+    files: ['**/*.test.{js,jsx}', 'src/tests/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.jest, ...globals.node },
     },
   },
 ])

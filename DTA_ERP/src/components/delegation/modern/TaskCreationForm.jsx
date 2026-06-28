@@ -93,7 +93,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
     const [departmentSearch, setDepartmentSearch] = useState('');
     const [categorySearch, setCategorySearch] = useState('');
     const [categories, setCategories] = useState([]);
-    const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+    const [, setIsLoadingCategories] = useState(false);
 
     // Add Category Modal
     const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
@@ -153,7 +153,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
     const [customOccurDates, setCustomOccurDates] = useState([]);
 
     // Voice
-    const [isRecording, setIsRecording] = useState(false);
+    const [, setIsRecording] = useState(false);
     const [voiceState, setVoiceState] = useState('idle'); // 'idle' | 'recording' | 'recorded'
     const [recordingTime, setRecordingTime] = useState(0);
     const mediaRecorderRef = useRef(null);
@@ -185,8 +185,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             fetchNotificationSettings();
 
             if (initialData) {
-                // Determine if this is an "edit" (has ID) or "template" (no ID)
-                const isEdit = !!initialData.id;
                 const normalized = normalizeTaskForForm(initialData);
 
                 setFormData(normalized);
@@ -239,7 +237,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
                     setRepeatIntervalDays(repeat.repeatIntervalDays?.toString() || '1');
                     setWeeklyDays(repeat.weeklyDays || []);
                     setSelectedDates(repeat.selectedDates || []);
-                    setIsLastDayOfMonth(!!repeat.isLastDayOfMonth);
                     setCustomOccurValue(repeat.customOccurValue?.toString() || '1');
                     setOccurEveryMode(repeat.occurEveryMode || 'Week');
                     setCustomOccurDays(repeat.customOccurDays || []);
@@ -438,10 +435,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
         });
     };
 
-    const addCategory = () => {
-        setIsAddCategoryModalOpen(true);
-    };
-
     // Reusable Actions Modal Wrapper
     const handleAddChecklistItem = (e) => {
         if (e.key === 'Enter' && newChecklistText.trim()) {
@@ -514,10 +507,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             <div className="text-text-muted font-bold text-[15px] mt-2">No User found</div>
         </div>
     );
-
-    const toggleVoiceRecord = () => {
-        setIsRecording(!isRecording);
-    };
 
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();

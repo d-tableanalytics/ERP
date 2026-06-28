@@ -109,7 +109,6 @@ export const exportTasksToCSV = (exportTasks, filenamePrefix = 'tasks', toastFn 
     ];
 
     const rows = exportTasks.map((t) => {
-        const tagStr = parseTags(t.tags).map((tag) => tag?.text || tag).join(', ');
         return [
             cell(t.taskTitle),
             cell(t.status),

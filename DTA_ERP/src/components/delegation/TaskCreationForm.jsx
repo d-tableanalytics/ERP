@@ -127,8 +127,8 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
  const [newCategoryName, setNewCategoryName] = useState('');
  const [selectedColor, setSelectedColor] = useState('#137fec'); // Default blue
- const [holidays, setHolidays] = useState([]);
- const [weeklyOffs, setWeeklyOffs] = useState([]);
+ const [_holidays, setHolidays] = useState([]);
+ const [_weeklyOffs, setWeeklyOffs] = useState([]);
  const categoryColors = [
  '#137fec', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd',
  '#e11d48', '#c026d3', '#9333ea', '#7c3aed', '#4f46e5',
@@ -168,7 +168,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
 
  // Links
  const [links, setLinks] = useState([]);
- const [newLinkText, setNewLinkText] = useState('');
+ const [_newLinkText, setNewLinkText] = useState('');
 
  // Repeat Task
  const [isRepeat, setIsRepeat] = useState(false);
@@ -185,7 +185,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  const [isLastDayOfMonth, setIsLastDayOfMonth] = useState(false);
 
  // Voice
- const [isRecording, setIsRecording] = useState(false);
+ const [_isRecording, setIsRecording] = useState(false);
  const [voiceState, setVoiceState] = useState('idle');
  const [recordingTime, setRecordingTime] = useState(0);
  const mediaRecorderRef = useRef(null);
@@ -330,7 +330,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  setFormData(prev => ({ ...prev, category: newCat.name }));
  setIsAddCategoryModalOpen(false); setNewCategoryName(''); setActiveDropdown(null);
  toast.success('Category added successfully');
- } catch (err) { setError('Failed to create category'); }
+ } catch { setError('Failed to create category'); }
  };
 
  const handleDeleteCategory = async (categoryId) => {
@@ -534,7 +534,6 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
 
  const filteredCategories = (categories || []).filter(c => (c?.name || '').toLowerCase().includes((categorySearch || '').toLowerCase()));
  const filteredDepartments = (departments || []).filter(d => (d?.name || '').toLowerCase().includes((departmentSearch || '').toLowerCase()));
- const isSameDate = (d1, d2) => d1 && d2 && d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
 
  return (
  <div className="fixed inset-0 z-[70] flex p-0 sm:p-4 lg:p-8 pt-0 sm:pt-[5vh] justify-center items-start animate-in fade-in duration-300 overflow-hidden">

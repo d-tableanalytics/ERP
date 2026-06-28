@@ -16,7 +16,7 @@ import toast from "react-hot-toast";
 const Delegation = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { delegations, isLoading, error } = useSelector(
+  const { delegations, isLoading } = useSelector(
     (state) => state.delegation,
   );
   const [isModalOpen, setIsModalOpen] = useState(false);

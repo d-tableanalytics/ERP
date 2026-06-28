@@ -123,7 +123,6 @@ const DemoModule = ({ type }) => {
   useEffect(() => {
     if (!settings) return;
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       auto_close_days: settings.stage5_tat_hours
         ? Math.ceil(settings.stage5_tat_hours / 24)

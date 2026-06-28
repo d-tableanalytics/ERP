@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { API_BASE_URL } from '../../config';
 import MainLayout from '../../components/layout/MainLayout';
-import { fetchChecklists, deleteChecklist, updateChecklistTask, updateChecklistStatus } from '../../store/slices/checklistSlice';
+import { fetchChecklists, deleteChecklist, updateChecklistStatus } from '../../store/slices/checklistSlice';
 import Loader from '../../components/common/Loader';
 import toast from 'react-hot-toast';
 

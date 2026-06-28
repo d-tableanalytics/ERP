@@ -7,7 +7,7 @@ import TaskDetailsDrawer from './TaskDetailsDrawer';
 const TaskTable = ({ type = 'assigned', search = '', department = '', startDate = '', endDate = '', tasks: providedTasks = null, onTasksLoaded = null }) => {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(providedTasks === null);
-    const [selectedTask, setSelectedTask] = useState(null);
+    const [selectedTask] = useState(null);
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState(null);

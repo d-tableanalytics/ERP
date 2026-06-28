@@ -23,8 +23,6 @@ const DelegationDetail = () => {
   const cachedDelegation = useSelector(
     (state) => state.delegation.delegationsById[id],
   );
-  const isFetching = useSelector((state) => state.delegation.isFetching);
-
   const [delegation, setDelegation] = useState(cachedDelegation || null);
   const [loading, setLoading] = useState(!cachedDelegation);
 

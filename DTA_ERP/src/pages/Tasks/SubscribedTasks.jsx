@@ -14,7 +14,7 @@ import TaskDetailsDrawer from '../../components/delegation/TaskDetailsDrawer';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import FilterChip from '../../components/tasks/FilterChip';
-import { getDateRangeFilter, calculateTaskStatus, taskMatchesStatus } from '../../utils/taskFilters';
+import { getDateRangeFilter, taskMatchesStatus } from '../../utils/taskFilters';
 import { formatTimeAgo, exportTasksToCSV, getStatusBadgeClass } from '../../utils/formatters';
 
 // ── Date range helper and FilterChip imported from shared modules ────────────
@@ -154,8 +154,6 @@ const InLoopTasks = () => {
         status === 'All' ? tasks.length : tasks.filter(t => taskMatchesStatus(t, status)).length;
 
     // formatTimeAgo imported from shared formatters
-
-    const getInitials = (f, l) => `${f?.[0] || ''}${l?.[0] || ''}`.toUpperCase();
 
     const getUserName = (userId) => {
         const u = users.find(u => u.userId === userId || u.id === userId);

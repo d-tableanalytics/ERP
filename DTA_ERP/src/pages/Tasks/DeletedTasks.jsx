@@ -12,7 +12,7 @@ import teamService from '../../services/teamService';
 import MainLayout from '../../components/layout/MainLayout';
 import FilterChip from '../../components/tasks/FilterChip';
 import { getDateRangeFilter, calculateTaskStatus, taskMatchesStatus } from '../../utils/taskFilters';
-import { exportTasksToCSV, formatDate, getStatusBadgeClass } from '../../utils/formatters';
+import { formatDate, getStatusBadgeClass } from '../../utils/formatters';
 
 // fmt: short date alias used in the task list JSX
 const fmt = (d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -45,7 +45,7 @@ const DeletedTasks = () => {
     // Sort
     const [sortBy, setSortBy]       = useState('Deleted At');
     const [sortDesc, setSortDesc]   = useState(true);
-    const [expandedTasks, setExpandedTasks] = useState(new Set());
+    const [expandedTasks] = useState(new Set());
 
     const filterPanelRef = useRef(null);
 

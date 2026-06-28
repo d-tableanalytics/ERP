@@ -95,10 +95,6 @@ const StackedBarChart = ({ data, title, xLabel }) => {
     const totalPages = Math.ceil(data.length / itemsPerPage);
     const paginatedData = data.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
 
-    const chartHeight = 220;
-    const chartWidth = 500;
-    const barWidth = 12;
-    const gap = (chartWidth - (paginatedData.length * barWidth)) / (paginatedData.length + 1);
 
     const maxValue = Math.max(5, ...data.map(d => d.pending + d.overdue + d.inProgress + d.completed));
     const yAxisTicks = [0, Math.ceil(maxValue / 4), Math.ceil(maxValue / 2), Math.ceil((maxValue * 3) / 4), maxValue];
@@ -238,11 +234,6 @@ const TaskCharts = ({ tasks = [], users = [], groups = [], currentUserId, type =
     const getUserName = (id) => {
         const u = users.find(u => u.userId === id || u.id === id);
         return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'Unknown';
-    };
-
-    const getGroupName = (id) => {
-        const g = groups.find(g => g.groupId === id || g.id === id);
-        return g ? g.name : 'Unknown Group';
     };
 
     const groupTasks = (taskList, keyFn, labelFn, sublabelFn) => {

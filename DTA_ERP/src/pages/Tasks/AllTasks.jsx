@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Search, FileUp, List, Layout,
@@ -17,8 +17,8 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import { useSelector } from 'react-redux';
 import FilterChip from '../../components/tasks/FilterChip';
-import { getDateRangeFilter, calculateTaskStatus, taskMatchesStatus } from '../../utils/taskFilters';
-import { formatTimeAgo, formatDate, getStatusBadgeClass, exportTasksToCSV } from '../../utils/formatters';
+import { getDateRangeFilter, taskMatchesStatus } from '../../utils/taskFilters';
+import { formatTimeAgo, getStatusBadgeClass, exportTasksToCSV } from '../../utils/formatters';
 
 // ── Date range helper and FilterChip are imported from shared modules ─────────
 
@@ -222,6 +222,7 @@ const AllTasks = () => {
         { label: 'Completed', value: getStatusCount('Completed'), dot: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/10', border: 'border-emerald-100 dark:border-emerald-900/20', color: 'text-emerald-600 dark:text-emerald-400' },
         { label: 'Hold', value: getStatusCount('Hold'), dot: 'bg-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/10', border: 'border-amber-100 dark:border-amber-900/20', color: 'text-amber-600 dark:text-amber-400' },
         { label: 'Revision', value: getStatusCount('Need Revision'), dot: 'bg-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/10', border: 'border-indigo-100 dark:border-indigo-900/20', color: 'text-indigo-600 dark:text-indigo-400' },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     ], [tasks, statusFilter]);
 
     return (
