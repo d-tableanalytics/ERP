@@ -1,44 +1,75 @@
-name: Deploy ERP
+name: CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  build-and-deploy:
+  # ─── CI ───────────────────────────────────────────────────────────────────
+  ci:
+    name: CI — Lint & Build
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: DTA_ERP
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Debug repo structure
-        run: |
-          pwd
-          ls -la
-          find .. -maxdepth 3 -name package.json
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: DTA_ERP/package-lock.json
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install frontend deps
+        working-directory: DTA_ERP
+        run: npm ci
 
-      - name: Build app
+      - name: Lint frontend
+        working-directory: DTA_ERP
+        run: npm run lint
+
+      - name: Build frontend (smoke test)
+        working-directory: DTA_ERP
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: npm run build
 
-      - name: Create archive
+      - name: Install backend deps
+        working-directory: Backend
+        run: npm install --omit=dev
+
+  # ─── CD ───────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: DTA_ERP/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: DTA_ERP
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: DTA_ERP
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: npm run build
+
+      - name: Create frontend archive
+        working-directory: DTA_ERP
         run: tar -czf dist.tar.gz dist
 
       - name: Create backend archive
-        working-directory: .
         run: |
           tar \
             --exclude='Backend/node_modules' \
@@ -47,49 +78,46 @@ jobs:
             -czf backend.tar.gz Backend
 
       - name: Setup SSH
-        working-directory: .
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Upload archive to server
-        run: scp dist.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dist.tar.gz
-
-      - name: Upload backend archive to server
-        working-directory: .
-        run: scp backend.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/backend.tar.gz
+      - name: Upload archives to server
+        run: |
+          scp DTA_ERP/dist.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dist.tar.gz
+          scp backend.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/backend.tar.gz
 
       - name: Deploy on server
-        working-directory: .
         env:
           SERVER_BACKEND_DIR: ${{ secrets.SERVER_BACKEND_DIR }}
           BACKEND_RESTART_COMMAND: ${{ secrets.BACKEND_RESTART_COMMAND }}
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
             set -e
-            BACKEND_DIR='${SERVER_BACKEND_DIR:-/home/ubuntu/ERP/Backend}'
+            BACKEND_DIR='\${SERVER_BACKEND_DIR:-/home/ubuntu/ERP/Backend}'
 
-            sudo mkdir -p /var/www/erp &&
-            sudo rm -rf /var/www/erp/* &&
-            sudo tar -xzf /tmp/dist.tar.gz -C /var/www/erp --strip-components=1 &&
-            rm -f /tmp/dist.tar.gz &&
-            sudo chown -R www-data:www-data /var/www/erp &&
-            sudo chmod -R 755 /var/www/erp &&
+            # ── Frontend ──
+            sudo mkdir -p /var/www/erp
+            sudo rm -rf /var/www/erp/*
+            sudo tar -xzf /tmp/dist.tar.gz -C /var/www/erp --strip-components=1
+            rm -f /tmp/dist.tar.gz
+            sudo chown -R www-data:www-data /var/www/erp
+            sudo chmod -R 755 /var/www/erp
 
-            sudo mkdir -p \"\$BACKEND_DIR\" &&
-            sudo find \"\$BACKEND_DIR\" -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} + &&
-            sudo tar -xzf /tmp/backend.tar.gz -C \"\$BACKEND_DIR\" --strip-components=1 &&
-            rm -f /tmp/backend.tar.gz &&
-            cd \"\$BACKEND_DIR\" &&
-            if [ ! -f .env ]; then
-              echo \"Missing backend .env at \$BACKEND_DIR/.env. Create this file directly on the server before deploying.\"
-              exit 1
-            fi &&
-            sudo npm ci --omit=dev &&
-            if [ -n '${BACKEND_RESTART_COMMAND}' ]; then
-              eval '${BACKEND_RESTART_COMMAND}'
+            # ── Backend ──
+            sudo mkdir -p \"\$BACKEND_DIR\"
+            sudo find \"\$BACKEND_DIR\" -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} +
+            sudo tar -xzf /tmp/backend.tar.gz -C \"\$BACKEND_DIR\" --strip-components=1
+            rm -f /tmp/backend.tar.gz
+            cd \"\$BACKEND_DIR\"
+            [ -f .env ] || { echo 'ERROR: missing .env — create it on the server before deploying'; exit 1; }
+            sudo npm ci --omit=dev
+
+            # ── Restart backend ──
+            if [ -n '\${BACKEND_RESTART_COMMAND}' ]; then
+              eval '\${BACKEND_RESTART_COMMAND}'
             elif command -v pm2 >/dev/null 2>&1; then
               if pm2 describe backend >/dev/null 2>&1; then
                 pm2 restart backend --update-env
@@ -99,8 +127,8 @@ jobs:
               pm2 save || true
             else
               sudo systemctl restart backend
-            fi &&
+            fi
 
-            sudo nginx -t &&
-            sudo systemctl reload nginx
+            # ── Reload nginx ──
+            sudo nginx -t && sudo systemctl reload nginx
           "
