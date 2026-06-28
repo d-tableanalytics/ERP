@@ -47,7 +47,7 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
                 try {
                     const parsed = JSON.parse(task.evidenceUrl);
                     evidenceUrls = Array.isArray(parsed) ? parsed : [task.evidenceUrl];
-                } catch (e) {
+                } catch {
                     evidenceUrls = task.evidenceUrl.split(',').map(u => u.trim());
                 }
             }
@@ -100,8 +100,7 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
                         <p className="text-[11px] font-bold text-text-main uppercase tracking-tight">{task.taskTitle}</p>
                     </div>
 
-                    {(task.evidenceRequired || true) && (
-                        <div className="space-y-3">
+                    <div className="space-y-3">
                             <label className="text-[10px] font-black text-text-muted block px-1 uppercase tracking-widest">
                                 Evidence {task.evidenceRequired && <span className="text-red-500">*</span>}
                             </label>
@@ -133,8 +132,7 @@ const CompleteTaskModal = ({ task, isOpen, onClose, onSuccess }) => {
                             {task.evidenceRequired && (
                                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-600 italic px-1 uppercase tracking-tighter">Required: Verification photo or document before completion.</p>
                             )}
-                        </div>
-                    )}
+                    </div>
 
                     {!task.evidenceRequired && selectedFiles.length === 0 && (
                         <div className="py-4 px-2 bg-[#137fec]/5 rounded-xl border border-[#137fec]/10 text-center">

@@ -40,6 +40,7 @@ const HelpTicket = () => {
 
   useEffect(() => {
     if (token) fetchTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, activeTab]);
 
   const handleFormSuccess = () => {

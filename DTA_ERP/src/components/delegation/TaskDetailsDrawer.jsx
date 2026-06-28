@@ -95,6 +95,7 @@ const TaskDetailsDrawer = ({ isOpen, onClose, taskId, taskSource = 'task', onSuc
     if (isOpen && taskId) {
       fetchInitialData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, taskId]);
 
   useEffect(() => {

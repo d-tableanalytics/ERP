@@ -32,6 +32,7 @@ const TicketDetailModal = ({ ticket, onClose, onUpdate }) => {
 
   useEffect(() => {
     if (token && !problemSolvers.length) dispatch(fetchProblemSolvers());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, token]);
 
   useEffect(() => {

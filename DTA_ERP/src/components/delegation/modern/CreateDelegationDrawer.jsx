@@ -48,6 +48,7 @@ const CreateDelegationDrawer = ({ isOpen, onClose, onSuccess }) => {
             setVoiceNotePreviewUrl(null);
             setSelectedFile(null);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     const fetchUsers = async () => {

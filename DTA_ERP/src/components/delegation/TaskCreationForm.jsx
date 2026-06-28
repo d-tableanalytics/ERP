@@ -280,6 +280,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
  }
  }
  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [isOpen, initialData, isMyTask]);
 
  useEffect(() => {

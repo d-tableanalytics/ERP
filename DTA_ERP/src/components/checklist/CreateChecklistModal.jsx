@@ -96,6 +96,7 @@ const CreateChecklistModal = ({
         });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, checklistToEdit]);
 
   const fetchInitialData = async () => {

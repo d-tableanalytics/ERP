@@ -148,7 +148,7 @@ const CategorySelectionModal = ({ isOpen, onClose, onSelect, categories = [] }) 
       <NewCategoryModal 
         isOpen={isNewOpen} 
         onClose={() => setIsNewOpen(false)}
-        onCreate={(name, color) => {
+        onCreate={(name) => {
           onSelect(name);
           setIsNewOpen(false);
           onClose(); // Optional: close selection too? Image implies it.

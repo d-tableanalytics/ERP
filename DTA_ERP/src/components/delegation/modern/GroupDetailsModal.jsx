@@ -28,6 +28,7 @@ const GroupDetailsModal = ({ isOpen, onClose, groupId, onSuccess }) => {
             fetchGroupAndMembers();
             fetchAllUsers();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, groupId]);
 
     const fetchGroupAndMembers = async () => {

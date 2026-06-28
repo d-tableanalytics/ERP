@@ -44,7 +44,7 @@ const TodoSummary = ({ onCreateTask }) => {
       await taskService.updateTask(task.id, { status: newStatus });
       toast.success(newStatus === 'Completed' ? 'Task marked as completed' : 'Task reopened');
       fetchTasks();
-    } catch (error) {
+    } catch {
       toast.error("Failed to update task");
     } finally {
       setUpdatingId(null);

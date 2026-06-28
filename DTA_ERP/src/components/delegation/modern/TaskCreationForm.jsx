@@ -288,6 +288,7 @@ const TaskCreationForm = ({ isOpen, onClose, onSuccess, groupId, initialData, pa
             setAudioBlob(null);
             audioChunksRef.current = [];
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, initialData, isMyTask]);
 
     useEffect(() => {

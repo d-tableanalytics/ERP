@@ -20,6 +20,7 @@ const TaskTable = ({ type = 'assigned', search = '', department = '', startDate 
             setLoading(false);
             if (onTasksLoaded) onTasksLoaded(providedTasks);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [type, search, department, startDate, endDate, providedTasks]);
 
     const fetchTasks = async () => {

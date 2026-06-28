@@ -32,6 +32,7 @@ const Header = ({ title = "Dashboard Overview", onMenuClick }) => {
             window.clearInterval(refreshTimer);
             window.removeEventListener('focus', handleWindowFocus);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
