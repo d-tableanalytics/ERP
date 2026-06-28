@@ -78,23 +78,44 @@ jobs:
             -czf backend.tar.gz Backend
 
       - name: Setup SSH
+        env:
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
+          # Fail early with a clear message if any required secret is missing.
+          missing=""
+          [ -z "$SERVER_SSH_KEY" ] && missing="$missing SERVER_SSH_KEY"
+          [ -z "$SERVER_HOST" ]    && missing="$missing SERVER_HOST"
+          [ -z "$SERVER_USER" ]    && missing="$missing SERVER_USER"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required GitHub secret(s):$missing"
+            echo "Add them under: Settings → Secrets and variables → Actions → New repository secret"
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+          # Best-effort host key fetch. Don't fail the step if it can't connect —
+          # let the scp/ssh steps surface the real error (timeout / refused / auth).
+          if ! ssh-keyscan -T 10 -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "::warning::ssh-keyscan could not reach $SERVER_HOST:22 within 10s — relying on accept-new host key policy"
+          fi
 
       - name: Upload archives to server
         run: |
-          scp DTA_ERP/dist.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dist.tar.gz
-          scp backend.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/backend.tar.gz
+          SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
+          scp $SSH_OPTS DTA_ERP/dist.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dist.tar.gz
+          scp $SSH_OPTS backend.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/backend.tar.gz
 
       - name: Deploy on server
         env:
           SERVER_BACKEND_DIR: ${{ secrets.SERVER_BACKEND_DIR }}
           BACKEND_RESTART_COMMAND: ${{ secrets.BACKEND_RESTART_COMMAND }}
         run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
             set -e
             BACKEND_DIR='\${SERVER_BACKEND_DIR:-/home/ubuntu/ERP/Backend}'
 
